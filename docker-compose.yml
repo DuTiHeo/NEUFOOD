@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  database:
+    image: postgres:16-alpine
+    container_name: neufood_database
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-neufood_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-neufood_password}
+      POSTGRES_DB: ${DB_NAME:-neufood_db}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/init_db.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      - ./database/sample_data.sql:/docker-entrypoint-initdb.d/02_sample.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-neufood_user} -d ${DB_NAME:-neufood_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: neufood_backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-5000}:5000"
+    environment:
+      FLASK_APP: run.py
+      FLASK_ENV: development
+      FLASK_DEBUG: 1
+      DATABASE_URL: postgresql://${DB_USER:-neufood_user}:${DB_PASSWORD:-neufood_password}@database:5432/${DB_NAME:-neufood_db}
+      SECRET_KEY: ${SECRET_KEY:-neufood_jwt_secret_key_change_in_production}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
+    volumes:
+      - ./backend:/app
+      - backend_uploads:/app/app/uploads
+    depends_on:
+      database:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: neufood_frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:5000/api/v1
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+    driver: local
+  backend_uploads:
+    driver: local

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html class="light" lang="vi">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Đăng ký | NEU Food</title>
+    <link rel="stylesheet" href="DangKy.module.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet" />
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+
+<body class="bg-surface font-body text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container flex flex-col min-h-screen">
+    <header class="header">
+        <div class="logo">
+            <img alt="NEU Food Logo" class="logoImg" src="https://res.cloudinary.com/dco3anl6m/image/upload/f_auto,q_auto/neu-food_nbogtd" />
+            <div class="logoText">NEU Food</div>
+        </div>
+        <div class="nav">
+            <span class="navText">Đã có tài khoản?</span>
+            <a class="navLink" href="DANGNHAP.html">Đăng nhập</a>
+        </div>
+    </header>
+    <main class="main">
+        <div class="grid">
+            <!-- Left Side: Illustration & Branding -->
+            <div class="leftSide">
+                <div class="illustration">
+                    <div class="illustrationImg">
+                        <img alt="NEU Food Logo Illustration" class="logoIllustration" src="https://res.cloudinary.com/dco3anl6m/image/upload/f_auto,q_auto/neu-food_nbogtd" />
+                    </div>
+                    <h1 class="title">
+                        Giao hàng tận phòng học tại <span>NEU</span>
+                    </h1>
+                    <p class="description">
+                        Chào mừng bạn đến với hệ thống đặt đồ ăn trực tuyến hàng đầu dành riêng cho cộng đồng Kinh tế Quốc dân. Trải nghiệm dịch vụ giao hàng siêu tốc, menu đa dạng và ưu đãi độc quyền dành cho sinh viên.
+                    </p>
+                </div>
+            </div>
+            <!-- Right Side: Sign Up Form -->
+            <div class="rightSide">
+                <div class="formContainer">
+                    <div class="formHeader">
+                        <h2 class="formTitle">Tạo tài khoản mới</h2>
+                        <p class="formDesc">Nhập thông tin của bạn để bắt đầu hành trình ẩm thực.</p>
+                    </div>
+                    <form class="form" id="signup-form">
+                        <!-- Full Name -->
+                        <div class="inputGroup">
+                            <label class="label">HỌ VÀ TÊN</label>
+                            <input class="input" id="signup-name" placeholder="Nguyễn Văn A" type="text" autocomplete="name" required />
+                        </div>
+                        <!-- Email -->
+                        <div class="inputGroup">
+                            <label class="label">ĐỊA CHỈ EMAIL</label>
+                            <input class="input" id="signup-email" placeholder="alex@sanctuary.io" type="email" autocomplete="email" required />
+                        </div>
+                        <div class="gridInputs">
+                            <!-- Password -->
+                            <div class="inputGroup">
+                                <label class="label">MẬT KHẨU</label>
+                                <input class="input" id="signup-password" placeholder="••••••••" type="password" autocomplete="new-password" minlength="6" required />
+                            </div>
+                            <!-- Confirm Password -->
+                            <div class="inputGroup">
+                                <label class="label">XÁC NHẬN</label>
+                                <input class="input" id="signup-confirm" placeholder="••••••••" type="password" autocomplete="new-password" minlength="6" required />
+                            </div>
+                        </div>
+                        <!-- Terms -->
+                        <div class="terms">
+                            <div class="flex items-center h-6">
+                                <input class="checkbox" id="terms" type="checkbox" />
+                            </div>
+                            <label class="checkboxLabel" for="terms">
+                            Tôi đồng ý với <a href="DieuKhoanDichVu.html">Điều khoản &amp; Điều kiện</a> và <a href="ChinhSachBaoMat.html">Chính sách bảo mật</a>.
+                        </label>
+                        </div>
+                        <p class="formDesc" id="signup-message" style="margin-top: 8px; display: none;"></p>
+                        <!-- Submit -->
+                        <button class="button" type="submit">
+                        Tạo tài khoản
+                    </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+    <footer class="footer">
+        <div class="footerText">© 2024 NEU Food. Kết nối cộng đồng sinh viên qua ẩm thực.</div>
+        <nav class="footerNav">
+            <a class="footerLink" href="ChinhSachBaoMat.html">Chính sách bảo mật</a>
+            <a class="footerLink" href="DieuKhoanDichVu.html">Điều khoản dịch vụ</a>
+            <a class="footerLink" href="BaoMat.html">Bảo mật</a>
+            <a class="footerLink" href="CaiDatCookie.html">Cài đặt Cookie</a>
+        </nav>
+    </footer>
+    <script>
+        const USERS_KEY = 'neufood_users_v1';
+        const SESSION_KEY = 'neufood_session_v1';
+
+        function normalizeEmail(email) {
+            return String(email || '').trim().toLowerCase();
+        }
+
+        function loadUsers() {
+            try {
+                const raw = localStorage.getItem(USERS_KEY);
+                const users = raw ? JSON.parse(raw) : [];
+                return Array.isArray(users) ? users : [];
+            } catch {
+                return [];
+            }
+        }
+
+        function saveUsers(users) {
+            localStorage.setItem(USERS_KEY, JSON.stringify(users));
+        }
+
+        function setMessage(text, type) {
+            const el = document.getElementById('signup-message');
+            if (!el) return;
+            el.style.display = 'block';
+            el.textContent = text;
+            el.style.color = type === 'success' ? '#0f766e' : '#b91c1c';
+        }
+
+        document.getElementById('signup-form')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const name = String(document.getElementById('signup-name')?.value || '').trim();
+            const email = normalizeEmail(document.getElementById('signup-email')?.value);
+            const password = String(document.getElementById('signup-password')?.value || '');
+            const confirm = String(document.getElementById('signup-confirm')?.value || '');
+            const acceptedTerms = Boolean(document.getElementById('terms')?.checked);
+
+            if (!name) return setMessage('Vui lòng nhập họ và tên.', 'error');
+            if (!email) return setMessage('Vui lòng nhập email hợp lệ.', 'error');
+            if (password.length < 6) return setMessage('Mật khẩu phải có ít nhất 6 ký tự.', 'error');
+            if (password !== confirm) return setMessage('Mật khẩu xác nhận không khớp.', 'error');
+            if (!acceptedTerms) return setMessage('Bạn cần đồng ý với Điều khoản & Điều kiện.', 'error');
+
+            const users = loadUsers();
+            const exists = users.some(u => normalizeEmail(u.email) === email);
+            if (exists) return setMessage('Email này đã được đăng ký. Vui lòng đăng nhập.', 'error');
+
+            const user = { name, email, password, createdAt: new Date().toISOString() };
+            users.push(user);
+            saveUsers(users);
+
+            localStorage.setItem(SESSION_KEY, JSON.stringify({ email, name, loginAt: new Date().toISOString() }));
+            setMessage('Đăng ký thành công! Đang chuyển về trang chủ...', 'success');
+            setTimeout(() => window.location.href = '/', 600);
+        });
+    </script>
+</body>
+
+</html>

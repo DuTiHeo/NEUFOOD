@@ -1,0 +1,233 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background-color: rgb(15 23 42 / 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.panel {
+  position: relative;
+  width: 100%;
+  max-width: 26rem;
+  max-height: min(90vh, 36rem);
+  overflow: auto;
+  border-radius: 1rem;
+  background-color: var(--color-panel, #fff);
+  padding: 1.5rem;
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+}
+
+.head {
+  margin-bottom: 1.25rem;
+  padding-right: 2.5rem;
+}
+
+.title {
+  margin: 0 0 0.25rem;
+  font-family: var(--font-headline, system-ui);
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-ink, #0f172a);
+}
+
+.sub {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-muted, #64748b);
+}
+
+.close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 9999px;
+  padding: 0.35rem;
+  background: transparent;
+  color: var(--color-muted, #64748b);
+  cursor: pointer;
+}
+
+.close:hover {
+  background-color: rgb(241 245 249);
+  color: var(--color-ink, #0f172a);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  padding: 0.75rem 1rem;
+}
+
+.rowInfo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.dishName {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--color-ink, #0f172a);
+}
+
+.dishMeta {
+  font-size: 0.8125rem;
+  color: var(--color-muted, #64748b);
+}
+
+.stars {
+  display: flex;
+  gap: 0.15rem;
+}
+
+.starOn,
+.starOff {
+  display: flex;
+  border: none;
+  padding: 0.15rem;
+  background: transparent;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.starIco {
+  font-size: 1.75rem;
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.starOn .starIco {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  color: rgb(234 179 8);
+}
+
+.starOff .starIco {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  color: rgb(203 213 225);
+}
+
+.photoRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.photoBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 0.5rem;
+  border: 1px dashed rgb(148 163 184);
+  padding: 0.4rem 0.65rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-muted, #475569);
+  cursor: pointer;
+}
+
+.photoInp {
+  display: none;
+}
+
+.photoRemove {
+  border: none;
+  background: transparent;
+  color: var(--color-danger, #b91c1c);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.photoPreview {
+  width: 100%;
+  max-height: 9rem;
+  border-radius: 0.5rem;
+  object-fit: cover;
+  border: 1px solid rgb(226 232 240);
+}
+
+.lbl {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-muted, #64748b);
+}
+
+.area {
+  resize: vertical;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  padding: 0.65rem 0.75rem;
+  font-family: inherit;
+  font-size: 0.875rem;
+}
+
+.err {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-danger, #b91c1c);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.btnGhost {
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  padding: 0.6rem 1rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  background: #fff;
+  color: var(--color-ink, #0f172a);
+  cursor: pointer;
+}
+
+.btnPri {
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.6rem 1.1rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: #fff;
+  cursor: pointer;
+  background: linear-gradient(to right, var(--color-brand, #1d4ed8), var(--color-brand-2, #2563eb));
+}
+
+.btnPri:hover {
+  opacity: 0.95;
+}

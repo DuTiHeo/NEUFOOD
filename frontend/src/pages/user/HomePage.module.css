@@ -1,0 +1,168 @@
+.pageHome {
+    background-color: var(--color-page);
+    padding-bottom: 6rem;
+    padding-top: 8rem;
+}
+
+@media (min-width: 768px) {
+    .pageHome {
+        padding-bottom: 3rem;
+    }
+}
+
+.pageHome::selection {
+    background-color: var(--color-brand-2);
+    color: var(--color-brand-soft);
+}
+
+.sectionMb12 {
+    margin-bottom: 3rem;
+}
+
+.hero {
+    position: relative;
+    height: clamp(360px, 80vh, 360px);
+    max-height: 550px;
+    overflow: hidden;
+    border-radius: 1.25rem;
+}
+
+.heroBg {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    width: 100%;
+    object-fit: cover;
+    object-position: center;
+    transition: transform 0.7s ease;
+}
+
+.heroBox {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: linear-gradient(to right, rgb(0 63 135 / 0.8), rgb(0 63 135 / 0.4), transparent);
+    padding-left: clamp(1rem, 4vw, 2.5rem);
+    padding-right: clamp(1rem, 4vw, 2.5rem);
+}
+
+.heroTitle {
+    margin-bottom: 0.75rem;
+    max-width: 32rem;
+    font-family: var(--font-headline);
+    font-size: clamp(1.5rem, 4.5vw, 2.25rem);
+    line-height: 1.15;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    color: var(--color-on-brand);
+}
+
+.heroButton {
+    margin-top: 1.5rem;
+}
+
+.heroLead {
+    margin-bottom: 1rem;
+    max-width: 28rem;
+    font-size: clamp(0.875rem, 2vw, 1.125rem);
+    line-height: 1.5;
+    font-weight: 500;
+    color: rgb(255 255 255 / 0.9);
+    white-space: nowrap;
+    overflow: visible;
+}
+
+
+/* 1. KHUNG TỔNG THỂ: Giữ nguyên cấu trúc grid nhưng đảm bảo nền đồng bộ */
+
+.promoBanner {
+    display: grid;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 14px -2px rgb(0 0 0 / 0.1);
+    grid-template-columns: 1fr;
+    background-color: #F7F3E9;
+    /* Đặt nền chung là màu kem */
+}
+
+@media (min-width: 640px) {
+    .promoBanner {
+        grid-template-columns: 1fr 1fr;
+        /* Chia đôi cột khi màn hình rộng */
+        min-height: 300px;
+        /* Tăng chiều cao một chút để chứa chữ to */
+    }
+}
+
+
+/* 2. CỘT CHỨA CHỮ: Chỉnh màu nền và canh giữa */
+
+.promoTextCol {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    order: 1;
+    background-color: #F7F3E9;
+    /* Màu kem tiệp với ảnh Sơn Tùng */
+    padding: 2rem 1rem;
+    /* Tăng padding để chữ to có không gian */
+    text-align: center;
+}
+
+@media (min-width: 640px) {
+    .promoTextCol {
+        order: 0;
+        border-radius: 0.75rem 0 0 0.75rem;
+    }
+}
+
+
+/* 3. TIÊU ĐỀ: Phần thay đổi quan trọng nhất để chữ to và mỗi chữ 1 dòng */
+
+.promoHeadline {
+    margin: 0;
+    font-family: var(--font-headline);
+    /* 1. GIỮ CỠ CHỮ TO */
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 900;
+    /* 2. DÃN KHOẢNG CÁCH DÒNG (Line-height) */
+    /* Tăng từ 1.1 lên 1.25 để các chữ không bị dính vào nhau quá mức */
+    line-height: 1.25;
+    /* 3. DÃN KHOẢNG CÁCH CHỮ (Letter-spacing) */
+    /* Thêm một chút khoảng cách giữa các chữ cái để trông thanh thoát hơn */
+    letter-spacing: 0.05em;
+    color: #003F87;
+    text-transform: uppercase;
+    display: block;
+    max-width: min-content;
+    margin: 0 auto;
+}
+
+
+/* 4. CỘT CHỨA ẢNH: Xóa màu nền xanh cũ để tránh bị lộ viền */
+
+.promoImageCol {
+    display: flex;
+    order: 2;
+    background-color: transparent;
+    /* Để lộ nền kem bên dưới */
+}
+
+@media (min-width: 640px) {
+    .promoImageCol {
+        order: 1;
+    }
+}
+
+.promoImage {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* [Suy luận] Nếu ảnh Sơn Tùng bị lệch, bạn có thể chỉnh lại position */
+    object-position: center;
+}

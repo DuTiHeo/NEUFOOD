@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html class="light" lang="vi">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="DangNhap.module.css" />
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+
+<body class="body">
+    <div class="heroPattern"></div>
+    <nav class="nav">
+        <div class="navLogo">NEU Food</div>
+        <div class="navLinks">
+            <span class="navText">Bạn chưa có tài khoản?</span>
+            <a class="navLink" href="DANGKY.html">Đăng ký</a>
+        </div>
+    </nav>
+    <main class="main">
+        <div class="grid">
+            <!-- Left Section: Reordered Logo and Text -->
+            <section class="leftSection">
+                <div class="logoContainer">
+                    <div class="logoGlow"></div>
+                    <div class="logoWrapper">
+                        <img alt="Official NEU Food Logo" class="logoImage" src="https://res.cloudinary.com/dco3anl6m/image/upload/f_auto,q_auto/neu-food_nbogtd" />
+                    </div>
+                </div>
+                <div class="content">
+                    <h1 class="mainTitle">
+                        Giao hàng tận<br/><span>phòng học tại NEU.</span>
+                    </h1>
+                    <p class="description">
+                        Thưởng thức bữa trưa nóng hổi mà không cần rời khỏi lớp. Giải pháp đặt đồ ăn tối ưu giúp bạn tiết kiệm thời gian và nạp năng lượng nhanh chóng cho giờ học tiếp theo.
+                    </p>
+                </div>
+            </section>
+            <!-- Right Section: Login Form -->
+            <section class="rightSection">
+                <div class="formWrapper">
+                    <div class="formContainer">
+                        <header class="formHeader">
+                            <h2 class="formTitle">Chào mừng trở lại</h2>
+                            <p class="formDesc">Vui lòng nhập thông tin để tiếp tục.</p>
+                        </header>
+                        <form class="form" id="login-form">
+                            <div class="inputGroup">
+                                <label class="inputLabel">ĐỊA CHỈ EMAIL</label>
+                                <div class="inputWrapper">
+                                    <input class="input" id="login-email" placeholder="tên@côngty.com" type="email" autocomplete="email" required />
+                                </div>
+                            </div>
+                            <div class="inputGroup">
+                                <div class="passwordGroup">
+                                    <label class="inputLabel">MẬT KHẨU</label>
+                                    <a class="forgotLink" id="forgot-password" href="#">Quên mật khẩu?</a>
+                                </div>
+                                <div class="inputWrapper">
+                                    <input class="input" id="login-password" placeholder="••••••••" type="password" autocomplete="current-password" required />
+                                </div>
+                            </div>
+                            <div class="checkboxGroup">
+                                <input class="checkbox" id="remember" type="checkbox" />
+                                <label class="checkboxLabel" for="remember">Ghi nhớ tôi</label>
+                            </div>
+                            <p class="formDesc" id="login-message" style="margin-top: 8px; display: none;"></p>
+                            <button class="submitButton" type="submit">
+                                Đăng nhập ngay
+                            </button>
+                        </form>
+                        <footer class="footer">
+                            <p class="footerText">
+                                Bạn chưa có tài khoản?
+                                <a class="footerLink" href="DANGKY.html">Đăng ký ngay</a>
+                            </p>
+                        </footer>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+    <footer class="pageFooter">
+        <p class="pageFooterText">© 2024 NEU Food. Hệ thống cung cấp suất ăn thông minh tại cơ sở.</p>
+        <div class="pageFooterNav">
+            <a class="pageFooterLink" href="ChinhSachBaoMat.html">Chính sách bảo mật</a>
+            <a class="pageFooterLink" href="DieuKhoanDichVu.html">Điều khoản dịch vụ</a>
+            <a class="pageFooterLink" href="BaoMat.html">Bảo mật</a>
+            <a class="pageFooterLink" href="CaiDatCookie.html">Cài đặt Cookie</a>
+        </div>
+    </footer>
+    <!-- Reset password modal -->
+    <div class="modalOverlay" id="reset-overlay" style="display:none;">
+        <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="reset-title">
+            <div class="modalHead">
+                <h3 class="modalTitle" id="reset-title">Tạo mật khẩu mới</h3>
+                <button class="modalClose" id="reset-close" type="button" aria-label="Đóng">×</button>
+            </div>
+            <p class="modalDesc">Nhập email đã đăng ký và đặt mật khẩu mới.</p>
+            <form id="reset-form" class="modalForm">
+                <div class="inputGroup">
+                    <label class="inputLabel" for="reset-email">EMAIL</label>
+                    <div class="inputWrapper">
+                        <input class="input" id="reset-email" type="email" autocomplete="email" required placeholder="tên@côngty.com" />
+                    </div>
+                </div>
+                <div class="inputGroup">
+                    <label class="inputLabel" for="reset-password">MẬT KHẨU MỚI</label>
+                    <div class="inputWrapper">
+                        <input class="input" id="reset-password" type="password" autocomplete="new-password" minlength="6" required placeholder="••••••••" />
+                    </div>
+                </div>
+                <div class="inputGroup">
+                    <label class="inputLabel" for="reset-confirm">XÁC NHẬN</label>
+                    <div class="inputWrapper">
+                        <input class="input" id="reset-confirm" type="password" autocomplete="new-password" minlength="6" required placeholder="••••••••" />
+                    </div>
+                </div>
+                <p class="formDesc" id="reset-message" style="margin-top: 8px; display: none;"></p>
+                <div class="modalActions">
+                    <button class="submitButton" type="submit">Cập nhật mật khẩu</button>
+                    <button class="ghostButton" id="reset-cancel" type="button">Hủy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script>
+        const USERS_KEY = 'neufood_users_v1';
+        const SESSION_KEY = 'neufood_session_v1';
+
+        function normalizeEmail(email) {
+            return String(email || '').trim().toLowerCase();
+        }
+
+        function loadUsers() {
+            try {
+                const raw = localStorage.getItem(USERS_KEY);
+                const users = raw ? JSON.parse(raw) : [];
+                return Array.isArray(users) ? users : [];
+            } catch {
+                return [];
+            }
+        }
+
+        function setMessage(text, type) {
+            const el = document.getElementById('login-message');
+            if (!el) return;
+            el.style.display = 'block';
+            el.textContent = text;
+            el.style.color = type === 'success' ? '#0f766e' : '#b91c1c';
+        }
+
+        function setResetMessage(text, type) {
+            const el = document.getElementById('reset-message');
+            if (!el) return;
+            el.style.display = 'block';
+            el.textContent = text;
+            el.style.color = type === 'success' ? '#0f766e' : '#b91c1c';
+        }
+
+        function getSessionStorage(remember) {
+            return remember ? localStorage : sessionStorage;
+        }
+
+        // If already logged in, go straight to Home
+        try {
+            const existing = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+            if (existing) window.location.href = '/';
+        } catch {}
+
+        document.getElementById('login-form')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const email = normalizeEmail(document.getElementById('login-email')?.value);
+            const password = String(document.getElementById('login-password')?.value || '');
+            const remember = Boolean(document.getElementById('remember')?.checked);
+
+            if (!email) return setMessage('Vui lòng nhập email hợp lệ.', 'error');
+            if (!password) return setMessage('Vui lòng nhập mật khẩu.', 'error');
+
+            const users = loadUsers();
+            const user = users.find(u => normalizeEmail(u.email) === email);
+            if (!user) return setMessage('Email chưa được đăng ký. Vui lòng tạo tài khoản.', 'error');
+            if (String(user.password || '') !== password) return setMessage('Mật khẩu không đúng.', 'error');
+
+            // Clear both to avoid stale session
+            localStorage.removeItem(SESSION_KEY);
+            sessionStorage.removeItem(SESSION_KEY);
+
+            getSessionStorage(remember).setItem(SESSION_KEY, JSON.stringify({
+                email,
+                name: user.name || '',
+                loginAt: new Date().toISOString(),
+            }));
+
+            setMessage('Đăng nhập thành công! Đang chuyển về trang chủ...', 'success');
+            setTimeout(() => window.location.href = '/', 400);
+        });
+
+        document.getElementById('forgot-password')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            const overlay = document.getElementById('reset-overlay');
+            const emailInput = document.getElementById('reset-email');
+            const msg = document.getElementById('reset-message');
+            if (msg) msg.style.display = 'none';
+            if (emailInput) emailInput.value = document.getElementById('login-email')?.value || '';
+            if (overlay) overlay.style.display = 'flex';
+            setTimeout(() => emailInput?.focus(), 0);
+        });
+
+        function closeReset() {
+            const overlay = document.getElementById('reset-overlay');
+            if (overlay) overlay.style.display = 'none';
+        }
+
+        document.getElementById('reset-close')?.addEventListener('click', closeReset);
+        document.getElementById('reset-cancel')?.addEventListener('click', closeReset);
+        document.getElementById('reset-overlay')?.addEventListener('click', (e) => {
+            if (e.target && e.target.id === 'reset-overlay') closeReset();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeReset();
+        });
+
+        document.getElementById('reset-form')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = normalizeEmail(document.getElementById('reset-email')?.value);
+            const password = String(document.getElementById('reset-password')?.value || '');
+            const confirm = String(document.getElementById('reset-confirm')?.value || '');
+
+            if (!email) return setResetMessage('Vui lòng nhập email hợp lệ.', 'error');
+            if (password.length < 6) return setResetMessage('Mật khẩu phải có ít nhất 6 ký tự.', 'error');
+            if (password !== confirm) return setResetMessage('Mật khẩu xác nhận không khớp.', 'error');
+
+            let users = [];
+            try {
+                const raw = localStorage.getItem(USERS_KEY);
+                users = raw ? JSON.parse(raw) : [];
+                if (!Array.isArray(users)) users = [];
+            } catch {
+                users = [];
+            }
+
+            const idx = users.findIndex(u => normalizeEmail(u.email) === email);
+            if (idx === -1) return setResetMessage('Email này chưa được đăng ký. Vui lòng tạo tài khoản.', 'error');
+
+            users[idx] = { ...users[idx], password, updatedAt: new Date().toISOString() };
+            localStorage.setItem(USERS_KEY, JSON.stringify(users));
+            setResetMessage('Cập nhật mật khẩu thành công! Bạn có thể đăng nhập ngay.', 'success');
+            // Prefill login form
+            const loginEmail = document.getElementById('login-email');
+            if (loginEmail) loginEmail.value = email;
+            const loginPass = document.getElementById('login-password');
+            if (loginPass) loginPass.value = '';
+            setTimeout(() => {
+                closeReset();
+                document.getElementById('login-password')?.focus();
+            }, 600);
+        });
+    </script>
+</body>
+
+</html>

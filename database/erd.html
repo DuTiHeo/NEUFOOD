@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sơ Đồ Thực Thể Quan Hệ (ERD) - Hệ Thống NEUFood</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --primary: #003f87;
+      --primary-light: #e8f0fe;
+      --primary-dark: #002b5e;
+      --accent: #da251c;
+      --accent-light: #fde8e8;
+      --success: #10b981;
+      --success-light: #d1fae5;
+      --warning: #f59e0b;
+      --warning-light: #fef3c7;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --code-bg: #f1f5f9;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding-bottom: 60px;
+    }
+
+    /* HEADER */
+    header {
+      background: linear-gradient(135deg, var(--primary) 0%, #001f44 100%);
+      color: white;
+      padding: 32px 24px;
+      box-shadow: 0 4px 20px rgba(0, 31, 68, 0.15);
+      border-bottom: 4px solid var(--accent);
+    }
+
+    .header-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .header-title h1 {
+      font-size: 26px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      letter-spacing: -0.5px;
+    }
+
+    .badge-canteen {
+      background: var(--accent);
+      color: white;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .header-title p {
+      color: #cbd5e1;
+      margin-top: 6px;
+      font-size: 14px;
+    }
+
+    .header-stats {
+      display: flex;
+      gap: 16px;
+    }
+
+    .stat-pill {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(8px);
+      padding: 8px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      text-align: center;
+    }
+
+    .stat-num {
+      font-size: 20px;
+      font-weight: 700;
+      color: #38bdf8;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: #e2e8f0;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    /* NAVIGATION TABS */
+    .nav-bar {
+      background: white;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .nav-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      gap: 8px;
+      padding: 0 24px;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      padding: 14px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      border: none;
+      background: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      color: var(--primary);
+    }
+
+    .tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    /* MAIN CONTENT */
+    .main-container {
+      max-width: 1400px;
+      margin: 24px auto;
+      padding: 0 24px;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* ERD DIAGRAM VIEW */
+    .erd-wrapper {
+      background: white;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+      padding: 24px;
+      overflow: hidden;
+    }
+
+    .erd-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .erd-legend {
+      display: flex;
+      gap: 16px;
+      font-size: 13px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+
+    .legend-pk { background: #f59e0b; }
+    .legend-fk { background: #3b82f6; }
+    .legend-core { background: #003f87; }
+
+    .erd-canvas-container {
+      overflow-x: auto;
+      background: #fafafa;
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px dashed #cbd5e1;
+      min-height: 600px;
+      display: flex;
+      justify-content: center;
+    }
+
+    /* DATA DICTIONARY / TABLES VIEW */
+    .dictionary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+      gap: 20px;
+      margin-top: 16px;
+    }
+
+    @media (max-width: 900px) {
+      .dictionary-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .table-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .table-card:hover {
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+      transform: translateY(-2px);
+    }
+
+    .table-header {
+      background: #f8fafc;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .table-title {
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .table-tag {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+
+    .table-desc {
+      padding: 10px 18px;
+      font-size: 13px;
+      color: var(--text-muted);
+      background: #ffffff;
+      border-bottom: 1px dashed var(--border);
+    }
+
+    .col-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+    }
+
+    .col-table th {
+      background: #f8fafc;
+      text-align: left;
+      padding: 8px 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .col-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: middle;
+    }
+
+    .col-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .col-type {
+      font-family: 'JetBrains Mono', monospace;
+      color: #6366f1;
+      font-size: 11.5px;
+    }
+
+    .badge-key {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 4px;
+      margin-right: 4px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .badge-pk { background: #fef3c7; color: #b45309; }
+    .badge-fk { background: #dbeafe; color: #1d4ed8; }
+    .badge-uq { background: #f3e8ff; color: #7e22ce; }
+
+    /* BUSINESS RULES MATRIX */
+    .rules-card {
+      background: white;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+      padding: 24px;
+    }
+
+    .rules-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      font-size: 13.5px;
+    }
+
+    .rules-table th {
+      background: #f1f5f9;
+      padding: 12px 14px;
+      text-align: left;
+      font-weight: 700;
+      color: var(--primary);
+      border-bottom: 2px solid var(--border);
+    }
+
+    .rules-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    .rule-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      color: var(--accent);
+      white-space: nowrap;
+    }
+
+    /* STATE MACHINE TAB */
+    .sm-flow-card {
+      background: white;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .sm-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .sm-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      background: #f8fafc;
+    }
+
+    .sm-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .sm-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--primary);
+    }
+
+    .sm-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+
+    .sm-start { background: #dbeafe; color: #1e40af; }
+    .sm-progress { background: #fef3c7; color: #92400e; }
+    .sm-end-ok { background: #d1fae5; color: #065f46; }
+    .sm-end-bad { background: #fee2e2; color: #991b1b; }
+    .sm-dispute { background: #ede9fe; color: #5b21b6; }
+
+    .search-box {
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      width: 280px;
+      outline: none;
+    }
+
+    .search-box:focus {
+      border-color: var(--primary);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-container">
+      <div class="header-title">
+        <h1>
+          <span class="material-symbols-outlined" style="font-size: 32px; color: #f59e0b;">database</span>
+          SƠ ĐỒ THỰC THỂ QUAN HỆ (ERD) - NEUFOOD
+          <span class="badge-canteen">Canteen A2 NEU</span>
+        </h1>
+        <p>Kiến trúc Cơ sở dữ liệu Chuẩn hóa 100% theo Đặc tả Nghiệp vụ (docs/Quy_Trinh_Nghiep_Vu.md)</p>
+      </div>
+
+      <div class="header-stats">
+        <div class="stat-pill">
+          <div class="stat-num">12</div>
+          <div class="stat-label">Bảng Dữ Liệu</div>
+        </div>
+        <div class="stat-pill">
+          <div class="stat-num">14</div>
+          <div class="stat-label">Trạng Thái Đơn</div>
+        </div>
+        <div class="stat-pill">
+          <div class="stat-num">25</div>
+          <div class="stat-label">Business Rules</div>
+        </div>
+        <div class="stat-pill">
+          <div class="stat-num">100%</div>
+          <div class="stat-label">COD Nội Khu</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- NAVIGATION TABS -->
+  <nav class="nav-bar">
+    <div class="nav-container">
+      <button class="tab-btn active" onclick="switchTab('erd-tab')">
+        <span class="material-symbols-outlined">account_tree</span>
+        Sơ đồ ERD Trực Quan
+      </button>
+      <button class="tab-btn" onclick="switchTab('dict-tab')">
+        <span class="material-symbols-outlined">menu_book</span>
+        Từ Điển Dữ Liệu (12 Bảng)
+      </button>
+      <button class="tab-btn" onclick="switchTab('sm-tab')">
+        <span class="material-symbols-outlined">alt_route</span>
+        State Machine 14 Trạng Thái
+      </button>
+      <button class="tab-btn" onclick="switchTab('rules-tab')">
+        <span class="material-symbols-outlined">verified</span>
+        Ánh Xạ Business Rules (BR-01 đến BR-25)
+      </button>
+    </div>
+  </nav>
+
+  <!-- MAIN VIEW -->
+  <main class="main-container">
+
+    <!-- ======================================================== -->
+    <!-- TAB 1: SƠ ĐỒ ERD TRỰC QUAN (MERMAID)                     -->
+    <!-- ======================================================== -->
+    <div id="erd-tab" class="tab-content active">
+      <div class="erd-wrapper">
+        <div class="erd-toolbar">
+          <div class="erd-legend">
+            <span style="font-weight: 700; color: var(--text);">Chú thích:</span>
+            <div class="legend-item"><span class="legend-dot legend-pk"></span> <strong>PK</strong>: Khóa chính (Primary Key)</div>
+            <div class="legend-item"><span class="legend-dot legend-fk"></span> <strong>FK</strong>: Khóa ngoại (Foreign Key)</div>
+            <div class="legend-item"><span class="legend-dot" style="background: #10b981;"></span> <strong>1 : N</strong> Quan hệ 1 - Nhiều</div>
+            <div class="legend-item"><span class="legend-dot" style="background: #da251c;"></span> <strong>N : N</strong> Quan hệ Nhiều - Nhiều</div>
+          </div>
+          <div>
+            <button class="tab-btn" style="border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px;" onclick="window.print()">
+              <span class="material-symbols-outlined">print</span> In / Lưu PDF
+            </button>
+          </div>
+        </div>
+
+        <div class="erd-canvas-container">
+          <pre class="mermaid">
+erDiagram
+    users ||--o{ orders : "dat_don (user_id)"
+    users ||--o{ orders : "giao_don (staff_id)"
+    users ||--o{ reviews : "viet_danh_gia"
+    users ||--o{ complaints : "gui_khieu_nai"
+    users ||--o{ complaints : "admin_phan_xu (resolved_by)"
+    users ||--o{ staff_shifts : "chot_ca (staff_id)"
+    users ||--o{ staff_shifts : "quan_ly_duyet (closed_by)"
+
+    campus_locations ||--o{ orders : "giao_toi (campus_location_id)"
+
+    categories ||--|{ dish_categories : "chua"
+    dishes ||--|{ dish_categories : "thuoc"
+    dishes ||--o{ dish_badges : "co_nhan"
+    dishes ||--o{ order_items : "gom"
+    dishes ||--o{ reviews : "nhan_danh_gia"
+
+    orders ||--|{ order_items : "chua_cac_mon"
+    orders ||--o{ reviews : "duoc_danh_gia"
+    orders ||--o| complaints : "bi_khieu_nai (1:1)"
+
+    users {
+        int id PK "SERIAL"
+        string email UK "VARCHAR(255)"
+        string password_hash "VARCHAR(255)"
+        string full_name "VARCHAR(150)"
+        string phone_number "VARCHAR(20)"
+        string student_id "VARCHAR(30)"
+        string role "customer staff manager admin"
+        boolean is_active "DEFAULT TRUE"
+        boolean is_blacklisted "BR-22 Blacklist COD"
+        string blacklist_reason "Ly do vi pham"
+        timestamp blacklisted_at "Ngay khoa"
+        int failed_login_attempts "BR-02 Lockout"
+        timestamp locked_until "Khoa tam 15p"
+    }
+
+    campus_locations {
+        int id PK "SERIAL"
+        string building_code UK "A1 A2 B C D KTX"
+        string building_name "Ten toa nha"
+        string default_room_note "Goi y phong hoc"
+        boolean is_active "BR-10 Khoa xoa khi co don"
+        int display_order "Thu tu hien thi"
+    }
+
+    categories {
+        string id PK "Slug com-hop mi-pho"
+        string name "Ten danh muc"
+        string description "Mo ta"
+        boolean is_active "DEFAULT TRUE"
+    }
+
+    dishes {
+        string id PK "Slug pho-bo com-ga"
+        string name "Ten mon an"
+        numeric base_price "Gia goc Canteen A"
+        numeric system_fee "Phu phi truc tuyen 5000d"
+        numeric price "Gia niem yet A cong 5000d"
+        numeric rating "1.0 - 5.0"
+        int review_count "So danh gia"
+        boolean is_available "Staff bat tat het mon"
+        boolean is_active "Manager kinh doanh"
+        boolean is_deleted "BR-04 Soft delete"
+    }
+
+    dish_categories {
+        string dish_id FK "PK FK dish"
+        string category_id FK "PK FK category"
+    }
+
+    dish_badges {
+        int id PK "SERIAL"
+        string dish_id FK "Khoa ngoai dish"
+        string badge "bestSeller hot new"
+    }
+
+    orders {
+        string id PK "NF timestamp suffix"
+        string order_code_suffix "BR-18 4 so cuoi check"
+        int user_id FK "Khach hang dat"
+        int staff_id FK "Nhan vien Shipper"
+        string order_type "delivery hoac pickup"
+        string recipient_name "Ten nguoi nhan"
+        string recipient_phone "SDT nguoi nhan"
+        int campus_location_id FK "Toa nha noi khu"
+        string room_detail "So phong cu the"
+        string delivery_address "Dia chi day du"
+        boolean is_preorder "Don hen gio"
+        timestamp scheduled_at "BR-11 tren 30 phut"
+        string status "14 trang thai tieng Viet"
+        numeric subtotal_amount "Tong tien mon"
+        numeric ship_fee "5000d hoac 0d"
+        numeric total_amount "BR-14 toi da 500k"
+        string payment_method "cod_cash cod_vietqr"
+        string payment_status "chua hoac da thanh toan"
+        timestamp pickup_deadline "BR-20 giu 30p"
+        timestamp auto_complete_at "EX-13 tu dong 30p"
+        timestamp delivered_at "Thoi gian giao"
+        timestamp completed_at "Thoi gian hoan tat"
+    }
+
+    order_items {
+        int id PK "SERIAL"
+        string order_id FK "Khoa ngoai order"
+        string dish_id FK "Khoa ngoai dish"
+        string dish_name "Ten mon luc dat"
+        numeric unit_price "Gia niem yet chot"
+        numeric base_price "Gia goc chot"
+        int quantity "BR-07 1 den 10 phan"
+        string note "Ghi chu mon"
+        numeric subtotal "Thanh tien"
+    }
+
+    reviews {
+        int id PK "SERIAL"
+        string order_id FK "Khoa ngoai order"
+        string dish_id FK "Khoa ngoai dish"
+        int user_id FK "Nguoi danh gia"
+        int rating "1 den 5 sao"
+        string comment "Binh luan"
+    }
+
+    complaints {
+        int id PK "SERIAL"
+        string order_id FK "UNIQUE 1 don 1 ticket"
+        int user_id FK "Khach khieu nai"
+        string reason "Ly do khieu nai"
+        string description "Mo ta chi tiet"
+        string proof_image_url "EX-15 Bat buoc anh"
+        string status "DANG_XU_LY CHAP_NHAN TU_CHOI"
+        string admin_response "Ket luan Admin"
+        int resolved_by FK "Admin xu ly"
+        timestamp resolved_at "Thoi gian xu ly"
+    }
+
+    staff_shifts {
+        int id PK "SERIAL"
+        int staff_id FK "Nhan vien chot ca"
+        date shift_date "Ngay lam viec"
+        int total_orders_handled "Tong so don"
+        numeric expected_cash "Tien mat tren he thong"
+        numeric expected_qr "Tien QR tren he thong"
+        numeric actual_cash "Tien mat thuc nop"
+        numeric actual_qr "Tien QR sao ke thuc"
+        numeric discrepancy_amount "Chenh lech"
+        string discrepancy_note "Giai trinh chenh lech"
+        string status "CHO_DUYET DA_CHOT CAN_GIAI_TRINH"
+        int closed_by FK "Manager ky duyet"
+    }
+
+    system_settings {
+        string setting_key PK "Tham so he thong"
+        string setting_value "Gia tri"
+        string description "Mo ta y nghia"
+    }
+          </pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 2: TỪ ĐIỂN DỮ LIỆU CHI TIẾT (12 BẢNG)                -->
+    <!-- ======================================================== -->
+    <div id="dict-tab" class="tab-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h2 style="font-size: 18px; font-weight: 700; color: var(--primary);">Danh Mục 12 Bảng Dữ Liệu</h2>
+        <input type="text" id="tableFilter" class="search-box" placeholder="Tìm kiếm bảng hoặc trường..." onkeyup="filterTables()">
+      </div>
+
+      <div class="dictionary-grid">
+
+        <!-- BẢNG 1: USERS -->
+        <div class="table-card" data-table="users">
+          <div class="table-header">
+            <span class="table-title"><span class="material-symbols-outlined">person</span> users</span>
+            <span class="table-tag">RBAC 4 Roles</span>
+          </div>
+          <div class="table-desc">Người dùng hệ thống: Khách hàng, Bếp & Shipper Canteen, Quản lý Canteen, Admin.</div>
+          <table class="col-table">
+            <thead><tr><th>Tên Cột</th><th>Kiểu</th><th>Ràng buộc</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge-key badge-pk">PK</span><span class="col-name">id</span></td><td class="col-type">SERIAL</td><td>PRIMARY KEY</td></tr>
+              <tr><td><span class="badge-key badge-uq">UQ</span><span class="col-name">email</span></td><td class="col-type">VARCHAR(255)</td><td>NOT NULL, UNIQUE (BR-01)</td></tr>
+              <tr><td><span class="col-name">password_hash</span></td><td class="col-type">VARCHAR(255)</td><td>NOT NULL (Bcrypt)</td></tr>
+              <tr><td><span class="col-name">full_name</span></td><td class="col-type">VARCHAR(150)</td><td>NOT NULL</td></tr>
+              <tr><td><span class="col-name">phone_number</span></td><td class="col-type">VARCHAR(20)</td><td>NOT NULL (10 số - BR-01)</td></tr>
+              <tr><td><span class="col-name">student_id</span></td><td class="col-type">VARCHAR(30)</td><td>Mã sinh viên / cán bộ NEU</td></tr>
+              <tr><td><span class="col-name">role</span></td><td class="col-type">VARCHAR(20)</td><td>customer | staff | manager | admin</td></tr>
+              <tr><td><span class="col-name">is_blacklisted</span></td><td class="col-type">BOOLEAN</td><td>DEFAULT FALSE (BR-22)</td></tr>
+              <tr><td><span class="col-name">failed_login_attempts</span></td><td class="col-type">INT</td><td>BR-02 Lockout sau 5 lần</td></tr>
+              <tr><td><span class="col-name">locked_until</span></td><td class="col-type">TIMESTAMPTZ</td><td>Khóa tạm 15 phút (EX-02)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- BẢNG 2: CAMPUS_LOCATIONS -->
+        <div class="table-card" data-table="campus_locations">
+          <div class="table-header">
+            <span class="table-title"><span class="material-symbols-outlined">apartment</span> campus_locations</span>
+            <span class="table-tag">Nội khu NEU</span>
+          </div>
+          <div class="table-desc">Danh mục các tòa nhà & giảng đường trong khuôn viên Đại học KTQD (BR-09, UC24).</div>
+          <table class="col-table">
+            <thead><tr><th>Tên Cột</th><th>Kiểu</th><th>Ràng buộc</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge-key badge-pk">PK</span><span class="col-name">id</span></td><td class="col-type">SERIAL</td><td>PRIMARY KEY</td></tr>
+              <tr><td><span class="badge-key badge-uq">UQ</span><span class="col-name">building_code</span></td><td class="col-type">VARCHAR(30)</td><td>A1, A2, B, C, D, KTX...</td></tr>
+              <tr><td><span class="col-name">building_name</span></td><td class="col-type">VARCHAR(150)</td><td>NOT NULL (Tên tòa nhà)</td></tr>
+              <tr><td><span class="col-name">default_room_note</span></td><td class="col-type">VARCHAR(255)</td><td>Gợi ý dải số phòng</td></tr>
+              <tr><td><span class="col-name">is_active</span></td><td class="col-type">BOOLEAN</td><td>BR-10 Khóa xóa khi có đơn</td></tr>
+              <tr><td><span class="col-name">display_order</span></td><td class="col-type">INT</td><td>DEFAULT 0</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- BẢNG 3: DISHES -->
+        <div class="table-card" data-table="dishes">
+          <div class="table-header">
+            <span class="table-title"><span class="material-symbols-outlined">restaurant_menu</span> dishes</span>
+            <span class="table-tag">A + 5.000đ</span>
+          </div>
+          <div class="table-desc">Thực đơn món ăn Canteen A2 với cơ chế giá gốc A và giá niêm yết A + 5.000đ (BR-12).</div>
+          <table class="col-table">
+            <thead><tr><th>Tên Cột</th><th>Kiểu</th><th>Ràng buộc</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge-key badge-pk">PK</span><span class="col-name">id</span></td><td class="col-type">VARCHAR(100)</td><td>Slug định danh món</td></tr>
+              <tr><td><span class="col-name">name</span></td><td class="col-type">VARCHAR(200)</td><td>NOT NULL (Tên món ăn)</td></tr>
+              <tr><td><span class="col-name">base_price</span></td><td class="col-type">NUMERIC(12,2)</td><td>Giá gốc tại quầy Canteen A2</td></tr>
+              <tr><td><span class="col-name">system_fee</span></td><td class="col-type">NUMERIC(12,2)</td><td>Phụ phí cố định 5.000đ (BR-12)</td></tr>
+              <tr><td><span class="col-name">price</span></td><td class="col-type">NUMERIC(12,2)</td><td>Giá niêm yết = base_price + 5k</td></tr>
+              <tr><td><span class="col-name">is_available</span></td><td class="col-type">BOOLEAN</td><td>Còn/Hết món (Staff toggle BR-06)</td></tr>
+              <tr><td><span class="col-name">is_deleted</span></td><td class="col-type">BOOLEAN</td><td>BR-04 Soft delete món đã có đơn</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- BẢNG 4: ORDERS -->
+        <div class="table-card" data-table="orders">
+          <div class="table-header">
+            <span class="table-title"><span class="material-symbols-outlined">receipt_long</span> orders</span>
+            <span class="table-tag">Trọng tâm</span>
+          </div>
+          <div class="table-desc">Quản lý vòng đời đơn hàng, 14 trạng thái State Machine, đối chiếu 4 số cuối (BR-18).</div>
+          <table class="col-table">
+            <thead><tr><th>Tên Cột</th><th>Kiểu</th><th>Ràng buộc</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge-key badge-pk">PK</span><span class="col-name">id</span></td><td class="col-type">VARCHAR(50)</td><td>PRIMARY KEY (NF...)</td></tr>
+              <tr><td><span class="col-name">order_code_suffix</span></td><td class="col-type">VARCHAR(4)</td><td>4 số cuối đối chiếu lúc nhận (BR-18)</td></tr>
+              <tr><td><span class="badge-key badge-fk">FK</span><span class="col-name">user_id</span></td><td class="col-type">INT</td><td>REFERENCES users(id)</td></tr>
+              <tr><td><span class="badge-key badge-fk">FK</span><span class="col-name">staff_id</span></td><td class="col-type">INT</td><td>REFERENCES users(id) (Shipper)</td></tr>
+              <tr><td><span class="col-name">order_type</span></td><td class="col-type">VARCHAR(20)</td><td>delivery (ship 5k) | pickup (ship 0k)</td></tr>
+              <tr><td><span class="badge-key badge-fk">FK</span><span class="col-name">campus_location_id</span></td><td class="col-type">INT</td><td>REFERENCES campus_locations(id)</td></tr>
+              <tr><td><span class="col-name">status</span></td><td class="col-type">VARCHAR(30)</td><td>14 trạng thái tiếng Việt không dấu</td></tr>
+              <tr><td><span class="col-name">total_amount</span></td><td class="col-type">NUMERIC(12,2)</td><td>BR-14: <= 500.000 VNĐ (COD)</td></tr>
+              <tr><td><span class="col-name">payment_method</span></td><td class="col-type">VARCHAR(30)</td><td>cod_cash | cod_vietqr</td></tr>
+              <tr><td><span class="col-name">pickup_deadline</span></td><td class="col-type">TIMESTAMPTZ</td><td>BR-20, BR-21: Giữ tối đa 30p</td></tr>
+              <tr><td><span class="col-name">auto_complete_at</span></td><td class="col-type">TIMESTAMPTZ</td><td>EX-13: Tự hoàn tất sau 30p giao</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- BẢNG 5: ORDER_ITEMS -->
+        <div class="table-card" data-table="order_items">
+          <div class="table-header">
+            <span class="table-title"><span class="material-symbols-outlined">lunch_dining</span> order_items</span>
+            <span class="table-tag">Chi tiết đơn</span>
+          </div>
+          <div class="table-desc">Chi tiết món ăn trong đơn, chốt giá tại thời điểm đặt (BR-05) và giới hạn 10 phần/món (BR-07).</div>
+          <table class="col-table">
+            <thead><tr><th>Tên Cột</th><th>Kiểu</th><th>Ràng buộc</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge-key badge-pk">PK</span><span class="col-name">id</span></td><td class="col-type">SERIAL</td><td>PRIMARY KEY</td></tr>
+              <tr><td><span class="badge-key badge-fk">FK</span><span class="col-name">order_id</span></td><td class="col-type">VARCHAR(50)</td><td>CASCADE DELETE</td></tr>
+              <tr><td><span class="badge-key badge-fk">FK</span><span class="col-name">dish_id</span></td><td class="col-type">VARCHAR(100)</td><td>SET NULL khi xóa món</td></tr>
+              <tr><td><span class="col-name">dish_name</span></td><td class="col-type">VARCHAR(200)</td><td>Lưu tên món cố định</td></tr>
+              <tr><td><span class="col-name">unit_price</span></td><td class="col-type">NUMERIC(12,2)</td><td>BR-05 Chốt giá niêm yết</td></tr>
+              <tr><td><span class="col-name">quantity</span></td><td class="col-type">INT</td><td>BR-07: 1 <= quantity <= 10</td></tr>
+              <tr><td><span class="col-name">subtotal</span></td><td class="col-type">NUMERIC(12,2)</td><td>unit_price * quantity</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- BẢNG 6: COMPLAINTS -->
+        <div class="table-card" data-table="complaints">
+          <div class="table-header">
+            <span class="table-title"><span class="material-symbols-outlined">report_problem</span> complaints</span>
+            <span class="table-tag">Admin độc quyền</span>
+          </div>
+          <div class="table-desc">Ticket khiếu nại đơn hàng gửi trong vòng 24h, phân xử độc quyền bởi Admin (BR-23, BR-24).</div>
+          <table class="col-table">
+            <thead><tr><th>Tên Cột</th><th>Kiểu</th><th>Ràng buộc</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge-key badge-pk">PK</span><span class="col-name">id</span></td><td class="col-type">SERIAL</td><td>PRIMARY KEY</td></tr>
+              <tr><td><span class="badge-key badge-uq">UQ</span><span class="badge-key badge-fk">FK</span><span class="col-name">order_id</span></td><td class="col-type">VARCHAR(50)</td><td>UNIQUE: 1 đơn chỉ 1 khiếu nại</td></tr>
+              <tr><td><span class="badge-key badge-fk">FK</span><span class="col-name">user_id</span></td><td class="col-type">INT</td><td>Khách hàng gửi khiếu nại</td></tr>
+              <tr><td><span class="col-name">proof_image_url</span></td><td class="col-type">TEXT</td><td>EX-15: Bắt buộc ảnh bằng chứng</td></tr>
+              <tr><td><span class="col-name">status</span></td><td class="col-type">VARCHAR(30)</td><td>DANG_XU_LY | CHAP_NHAN | TU_CHOI</td></tr>
+              <tr><td><span class="badge-key badge-fk">FK</span><span class="col-name">resolved_by</span></td><td class="col-type">INT</td><td>REFERENCES users(id) (Admin)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- BẢNG 7: STAFF_SHIFTS -->
+        <div class="table-card" data-table="staff_shifts">
+          <div class="table-header">
+            <span class="table-title"><span class="material-symbols-outlined">payments</span> staff_shifts</span>
+            <span class="table-tag">Chốt ca COD</span>
+          </div>
+          <div class="table-desc">Đối soát tiền mặt & QR chuyển khoản của Shipper cuối ca làm việc (BR-25, UC20, EX-20).</div>
+          <table class="col-table">
+            <thead><tr><th>Tên Cột</th><th>Kiểu</th><th>Ràng buộc</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge-key badge-pk">PK</span><span class="col-name">id</span></td><td class="col-type">SERIAL</td><td>PRIMARY KEY</td></tr>
+              <tr><td><span class="badge-key badge-fk">FK</span><span class="col-name">staff_id</span></td><td class="col-type">INT</td><td>REFERENCES users(id) (Shipper)</td></tr>
+              <tr><td><span class="col-name">expected_cash</span></td><td class="col-type">NUMERIC(12,2)</td><td>Tiền mặt theo hệ thống</td></tr>
+              <tr><td><span class="col-name">expected_qr</span></td><td class="col-type">NUMERIC(12,2)</td><td>Tiền QR theo hệ thống</td></tr>
+              <tr><td><span class="col-name">actual_cash</span></td><td class="col-type">NUMERIC(12,2)</td><td>Tiền mặt thực tế nộp</td></tr>
+              <tr><td><span class="col-name">actual_qr</span></td><td class="col-type">NUMERIC(12,2)</td><td>Tiền QR sao kê thực nộp</td></tr>
+              <tr><td><span class="col-name">status</span></td><td class="col-type">VARCHAR(30)</td><td>CHO_DUYET | DA_CHOT | CAN_GIAI_TRINH</td></tr>
+              <tr><td><span class="badge-key badge-fk">FK</span><span class="col-name">closed_by</span></td><td class="col-type">INT</td><td>Manager Canteen ký duyệt</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- BẢNG 8: SYSTEM_SETTINGS -->
+        <div class="table-card" data-table="system_settings">
+          <div class="table-header">
+            <span class="table-title"><span class="material-symbols-outlined">settings</span> system_settings</span>
+            <span class="table-tag">Tham số SLA</span>
+          </div>
+          <div class="table-desc">Cấu hình tham số hệ thống cho Admin: timeout 10p, giữ quầy 30p, phí ship 5k...</div>
+          <table class="col-table">
+            <thead><tr><th>Tên Cột</th><th>Kiểu</th><th>Ràng buộc</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge-key badge-pk">PK</span><span class="col-name">setting_key</span></td><td class="col-type">VARCHAR(50)</td><td>PRIMARY KEY</td></tr>
+              <tr><td><span class="col-name">setting_value</span></td><td class="col-type">VARCHAR(255)</td><td>NOT NULL (Giá trị cấu hình)</td></tr>
+              <tr><td><span class="col-name">description</span></td><td class="col-type">TEXT</td><td>Mô tả ý nghĩa nghiệp vụ</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- BẢNG 9: REVIEWS -->
+        <div class="table-card" data-table="reviews">
+          <div class="table-header">
+            <span class="table-title"><span class="material-symbols-outlined">star</span> reviews</span>
+            <span class="table-tag">Đánh giá món</span>
+          </div>
+          <div class="table-desc">Đánh giá chất lượng món ăn sau khi nhận hàng thành công (UC14).</div>
+          <table class="col-table">
+            <thead><tr><th>Tên Cột</th><th>Kiểu</th><th>Ràng buộc</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge-key badge-pk">PK</span><span class="col-name">id</span></td><td class="col-type">SERIAL</td><td>PRIMARY KEY</td></tr>
+              <tr><td><span class="badge-key badge-fk">FK</span><span class="col-name">order_id</span></td><td class="col-type">VARCHAR(50)</td><td>CASCADE DELETE</td></tr>
+              <tr><td><span class="badge-key badge-fk">FK</span><span class="col-name">dish_id</span></td><td class="col-type">VARCHAR(100)</td><td>Món ăn được đánh giá</td></tr>
+              <tr><td><span class="col-name">rating</span></td><td class="col-type">INT</td><td>CHECK: 1 <= rating <= 5</td></tr>
+              <tr><td><span class="col-name">comment</span></td><td class="col-type">TEXT</td><td>Ý kiến đóng góp</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- BẢNG 10, 11, 12: CATEGORIES & MAPPINGS -->
+        <div class="table-card" data-table="categories">
+          <div class="table-header">
+            <span class="table-title"><span class="material-symbols-outlined">category</span> categories</span>
+            <span class="table-tag">Danh mục</span>
+          </div>
+          <div class="table-desc">Phân loại món ăn: Cơm hộp, Mì phở, Đồ uống, Combo, Ăn vặt...</div>
+          <table class="col-table">
+            <thead><tr><th>Tên Cột</th><th>Kiểu</th><th>Ràng buộc</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge-key badge-pk">PK</span><span class="col-name">id</span></td><td class="col-type">VARCHAR(50)</td><td>Slug danh mục</td></tr>
+              <tr><td><span class="col-name">name</span></td><td class="col-type">VARCHAR(100)</td><td>NOT NULL (Tên danh mục)</td></tr>
+              <tr><td><span class="col-name">display_order</span></td><td class="col-type">INT</td><td>DEFAULT 0</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-card" data-table="dish_categories">
+          <div class="table-header">
+            <span class="table-title"><span class="material-symbols-outlined">link</span> dish_categories</span>
+            <span class="table-tag">Bảng phụ N:N</span>
+          </div>
+          <div class="table-desc">Quan hệ nhiều - nhiều giữa Món ăn và Danh mục.</div>
+          <table class="col-table">
+            <thead><tr><th>Tên Cột</th><th>Kiểu</th><th>Ràng buộc</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge-key badge-pk">PK</span><span class="badge-key badge-fk">FK</span><span class="col-name">dish_id</span></td><td class="col-type">VARCHAR(100)</td><td>REFERENCES dishes(id)</td></tr>
+              <tr><td><span class="badge-key badge-pk">PK</span><span class="badge-key badge-fk">FK</span><span class="col-name">category_id</span></td><td class="col-type">VARCHAR(50)</td><td>REFERENCES categories(id)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-card" data-table="dish_badges">
+          <div class="table-header">
+            <span class="table-title"><span class="material-symbols-outlined">label</span> dish_badges</span>
+            <span class="table-tag">Nhãn món</span>
+          </div>
+          <div class="table-desc">Nhãn nổi bật của món ăn: 'bestSeller', 'hot', 'new'.</div>
+          <table class="col-table">
+            <thead><tr><th>Tên Cột</th><th>Kiểu</th><th>Ràng buộc</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge-key badge-pk">PK</span><span class="col-name">id</span></td><td class="col-type">SERIAL</td><td>PRIMARY KEY</td></tr>
+              <tr><td><span class="badge-key badge-fk">FK</span><span class="col-name">dish_id</span></td><td class="col-type">VARCHAR(100)</td><td>REFERENCES dishes(id)</td></tr>
+              <tr><td><span class="col-name">badge</span></td><td class="col-type">VARCHAR(50)</td><td>bestSeller | hot | new</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 3: STATE MACHINE 14 TRẠNG THÁI TIẾNG VIỆT KHÔNG DẤU  -->
+    <!-- ======================================================== -->
+    <div id="sm-tab" class="tab-content">
+      <div class="sm-flow-card">
+        <h2 style="font-size: 18px; font-weight: 700; color: var(--primary); margin-bottom: 8px;">
+          Sơ Đồ Chuyển Trạng Thái Đơn Hàng (Order State Machine)
+        </h2>
+        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">
+          Được chuẩn hóa chính xác bằng 14 chuỗi ký tự tiếng Việt không dấu, tuyệt đối nhất quán giữa Database và Backend.
+        </p>
+
+        <pre class="mermaid">
+flowchart TD
+    Start([Khách tạo đơn COD]) --> CHO_XAC_NHAN[CHO_XAC_NHAN: Chờ Canteen duyệt]
+
+    CHO_XAC_NHAN -->|Quá 10 phút không duyệt| TU_DONG_HUY([TU_DONG_HUY: Tự động hủy])
+    CHO_XAC_NHAN -->|Canteen hết món/quá tải| TU_CHOI([TU_CHOI: Canteen từ chối])
+    CHO_XAC_NHAN -->|Khách hủy đơn| DA_HUY_KHACH([DA_HUY_KHACH: Khách hủy])
+
+    CHO_XAC_NHAN -->|Canteen duyệt đơn| DANG_CHUAN_BI[DANG_CHUAN_BI: Bếp đang chuẩn bị]
+
+    DANG_CHUAN_BI -->|Đơn giao tận nơi| DANG_GIAO[DANG_GIAO: Đang giao hàng]
+    DANG_CHUAN_BI -->|Đơn nhận tại quầy| SAN_SANG_LAY[SAN_SANG_LAY: Sẵn sàng lấy tại quầy]
+
+    DANG_GIAO -->|Gọi 5-10p không nghe máy| GIAO_THAT_BAI[GIAO_THAT_BAI: Chuyển về quầy giữ 30p]
+    GIAO_THAT_BAI -->|Quá 30p không tới nhận| BO_DON_BLACKLIST([BO_DON_BLACKLIST: Boom hàng -> Khóa user])
+    GIAO_THAT_BAI -->|Khách tới quầy trả đủ tiền| DA_BAN_GIAO
+
+    DANG_GIAO -->|Check đúng 4 số cuối & Thu đủ COD| DA_GIAO[DA_GIAO: Đã giao tận nơi]
+    SAN_SANG_LAY -->|Quá 30p không tới nhận| BO_DON_BLACKLIST
+    SAN_SANG_LAY -->|Check đúng 4 số cuối & Thu đủ COD| DA_BAN_GIAO[DA_BAN_GIAO: Đã bàn giao tại quầy]
+
+    DA_GIAO -->|Khách bấm nhận / Tự động sau 30p| HOAN_THANH([HOAN_THANH: Hoàn tất đơn])
+    DA_BAN_GIAO -->|Khách bấm nhận / Tự động sau 30p| HOAN_THANH
+
+    DA_GIAO -.->|Khách khiếu nại trong 24h| KHIEU_NAI[KHIEU_NAI: Đang khiếu nại]
+    DA_BAN_GIAO -.->|Khách khiếu nại trong 24h| KHIEU_NAI
+    KHIEU_NAI -->|Admin phân xử đóng ticket| DA_GIAI_QUYET([DA_GIAI_QUYET: Đã phân xử])
+        </pre>
+      </div>
+
+      <div class="sm-grid">
+        <div class="sm-card">
+          <div class="sm-card-head"><span class="sm-code">CHO_XAC_NHAN</span><span class="sm-badge sm-start">Khởi tạo</span></div>
+          <p style="font-size: 13px; color: var(--text-muted);">Đơn hàng vừa tạo. Canteen có tối đa 10 phút để bấm tiếp nhận. Chuông reo tại màn hình bếp.</p>
+        </div>
+        <div class="sm-card">
+          <div class="sm-card-head"><span class="sm-code">DANG_CHUAN_BI</span><span class="sm-badge sm-progress">Bếp nấu</span></div>
+          <p style="font-size: 13px; color: var(--text-muted);">Bếp bắt đầu nấu món. Kể từ thời điểm này, khách hàng không thể tự hủy đơn hàng (BR-17).</p>
+        </div>
+        <div class="sm-card">
+          <div class="sm-card-head"><span class="sm-code">DANG_GIAO</span><span class="sm-badge sm-progress">Vận chuyển</span></div>
+          <p style="font-size: 13px; color: var(--text-muted);">Áp dụng đơn Giao tận nơi. Shipper Canteen mang món di chuyển tới phòng học của khách.</p>
+        </div>
+        <div class="sm-card">
+          <div class="sm-card-head"><span class="sm-code">SAN_SANG_LAY</span><span class="sm-badge sm-progress">Chờ tại quầy</span></div>
+          <p style="font-size: 13px; color: var(--text-muted);">Áp dụng đơn Nhận tại quầy. Món đã đặt tại quầy Canteen A2, hệ thống giữ tối đa 30 phút.</p>
+        </div>
+        <div class="sm-card">
+          <div class="sm-card-head"><span class="sm-code">DA_GIAO</span><span class="sm-badge sm-progress">Đã thu COD</span></div>
+          <p style="font-size: 13px; color: var(--text-muted);">Shipper giao tận nơi đã đối chiếu trùng khớp 4 số cuối mã đơn và thu đủ tiền COD.</p>
+        </div>
+        <div class="sm-card">
+          <div class="sm-card-head"><span class="sm-code">DA_BAN_GIAO</span><span class="sm-badge sm-progress">Đã thu COD</span></div>
+          <p style="font-size: 13px; color: var(--text-muted);">Nhân viên quầy A2 đã đối chiếu 4 số cuối và thu đủ tiền COD khi khách ra lấy.</p>
+        </div>
+        <div class="sm-card">
+          <div class="sm-card-head"><span class="sm-code">GIAO_THAT_BAI</span><span class="sm-badge sm-end-bad">Sự cố</span></div>
+          <p style="font-size: 13px; color: var(--text-muted);">Shipper gọi 5-10p khách không nghe máy. Đồ ăn mang về quầy giữ 30p chờ khách tự đến lấy.</p>
+        </div>
+        <div class="sm-card">
+          <div class="sm-card-head"><span class="sm-code">HOAN_THANH</span><span class="sm-badge sm-end-ok">Kết thúc tốt</span></div>
+          <p style="font-size: 13px; color: var(--text-muted);">Khách bấm xác nhận hoặc tự động hoàn tất sau 30 phút kể từ lúc nhận nếu không khiếu nại.</p>
+        </div>
+        <div class="sm-card">
+          <div class="sm-card-head"><span class="sm-code">DA_HUY_KHACH</span><span class="sm-badge sm-end-bad">Đã hủy</span></div>
+          <p style="font-size: 13px; color: var(--text-muted);">Khách chủ động bấm hủy đơn khi đơn còn ở trạng thái CHO_XAC_NHAN.</p>
+        </div>
+        <div class="sm-card">
+          <div class="sm-card-head"><span class="sm-code">TU_CHOI</span><span class="sm-badge sm-end-bad">Đã từ chối</span></div>
+          <p style="font-size: 13px; color: var(--text-muted);">Canteen từ chối tiếp nhận đơn hàng do quá tải hoặc hết nguyên liệu trong ngày.</p>
+        </div>
+        <div class="sm-card">
+          <div class="sm-card-head"><span class="sm-code">TU_DONG_HUY</span><span class="sm-badge sm-end-bad">Quá hạn</span></div>
+          <p style="font-size: 13px; color: var(--text-muted);">Sau 10 phút Canteen không bấm tiếp nhận hay từ chối, hệ thống tự động hủy đơn.</p>
+        </div>
+        <div class="sm-card">
+          <div class="sm-card-head"><span class="sm-code">BO_DON_BLACKLIST</span><span class="sm-badge sm-end-bad">Blacklist</span></div>
+          <p style="font-size: 13px; color: var(--text-muted);">Quá 30 phút giữ tại quầy không lấy hoặc từ chối trả tiền COD. Tài khoản bị đưa vào Blacklist.</p>
+        </div>
+        <div class="sm-card">
+          <div class="sm-card-head"><span class="sm-code">KHIEU_NAI</span><span class="sm-badge sm-dispute">Tranh chấp</span></div>
+          <p style="font-size: 13px; color: var(--text-muted);">Khách hàng tạo ticket khiếu nại trong 24 giờ sau khi nhận đơn (kèm hình ảnh minh chứng).</p>
+        </div>
+        <div class="sm-card">
+          <div class="sm-card-head"><span class="sm-code">DA_GIAI_QUYET</span><span class="sm-badge sm-end-ok">Đã xử lý</span></div>
+          <p style="font-size: 13px; color: var(--text-muted);">Admin đưa ra phán quyết cuối cùng (Chấp nhận hoặc Bác bỏ) và đóng ticket khiếu nại.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 4: ÁNH XẠ BUSINESS RULES (BR-01 ĐẾN BR-25)           -->
+    <!-- ======================================================== -->
+    <div id="rules-tab" class="tab-content">
+      <div class="rules-card">
+        <h2 style="font-size: 18px; font-weight: 700; color: var(--primary);">
+          Bảng Đối Soát Ràng Buộc Cơ Sở Dữ Liệu Với 25 Business Rules
+        </h2>
+        <p style="color: var(--text-muted); font-size: 14px; margin-top: 4px;">
+          Minh chứng việc chuẩn hóa Database đáp ứng 100% các quy tắc kinh doanh trong tài liệu đặc tả.
+        </p>
+
+        <table class="rules-table">
+          <thead>
+            <tr>
+              <th style="width: 90px;">Mã BR</th>
+              <th style="width: 280px;">Nội Dung Quy Tắc Nghiệp Vụ</th>
+              <th style="width: 180px;">Bảng & Cột Áp Dụng</th>
+              <th>Cơ Chế Ràng Buộc Kỹ Thuật (Database Constraint / Trigger)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="rule-code">BR-01</span></td>
+              <td>Định danh tài khoản: Email duy nhất, ưu tiên NEU. SĐT 10 chữ số.</td>
+              <td><code>users.email</code><br><code>users.phone_number</code></td>
+              <td><code>UNIQUE</code> constraint trên <code>email</code>; <code>CHECK (length(phone_number) >= 10)</code>.</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-02</span></td>
+              <td>Nhập sai mật khẩu quá 5 lần khóa tạm 15 phút.</td>
+              <td><code>users.failed_login_attempts</code><br><code>users.locked_until</code></td>
+              <td>Lưu số lần sai và mốc thời gian hết khóa, kiểm tra trước khi xác thực JWT.</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-03</span></td>
+              <td>Phân tách dữ liệu: Canteen chỉ xem Canteen mình, Admin toàn quyền.</td>
+              <td><code>users.role</code><br><code>orders.staff_id</code></td>
+              <td>RBAC 4 roles; Lọc query theo <code>staff_id</code> và vai trò người dùng.</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-04</span></td>
+              <td>Món ăn đã phát sinh đơn không được xóa cứng (Hard Delete).</td>
+              <td><code>dishes.is_deleted</code><br><code>dishes.is_active</code></td>
+              <td>Chỉ cập nhật <code>is_deleted = TRUE</code>; Chặn lệnh <code>DELETE</code> bằng trigger/foreign key <code>RESTRICT</code>.</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-05</span></td>
+              <td>Chốt giá tại thời điểm đặt đơn. Đổi giá sau không ảnh hưởng đơn cũ.</td>
+              <td><code>order_items.unit_price</code><br><code>order_items.base_price</code></td>
+              <td>Copy snapshot giá niêm yết và giá gốc vào bảng <code>order_items</code> khi tạo đơn.</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-06</span></td>
+              <td>Món hết hàng bị khóa thêm vào giỏ.</td>
+              <td><code>dishes.is_available</code></td>
+              <td>Kiểm tra <code>is_available = TRUE</code> trước khi insert vào <code>orders</code> / <code>order_items</code>.</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-07</span></td>
+              <td>Mỗi món chỉ được đặt tối đa 10 phần trong một đơn.</td>
+              <td><code>order_items.quantity</code></td>
+              <td><code>CHECK (quantity > 0 AND quantity <= 10)</code> (EX-06).</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-08</span></td>
+              <td>Mỗi tài khoản chỉ được có tối đa 01 đơn hàng đang hoạt động.</td>
+              <td><code>orders.user_id</code><br><code>orders.status</code></td>
+              <td>Kiểm tra count đơn hàng có status chưa thuộc nhóm kết thúc trước khi insert đơn mới (EX-09).</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-09</span></td>
+              <td>Đơn giao tận nơi phải chọn địa điểm nội khu NEU.</td>
+              <td><code>orders.campus_location_id</code></td>
+              <td>Khóa ngoại <code>REFERENCES campus_locations(id)</code> (EX-07).</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-10</span></td>
+              <td>Địa điểm đang có đơn dở không được xóa, chỉ tắt phục vụ.</td>
+              <td><code>campus_locations.is_active</code></td>
+              <td>Khóa ngoại <code>ON DELETE SET NULL / RESTRICT</code>; cập nhật <code>is_active = FALSE</code> (EX-23).</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-11</span></td>
+              <td>Đơn hẹn giờ trước phải cách hiện tại tối thiểu 30 phút.</td>
+              <td><code>orders.is_preorder</code><br><code>orders.scheduled_at</code></td>
+              <td>Kiểm tra logic <code>scheduled_at >= created_at + INTERVAL '30 minutes'</code> (EX-08).</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-12</span></td>
+              <td>Giá niêm yết = Giá gốc Canteen (A) + 5.000đ phụ phí.</td>
+              <td><code>dishes.base_price</code><br><code>dishes.price</code></td>
+              <td><code>price = base_price + system_fee (5.000đ)</code>.</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-13</span></td>
+              <td>Phí ship: Delivery cố định 5.000đ, Pickup là 0đ.</td>
+              <td><code>orders.ship_fee</code><br><code>orders.order_type</code></td>
+              <td><code>CHECK (ship_fee IN (0, 5000))</code>; Delivery = 5k, Pickup = 0đ.</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-14</span></td>
+              <td>Hạn mức đơn hàng COD tối đa 500.000 VNĐ.</td>
+              <td><code>orders.total_amount</code></td>
+              <td><code>CHECK (total_amount <= 500000)</code> (EX-11).</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-15</span></td>
+              <td>Duy nhất COD: Tiền mặt hoặc VietQR khi nhận hàng.</td>
+              <td><code>orders.payment_method</code></td>
+              <td><code>CHECK (payment_method IN ('cod_cash', 'cod_vietqr'))</code>.</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-16</span></td>
+              <td>Canteen tiếp nhận trong 10 phút, quá giờ tự động hủy.</td>
+              <td><code>orders.status</code><br><code>orders.created_at</code></td>
+              <td>Background Scheduler quét đơn <code>CHO_XAC_NHAN</code> > 10p đổi thành <code>TU_DONG_HUY</code> (EX-16).</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-17</span></td>
+              <td>Khách chỉ được hủy khi đơn ở trạng thái CHO_XAC_NHAN.</td>
+              <td><code>orders.status</code></td>
+              <td>Chặn update trạng thái <code>DA_HUY_KHACH</code> nếu status khác <code>CHO_XAC_NHAN</code> (EX-12).</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-18</span></td>
+              <td>Đối chiếu 4 chữ số cuối mã đơn hàng khi bàn giao đồ ăn.</td>
+              <td><code>orders.order_code_suffix</code></td>
+              <td>Lưu 4 chữ số cuối, yêu cầu API handover phải truyền trùng khớp mới cho đổi trạng thái (EX-17).</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-19</span></td>
+              <td>Trách nhiệm giao nhầm: Canteen tự xử lý nội bộ, không hoàn tiền online.</td>
+              <td><code>orders.payment_status</code></td>
+              <td>Loại bỏ hoàn toàn status <code>refunded</code>.</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-20</span></td>
+              <td>Giao thất bại mang về quầy Canteen giữ tối đa 30 phút.</td>
+              <td><code>orders.pickup_deadline</code></td>
+              <td>Thiết lập <code>pickup_deadline = NOW() + INTERVAL '30 minutes'</code> khi chuyển <code>GIAO_THAT_BAI</code>.</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-21</span></td>
+              <td>Đơn nhận tại quầy giữ tối đa 30 phút.</td>
+              <td><code>orders.pickup_deadline</code></td>
+              <td>Thiết lập <code>pickup_deadline = NOW() + INTERVAL '30 minutes'</code> khi chuyển <code>SAN_SANG_LAY</code>.</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-22</span></td>
+              <td>Chế tài Blacklist COD: Vi phạm 1 lần khóa vĩnh viễn quyền đặt hàng.</td>
+              <td><code>users.is_blacklisted</code><br><code>users.blacklist_reason</code></td>
+              <td>Tự động cập nhật <code>is_blacklisted = TRUE</code> khi đơn chuyển <code>BO_DON_BLACKLIST</code>.</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-23</span></td>
+              <td>Khách gửi khiếu nại trong 24 giờ sau khi nhận đơn, kèm ảnh minh chứng.</td>
+              <td><code>complaints.created_at</code><br><code>complaints.proof_image_url</code></td>
+              <td>Chặn tạo complaint nếu <code>delivered_at</code> quá 24h hoặc thiếu ảnh (EX-14, EX-15).</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-24</span></td>
+              <td>Admin là người duy nhất có thẩm quyền phân xử khiếu nại.</td>
+              <td><code>complaints.resolved_by</code></td>
+              <td>Chỉ cho phép role <code>admin</code> cập nhật status complaint.</td>
+            </tr>
+            <tr>
+              <td><span class="rule-code">BR-25</span></td>
+              <td>Cuối ca Shipper đối soát tổng tiền COD nộp lại cho Quản lý.</td>
+              <td><code>staff_shifts</code></td>
+              <td>Bảng ghi nhận doanh thu ca, tiền mặt/QR và biên bản chênh lệch (EX-20).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'default',
+      themeVariables: {
+        primaryColor: '#e8f0fe',
+        primaryTextColor: '#003f87',
+        primaryBorderColor: '#003f87',
+        lineColor: '#64748b',
+        secondaryColor: '#fef3c7',
+        tertiaryColor: '#ffffff'
+      }
+    });
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      
+      event.currentTarget.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+    }
+
+    function filterTables() {
+      const q = document.getElementById('tableFilter').value.toLowerCase();
+      const cards = document.querySelectorAll('.table-card');
+      cards.forEach(card => {
+        const text = card.innerText.toLowerCase();
+        card.style.display = text.includes(q) ? 'flex' : 'none';
+      });
+    }
+  </script>
+</body>
+</html>

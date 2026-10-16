@@ -1,0 +1,49 @@
+.container {
+    background: linear-gradient(rgba(255, 255, 255, 0.8), rgba(234, 241, 255, 0.8)), url('/background.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  max-width: 900px;
+  margin: 40px auto;
+  padding: 30px;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  position: relative;
+}
+
+.title {
+  text-align: center;
+  color: #0b2c5f; /* màu chủ đạo */
+  margin-bottom: 25px;
+}
+
+.content {
+  font-size: 17px;
+  line-height: 1.8;
+  color: #333;
+  text-align: justify;
+}
+
+.content p {
+  margin-bottom: 15px;
+}
+
+.quote {
+  font-style: italic;
+  color: #0b2c5f;
+  background: #eaf1ff;
+  padding: 10px;
+  border-left: 4px solid #ffd700;
+  border-radius: 6px;
+}
+body {
+  background: linear-gradient(135deg, #5f8eeb, #ffffff);
+}
+
+.logo {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 100px;
+  height: auto;
+}

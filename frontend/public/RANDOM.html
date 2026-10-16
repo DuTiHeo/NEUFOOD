@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hôm Nay Ăn Gì - NEU Delivery</title>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color:rgb(21, 131, 228);
+            --secondary-color: #f1c40f;
+            --dark-color: #2c3e50;
+            --bg-color: #f9f9f9;
+        }
+
+        body {
+            font-family: 'Quicksand', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            width: 100%;
+            padding: 20px 0;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        /* Navigation */
+        nav {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 1000px;
+        }
+
+        nav button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            background: white;
+            color: var(--dark-color);
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        nav button.active {
+            background: var(--secondary-color);
+            color: var(--dark-color);
+        }
+
+        /* Wheel Container */
+        .main-container {
+            position: relative;
+            margin-top: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .wheel-wrapper {
+            position: relative;
+            width: 500px;
+            height: 500px;
+        }
+
+        #wheel {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+            transition: transform 4s cubic-bezier(0.15, 0, 0.15, 1);
+        }
+
+        .pointer {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            z-index: 10;
+            filter: drop-shadow(0 2px 5px rgba(0,0,0,0.3));
+        }
+
+        #spin-btn {
+            margin-top: 30px;
+            padding: 15px 50px;
+            font-size: 1.2rem;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(14, 117, 234, 0.4);
+        }
+
+        #spin-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Result Popup */
+        #result-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .result-card {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 400px;
+            animation: popIn 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+        }
+
+        .result-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+
+        @keyframes popIn {
+            from { transform: scale(0.5); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .close-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            margin-top: 15px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Vòng Quay "Hôm Nay Ăn Gì?"</h1>
+    <p>Dành riêng cho sinh viên NEU - Giao tận lớp học của bạn!</p>
+    <div id="auth-bar" style="margin-top: 10px; display: none;">
+        <span id="welcome" style="font-weight: 600;"></span>
+        <button id="logout-btn" style="margin-left: 10px; padding: 8px 14px; border: 0; border-radius: 999px; background: rgba(255,255,255,0.9); cursor: pointer; font-weight: 700;">
+            Đăng xuất
+        </button>
+    </div>
+</header>
+
+<nav id="category-nav">
+    </nav>
+
+<div class="main-container">
+    <div class="wheel-wrapper">
+        <img src="https://cdn-icons-png.flaticon.com/512/25/25613.png" class="pointer" alt="pointer">
+        <canvas id="wheel" width="1000" height="1000"></canvas>
+    </div>
+    <button id="spin-btn">QUAY NGAY!</button>
+</div>
+
+<div id="result-overlay">
+    <div class="result-card">
+        <h2>Chúc mừng! Bạn sẽ ăn:</h2>
+        <h1 id="food-name" style="color: var(--primary-color);"></h1>
+        <img id="food-img" src="" alt="food">
+        <button class="close-btn" onclick="orderNow()">Đặt món này ngay</button>
+    </div>
+</div>
+
+<script>
+    const SESSION_KEY = 'neufood_session_v1';
+
+    function getSession() {
+        try {
+            const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+            return raw ? JSON.parse(raw) : null;
+        } catch {
+            return null;
+        }
+    }
+
+    function clearSession() {
+        try {
+            localStorage.removeItem(SESSION_KEY);
+            sessionStorage.removeItem(SESSION_KEY);
+        } catch {}
+    }
+
+    const session = getSession();
+    if (!session || !session.email) {
+        window.location.href = 'DANGNHAP.html';
+    } else {
+        const authBar = document.getElementById('auth-bar');
+        const welcome = document.getElementById('welcome');
+        const logoutBtn = document.getElementById('logout-btn');
+        if (authBar && welcome && logoutBtn) {
+            authBar.style.display = 'block';
+            const displayName = String(session.name || '').trim();
+            welcome.textContent = displayName ? `Xin chào, ${displayName}!` : `Xin chào! (${session.email})`;
+            logoutBtn.addEventListener('click', () => {
+                clearSession();
+                window.location.href = 'DANGNHAP.html';
+            });
+        }
+    }
+
+    const menuData = {
+        "Bún/Phở": [
+            { name: "Phở", img: "https://live2makan.com/wp-content/uploads/2022/08/l2m-vn-2207-pho10-05.jpg" },
+            { name: "Phở trộn", img: "https://cdn.tgdd.vn/2021/08/CookRecipe/Avatar/pho-ga-tron-sa-te-thumbnail.jpg" },
+            { name: "Bún bò Huế", img: "https://cdn.tgdd.vn/Files/2017/03/24/964495/cach-nau-bun-bo-hue-gio-heo-ngon-cong-thuc-chuan-vi-202208251617593627.jpg" },
+            { name: "Bún riêu", img: "https://i.ytimg.com/vi/C1P1Cw9J1-I/maxresdefault.jpg" },
+            { name: "Hủ tiếu", img: "https://media.cooky.vn/recipe/g3/22522/s800x500/recipe22522-636439367069081450.jpg" },
+            { name: "Miến gà", img: "https://cdn.tgdd.vn/Files/2017/03/22/963778/bi-quyet-nau-mien-ga-thom-ngon-da-ga-vang-gion-202208261323269332.jpg" },
+            { name: "Cháo sườn", img: "https://cdn.tgdd.vn/2021/05/CookProduct/axresdefault(1)-1200x676.jpg" },
+            { name: "Bánh canh", img: "https://i.ytimg.com/vi/ZjAxz95VJKQ/maxresdefault.jpg" },
+            { name: "Bún mọc", img: "https://i.ytimg.com/vi/AwppaRlywik/maxresdefault.jpg" },
+            { name: "Bún thang", img: "https://noiphodien123.vn/wp-content/uploads/2022/02/bun-thang-ngon.jpg" },
+            { name: "Bún cá", img: "https://cdn.tgdd.vn/Files/2020/04/03/1246339/cach-nau-bun-ca-ha-noi-thom-ngon-chuan-vi-khong-ta-13.jpg" },
+            { name: "Bún chả", img: "https://www.seriouseats.com/thmb/J0g7JWjk9r6CHESo1CIrD1BfGd0=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/20231204-SEA-VyTran-BunChaHanoi-19-f623913c6ef34a9185bcd6e5680c545f.jpg" },
+            { name: "Bún mắm", img: "https://cdn.tgdd.vn/Files/2019/03/12/1154316/cach-nau-bun-mam-mien-tay-chuan-thom-ngon-don-gian-tai-nha-202112211640380018.jpg" },
+            { name: "Bún đậu", img: "https://static.vinwonders.com/2023/01/bun-dau-mam-tom-thumb.jpg" },
+            { name: "Nem nướng", img: "https://cdn.tgdd.vn/2021/09/CookDish/cach-lam-nem-nuong-nha-trang-bang-noi-chien-khong-dau-thom-avt-1200x676.jpg" },
+            { name: "Gỏi cuốn", img: "https://images.squarespace-cdn.com/content/v1/52d3fafee4b03c7eaedee15f/30cf6af1-a5a1-456f-ba8e-3d09713608e3/thumbnail-9264.jpg" }
+        ],
+        "Cơm": [
+            { name: "Cơm tấm", img: "https://statics.vinwonders.com/com-tam-ngon-o-sai-gon-0_1630562640.jpg" },
+            { name: "Cơm gà", img: "https://static.vinwonders.com/2023/02/com-ga-da-nang-1.jpg" },
+            { name: "Cơm sườn", img: "https://i.ytimg.com/vi/cJu6tFJe_Gc/maxresdefault.jpg" },
+            { name: "Cơm chiên", img: "https://tse2.mm.bing.net/th/id/OIP.nHkdDmDXSKC8cJ3PLVjgtQHaE6?pid=Api&P=0&h=180" },
+            { name: "Bò lúc lắc", img: "https://i.ytimg.com/vi/RfGrzXPuKeM/maxresdefault.jpg" },
+            { name: "Cơm niêu", img: "https://tse3.mm.bing.net/th/id/OIP.vdevG-D5cLXfSrBGkpqkHwHaEU?pid=Api&P=0&h=180" },
+            { name: "Cá kho", img: "https://img-global.cpcdn.com/recipes/8762fe6a5e6ac0b2/1200x630cq70/photo.jpg" },
+            { name: "Gà xối mỡ", img: "https://ticotravel.com.vn/wp-content/uploads/2022/06/Com-ga-xoi-mo-15.jpg" },
+            { name: "Cơm trộn", img: "https://cdn.tgdd.vn/Files/2018/07/05/1099587/cach-lam-com-tron-han-quoc-bibimbap-ngon-nhu-nha-hang-202205241021184780.jpg" },
+            { name: "Cơm chay", img: "https://vnn-imgs-a1.vgcloud.vn/znews-photo.zadn.vn/w860/Uploaded/mrndcqjwq/2021_08_12/Mam_5.jpg" },
+            { name: "Cơm cà ri", img: "https://www.huongnghiepaau.com/wp-content/uploads/2024/07/cach-nau-com-ca-ri-nhat.jpg" },
+            { name: "Thịt kho", img: "https://tanmyholdings.com/wp-content/uploads/2024/10/Com-thit-kho-tieu1.png" }
+        ],
+        "Các loại bánh": [
+            { name: "Bánh mì", img: "https://tse4.mm.bing.net/th/id/OIP.yxsHU68P6sAzYizPNk64IwHaEo?pid=Api&P=0&h=180" },
+            { name: "Bánh xèo", img: "https://cdn.tgdd.vn/2020/12/CookProduct/11-1200x676.jpg" },
+            { name: "Bánh cuốn", img: "https://i.ytimg.com/vi/5CRLn1Bb1bg/maxresdefault.jpg" },
+            { name: "Bánh khọt", img: "http://foodisafourletterword.com/wp-content/uploads/2020/12/Vietnamese_Crispy_Savory_Shrimp_Pancakes_Recipe_Banh_Khot_top.jpg" },
+            { name: "Bánh căn", img: "https://static.vinwonders.com/production/banh-can-phan-thiet-01.jpeg" },
+            { name: "Bánh ướt", img: "https://img-global.cpcdn.com/recipes/922a89ff50818a94/1200x630cq70/photo.jpg" },
+            { name: "Bánh đúc", img: "https://cdn.tgdd.vn/2020/10/CookProduct/1260-1200x676-31.jpg" },
+            { name: "Bánh hỏi", img: "https://cdn.tgdd.vn/2021/05/content/hoi-3-800x450.jpg" },
+            { name: "Tráng nướng", img: "https://tse4.mm.bing.net/th/id/OIP.YM3x3rt1KAYSy542j8U6cAHaEK?pid=Api&P=0&h=180" },
+            { name: "Tráng trộn", img: "https://tse3.mm.bing.net/th/id/OIP.Hi2jizeoppiVBf0rUdSHuQHaEK?pid=Api&P=0&h=180" },
+            { name: "Bột lọc", img: "https://tse1.mm.bing.net/th/id/OIP.OnpBH_GEL59gT6nZGeCkLAHaGR?pid=Api&P=0&h=180" },
+            { name: "Bánh bao", img: "https://tse2.mm.bing.net/th/id/OIP.d0gK8bLS9Ix7SbiT_hhhJwHaE7?pid=Api&P=0&h=180" }
+        ],
+        "Đồ ăn vặt": [
+            { name: "Phơi sương", img: "https://tse3.mm.bing.net/th/id/OIP.VRXV5NTQLniOyMIYLeCcNgHaHa?pid=Api&P=0&h=180" },
+            { name: "Chân gà", img: "https://i.ytimg.com/vi/MVmtMJ3ILME/maxresdefault.jpg" },
+            { name: "Xiên bẩn", img: "https://tse3.mm.bing.net/th/id/OIP.vWFL1HTrGW3b8d6XNgsGcAHaEn?pid=Api&P=0&h=180" },
+            { name: "Chè anh đẹp trai", img: "https://mms.img.susercontent.com/vn-11134513-7r98o-lt4u34allm6x4a@resize_ss640x400!@crop_w640_h400_cT" },
+            { name: "Khoai tây chiên", img: "https://tse2.mm.bing.net/th/id/OIP.Jto_K08lSADMshiKXHAMNwHaFj?pid=Api&P=0&h=180" }
+        ],
+        "Nước uống": [
+            { name: "Trà đá", img: "https://migrationology.com/wp-content/uploads/2015/02/vietnamese_tra-da.jpg" },
+            { name: "Sữa đậu", img: "https://tse1.mm.bing.net/th/id/OIP.FprEjT4Qwbj3pGWwKeoDbwHaE7?pid=Api&P=0&h=180" },
+            { name: "Nước sâm", img: "https://tse2.mm.bing.net/th/id/OIP.AnBR19fel8FWNKVzFKiiVgHaEK?pid=Api&P=0&h=180" },
+            { name: "Coca-Cola", img: "https://tse4.mm.bing.net/th/id/OIP.vTgKkSg-OfavsyV138XHzAHaDs?pid=Api&P=0&h=180" },
+            { name: "Pepsi", img: "https://tse3.mm.bing.net/th/id/OIP.c2zUCO9Uqt-2U04GZ8MZYQHaFb?pid=Api&P=0&h=180" },
+            { name: "Trà chanh", img: "https://photo2.tinhte.vn/data/attachment-files/2025/03/8661218_TRA_CHANH.jpg" },
+            { name: "Trà tắc", img: "https://tse2.mm.bing.net/th/id/OIP.g5WWRyhVoreZbTyolhFtdQHaEK?pid=Api&P=0&h=180" }
+        ],
+        "Combos": [
+            { name: "Combo 2 người", img: "https://www.hotdeal.vn/ho-chi-minh/an-uong/combo-2-dia-com-tam-lua-chon-theo-menu-7-lua-chon-va-2-ly-nuoc-ngot-tai-cari-truong.-106202.html?srsltid=AfmBOoqfUSpFLdUXcxwv-xQJo12yniLF2c1svxr4rvEOOqGmgmSlZpmq" },
+            { name: "Combo 3 người", img: "https://vinwonders.com/vi/wonderpedia/news/com-ga-xoi-mo-ngon-nhat-sai-gon/" },
+            { name: "Combo 4-5 người", img: "https://vinwonders.com/vi/wonderpedia/news/bun-dau-mam-tom-nha-trang/" },
+            { name: "Combo tối nhẹ", img: "https://banhmipho.vn/combo-banh-mi-thit-xay-nuong-va-tra-chanh-cho-bua-an-tien-loi/" }
+        ]
+    };
+
+    const canvas = document.getElementById('wheel');
+    const ctx = canvas.getContext('2d');
+    const spinBtn = document.getElementById('spin-btn');
+    const nav = document.getElementById('category-nav');
+    
+    let currentCategory = "Bún/Phở";
+    let currentRotation = 0;
+    let isSpinning = false;
+    let lastWinningItem = null;
+
+    const CART_KEY = 'neufood-cart-v1';
+    const PENDING_KEY = 'neufood-cart-pending-v1';
+
+    function normalizeName(text) {
+        return String(text || '')
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9\s]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    // Map wheel item names -> dish ids used by React cart (`src/data/dishes.js`)
+    const nameToDishId = {
+        [normalizeName('Phở')]: 'pho',
+        [normalizeName('Phở trộn')]: 'pho-tron',
+        [normalizeName('Bún bò Huế')]: 'bun-bo-hue',
+        [normalizeName('Bún riêu')]: 'bun-rieu',
+        [normalizeName('Hủ tiếu')]: 'hu-tieu',
+        [normalizeName('Miến gà')]: 'mien-ga',
+        [normalizeName('Cháo sườn')]: 'chao-suon',
+        [normalizeName('Bánh canh')]: 'banh-canh',
+        [normalizeName('Bún mọc')]: 'bun-moc',
+        [normalizeName('Bún thang')]: 'bun-thang',
+        [normalizeName('Bún cá')]: 'bun-ca',
+        [normalizeName('Bún chả')]: 'bun-cha',
+        [normalizeName('Bún mắm')]: 'bun-mam',
+        [normalizeName('Bún đậu')]: 'bun-dau-mam-tom',
+        [normalizeName('Nem nướng')]: 'nem-nuong-nha-trang',
+        [normalizeName('Gỏi cuốn')]: 'goi-cuon',
+
+        [normalizeName('Cơm tấm')]: 'com-tam',
+        [normalizeName('Cơm gà')]: 'com-ga',
+        [normalizeName('Cơm sườn')]: 'com-suon',
+        [normalizeName('Cơm chiên')]: 'com-chien',
+        [normalizeName('Bò lúc lắc')]: 'com-bo-luc-lac',
+        [normalizeName('Cơm niêu')]: 'com-nieu',
+        [normalizeName('Cá kho')]: 'com-ca-kho',
+        [normalizeName('Gà xối mỡ')]: 'com-ga-xoi-mo-2',
+        [normalizeName('Cơm trộn')]: 'com-tron',
+        [normalizeName('Cơm chay')]: 'com-tron',
+        [normalizeName('Cơm cà ri')]: 'com-ca-ri',
+        [normalizeName('Thịt kho')]: 'com-thit-kho',
+
+        [normalizeName('Bánh mì')]: 'banh-mi',
+        [normalizeName('Bánh xèo')]: 'banh-xeo',
+        [normalizeName('Bánh cuốn')]: 'banh-cuon',
+        [normalizeName('Bánh khọt')]: 'banh-khot',
+        [normalizeName('Bánh căn')]: 'banh-can',
+        [normalizeName('Bánh ướt')]: 'banh-uot',
+        [normalizeName('Bánh đúc')]: 'banh-duc',
+        [normalizeName('Bánh hỏi')]: 'banh-hoi',
+        [normalizeName('Tráng nướng')]: 'banh-trang-nuong',
+        [normalizeName('Tráng trộn')]: 'banh-trang-tron',
+        [normalizeName('Bột lọc')]: 'banh-bot-loc',
+        [normalizeName('Bánh bao')]: 'banh-bao',
+
+        [normalizeName('Phơi sương')]: 'banh-trang-phoi-suong',
+        [normalizeName('Chân gà')]: 'chan-ga-sa-tac',
+        [normalizeName('Xiên bẩn')]: 'xien-ban',
+        [normalizeName('Chè anh đẹp trai')]: 'che-anh-dep-trai',
+        [normalizeName('Khoai tây chiên')]: 'khoai-tay-chien',
+
+        [normalizeName('Trà đá')]: 'tra-da',
+        [normalizeName('Sữa đậu')]: 'sua-dau',
+        [normalizeName('Nước sâm')]: 'nuoc-sam',
+        [normalizeName('Coca-Cola')]: 'coca-cola',
+        [normalizeName('Pepsi')]: 'pepsi',
+        [normalizeName('Trà chanh')]: 'tra-chanh',
+        [normalizeName('Trà tắc')]: 'tra-tac',
+    };
+
+    const comboToItems = {
+        [normalizeName('Combo 2 người')]: [
+            { dishId: 'com-tam', quantity: 2 },
+            { dishId: 'ca-vien-chien-mam', quantity: 1 },
+            { dishId: 'sua-dau', quantity: 2 },
+        ],
+        [normalizeName('Combo 3 người')]: [
+            { dishId: 'com-ga-xoi-mo-2', quantity: 3 },
+            { dishId: 'khoai-tay-chien', quantity: 1 },
+            { dishId: 'coca-cola', quantity: 3 },
+        ],
+        [normalizeName('Combo 4-5 người')]: [
+            { dishId: 'bun-dau-mam-tom', quantity: 2 },
+            { dishId: 'banh-mi', quantity: 2 },
+            { dishId: 'chan-ga-sa-tac', quantity: 1 },
+            { dishId: 'khoai-tay-chien', quantity: 1 },
+            { dishId: 'tra-chanh', quantity: 5 },
+        ],
+        [normalizeName('Combo tối nhẹ')]: [
+            { dishId: 'banh-bao', quantity: 5 },
+            { dishId: 'banh-mi', quantity: 5 },
+            { dishId: 'tra-da', quantity: 5 },
+            { dishId: 'banh-trang-phoi-suong', quantity: 2 },
+        ],
+    };
+
+    function addDishToCart(dishId, qty = 1) {
+        if (!dishId) return false;
+        try {
+            const raw = localStorage.getItem(CART_KEY);
+            const parsed = raw ? JSON.parse(raw) : {};
+            const cart = (parsed && typeof parsed === 'object') ? parsed : {};
+            const prevQty = Number(cart[dishId] ?? 0);
+            cart[dishId] = Math.max(0, Math.floor(prevQty + qty));
+            localStorage.setItem(CART_KEY, JSON.stringify(cart));
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    function addPending(dishId, qty) {
+        try {
+            const raw = sessionStorage.getItem(PENDING_KEY);
+            const parsed = raw ? JSON.parse(raw) : {};
+            const obj = (parsed && typeof parsed === 'object') ? parsed : {};
+            const adds = (obj.adds && typeof obj.adds === 'object') ? obj.adds : {};
+            const prev = Number(adds[dishId] ?? 0);
+            adds[dishId] = Math.max(0, Math.floor(prev + qty));
+            sessionStorage.setItem(PENDING_KEY, JSON.stringify({ adds }));
+        } catch {}
+    }
+
+    function findDishIdByName(itemName) {
+        const key = normalizeName(itemName);
+        if (!key) return null;
+        if (nameToDishId[key]) return nameToDishId[key];
+
+        // fuzzy match: allow wheel short names to match longer dish names
+        const entries = Object.entries(nameToDishId);
+        const found = entries.find(([k]) => k.includes(key) || key.includes(k));
+        return found ? found[1] : null;
+    }
+
+    // Initialize Navigation
+    Object.keys(menuData).forEach(cat => {
+        const btn = document.createElement('button');
+        btn.innerText = cat;
+        if (cat === currentCategory) btn.classList.add('active');
+        btn.onclick = () => {
+            if (isSpinning) return;
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentCategory = cat;
+            drawWheel();
+        };
+        nav.appendChild(btn);
+    });
+
+    function drawWheel() {
+        const items = menuData[currentCategory];
+        const numItems = items.length;
+        const arc = (2 * Math.PI) / numItems;
+        const colors = ["#ff7675", "#fab1a0", "#ffeaa7", "#55efc4", "#81ecec", "#74b9ff", "#a29bfe", "#dfe6e9"];
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        items.forEach((item, i) => {
+            const angle = i * arc;
+            
+            // Draw slice
+            ctx.beginPath();
+            ctx.fillStyle = colors[i % colors.length];
+            ctx.moveTo(500, 500);
+            ctx.arc(500, 500, 480, angle, angle + arc);
+            ctx.fill();
+            ctx.stroke();
+
+            // Add Text
+            ctx.save();
+            ctx.translate(500, 500);
+            ctx.rotate(angle + arc / 2);
+            ctx.textAlign = "right";
+            ctx.fillStyle = "#333";
+            ctx.font = "bold 24px Quicksand";
+            ctx.fillText(item.name, 450, 10);
+            ctx.restore();
+        });
+
+        // Add Center Circle
+        ctx.beginPath();
+        ctx.arc(500, 500, 50, 0, 2 * Math.PI);
+        ctx.fillStyle = "white";
+        ctx.fill();
+        ctx.strokeStyle = varColor('--primary-color');
+        ctx.lineWidth = 5;
+        ctx.stroke();
+    }
+
+    function varColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name); }
+
+    spinBtn.onclick = () => {
+        if (isSpinning) return;
+        
+        isSpinning = true;
+        spinBtn.disabled = true;
+        
+        const items = menuData[currentCategory];
+        const extraDegrees = Math.floor(Math.random() * 360) + 3600; // Quay ít nhất 10 vòng
+        currentRotation += extraDegrees;
+        
+        canvas.style.transform = `rotate(${currentRotation}deg)`;
+
+        setTimeout(() => {
+            isSpinning = false;
+            spinBtn.disabled = false;
+            
+            // Calculate result
+            const actualDeg = currentRotation % 360;
+            const arcDeg = 360 / items.length;
+            // Pointer is at the top (-90 deg from start)
+            const winningIndex = Math.floor((360 - (actualDeg % 360) + 270) % 360 / arcDeg);
+            showResult(items[winningIndex]);
+        }, 4000);
+    };
+
+    function showResult(item) {
+        lastWinningItem = item;
+        document.getElementById('food-name').innerText = item.name;
+        document.getElementById('food-img').src = item.img;
+        document.getElementById('result-overlay').style.display = 'flex';
+        // Store last picked item for potential highlighting.
+        try {
+            const dishId = findDishIdByName(item.name);
+            sessionStorage.setItem('neufood_random_last_pick_v1', JSON.stringify({
+                name: item.name,
+                dishId: dishId || null,
+                at: new Date().toISOString(),
+            }));
+        } catch {}
+    }
+
+    function closeResult() {
+        document.getElementById('result-overlay').style.display = 'none';
+    }
+
+    function orderNow() {
+        if (!lastWinningItem) return closeResult();
+        const normalized = normalizeName(lastWinningItem.name);
+
+        // If it's a combo, add all items in that combo
+        const comboItems = comboToItems[normalized];
+        if (Array.isArray(comboItems) && comboItems.length > 0) {
+            comboItems.forEach((ci) => {
+                addDishToCart(ci.dishId, ci.quantity);
+                addPending(ci.dishId, ci.quantity);
+            });
+        } else {
+            const dishId = findDishIdByName(lastWinningItem.name);
+            if (!dishId) {
+                alert('Món này chưa có trong menu của hệ thống để thêm vào giỏ hàng. Vui lòng chọn món khác.');
+                return;
+            }
+            addDishToCart(dishId, 1);
+            addPending(dishId, 1);
+        }
+
+        // Go to Menu page (cart already updated)
+        window.location.href = '/menu';
+    }
+
+    drawWheel();
+</script>
+
+</body>
+</html>

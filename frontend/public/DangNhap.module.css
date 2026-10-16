@@ -1,0 +1,669 @@
+/* DangNhap.module.css */
+
+.body {
+    background: #f9f9ff;
+    font-family: 'Inter', sans-serif;
+    color: #003266;
+    font-feature-settings: normal;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow-x: hidden;
+}
+
+.heroPattern {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+}
+
+.heroPattern::before {
+    content: '';
+    position: absolute;
+    top: -10%;
+    left: -5%;
+    width: 30%;
+    height: 30%;
+    background: radial-gradient(#0c56d0 0.5px, transparent 0.5px);
+    background-size: 24px 24px;
+    opacity: 0.05;
+}
+
+.heroPattern::after {
+    content: '';
+    position: absolute;
+    bottom: -10%;
+    right: -5%;
+    width: 30%;
+    height: 30%;
+    background: radial-gradient(#615b77 0.5px, transparent 0.5px);
+    background-size: 24px 24px;
+    opacity: 0.05;
+}
+
+.nav {
+    width: 100%;
+    padding: 1.5rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    background: rgba(249, 249, 255, 0.8);
+    backdrop-filter: blur(16px);
+}
+
+.navLogo {
+    font-size: 1.875rem;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    color: #003266;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.navLinks {
+    display: none;
+}
+
+.navLink {
+    color: rgba(0, 50, 102, 0.7);
+    font-weight: 600;
+    transition: color 0.3s;
+}
+
+.navLink:hover {
+    color: #0c56d0;
+}
+
+.main {
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 6rem;
+    padding-bottom: 3rem;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    position: relative;
+    z-index: 1;
+}
+
+.grid {
+    width: 100%;
+    max-width: 1800px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    align-items: center;
+}
+
+.leftSection {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 0;
+}
+
+.logoContainer {
+    position: relative;
+    width: 100%;
+    max-width: 25rem;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2rem;
+}
+
+.logoGlow {
+    position: absolute;
+    inset: 0;
+    background: rgba(12, 86, 208, 0.1);
+    border-radius: 50%;
+    filter: blur(100px);
+    animation: pulse 2s infinite;
+}
+
+.logoWrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.logoImage {
+    width: 95%;
+    height: 95%;
+    object-fit: contain;
+    filter: drop-shadow(0 20px 50px rgba(12, 86, 208, 0.2));
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.mainTitle {
+    font-family: 'Manrope', sans-serif;
+    color: #003266;
+    font-size: 3rem;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    text-align: center;
+}
+
+.mainTitle span {
+    color: #0c56d0;
+    background: linear-gradient(135deg, #0c56d0 0%, #1d5fae 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.description {
+    color: rgba(29, 95, 174, 0.8);
+    font-size: 1.25rem;
+    max-width: 48rem;
+    line-height: 1.6;
+    opacity: 0.9;
+    text-align: center;
+}
+
+.rightSection {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 2rem 0;
+}
+
+.formWrapper {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(24px);
+    padding: 1rem;
+    border-radius: 1.25rem;
+    width: 100%;
+    max-width: 36rem;
+}
+
+.formContainer {
+    padding: 2rem 3rem;
+    border-radius: 1rem;
+    box-shadow: 0 32px 64px -12px rgba(0, 50, 102, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.formHeader {
+    margin-bottom: 2.5rem;
+    text-align: center;
+}
+
+.formTitle {
+    font-family: 'Manrope', sans-serif;
+    color: #003266;
+    font-size: 2.25rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    margin-bottom: 1rem;
+}
+
+.formDesc {
+    color: rgba(29, 95, 174, 0.8);
+    font-size: 1.125rem;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.inputLabel {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: rgba(29, 95, 174, 0.8);
+    margin-left: 0.25rem;
+}
+
+.inputWrapper {
+    position: relative;
+}
+
+.input {
+    width: 100%;
+    background: rgba(231, 238, 255, 0.5);
+    border: 2px solid transparent;
+    border-radius: 1rem;
+    padding: 1.5rem 1.5rem;
+    color: #003266;
+    font-size: 1.125rem;
+    transition: all 0.2s;
+}
+
+.input:focus {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(12, 86, 208, 0.1);
+    background: white;
+    border-color: #0c56d0;
+}
+
+.input::placeholder {
+    color: rgba(29, 95, 174, 0.3);
+}
+
+.passwordGroup {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-left: 0.25rem;
+}
+
+.forgotLink {
+    position: relative;
+    z-index: 2;
+    pointer-events: auto;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #0c56d0;
+    transition: color 0.2s;
+}
+
+.forgotLink:hover {
+    color: #004aba;
+}
+
+.checkboxGroup {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-left: 0.25rem;
+}
+
+.checkbox {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid rgba(133, 179, 255, 0.2);
+    background: rgba(231, 238, 255, 0.5);
+    color: #0c56d0;
+    cursor: pointer;
+}
+
+.checkbox:focus {
+    box-shadow: 0 0 0 2px #0c56d0;
+}
+
+.checkboxLabel {
+    font-size: 1.125rem;
+    font-weight: 500;
+    color: rgba(29, 95, 174, 0.8);
+    cursor: pointer;
+    user-select: none;
+}
+
+.submitButton {
+    width: 100%;
+    padding: 1.5rem;
+    border-radius: 9999px;
+    color: #f8f7ff;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    background: linear-gradient(135deg, #0c56d0 0%, #1d5fae 100%);
+    transition: all 0.2s;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 20px 40px -10px rgba(12, 86, 208, 0.4);
+}
+
+.submitButton:hover {
+    brightness: 1.1;
+}
+
+.submitButton:active {
+    transform: scale(0.98);
+}
+
+.divider {
+    position: relative;
+    margin: 2.5rem 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.divider::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-top: 1px solid rgba(133, 179, 255, 0.3);
+}
+
+.dividerText {
+    position: relative;
+    background: white;
+    padding: 0 1.5rem;
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    color: rgba(29, 95, 174, 0.5);
+}
+
+.socialButtons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+}
+
+.socialButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1.25rem 1rem;
+    border-radius: 1rem;
+    background: white;
+    border: 1px solid rgba(133, 179, 255, 0.2);
+    transition: all 0.2s;
+    cursor: pointer;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.socialButton:hover {
+    background: rgba(231, 238, 255, 0.5);
+    transform: scale(0.98);
+}
+
+.socialButton:active {
+    transform: scale(0.96);
+}
+
+.socialIcon {
+    width: 1.75rem;
+    height: 1.75rem;
+}
+
+.googleIcon {
+    color: #1877F2;
+}
+
+.socialText {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #003266;
+}
+
+.footer {
+    margin-top: 2.5rem;
+    text-align: center;
+}
+
+.footerText {
+    font-size: 1.125rem;
+    color: rgba(29, 95, 174, 0.8);
+}
+
+.footerLink {
+    font-weight: 700;
+    color: #0c56d0;
+    text-decoration: underline;
+    text-decoration-color: #0c56d0;
+    text-underline-offset: 0.25rem;
+    transition: all 0.2s;
+}
+
+.footerLink:hover {
+    text-decoration-color: #004aba;
+}
+
+.modalOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    z-index: 999;
+}
+
+.modalCard {
+    width: 100%;
+    max-width: 520px;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(133, 179, 255, 0.25);
+    border-radius: 1.25rem;
+    box-shadow: 0 32px 64px -12px rgba(0, 50, 102, 0.25);
+    padding: 1.25rem 1.25rem 1.5rem;
+    backdrop-filter: blur(16px);
+}
+
+.modalHead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.modalTitle {
+    font-family: 'Manrope', sans-serif;
+    font-weight: 800;
+    font-size: 1.375rem;
+    letter-spacing: -0.02em;
+    margin: 0;
+    color: #003266;
+}
+
+.modalClose {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    font-size: 1.75rem;
+    line-height: 1;
+    color: rgba(29, 95, 174, 0.9);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.75rem;
+}
+
+.modalClose:hover {
+    background: rgba(231, 238, 255, 0.6);
+}
+
+.modalDesc {
+    margin: 0 0 1.25rem;
+    color: rgba(29, 95, 174, 0.85);
+}
+
+.modalForm {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.modalActions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+.ghostButton {
+    width: 100%;
+    padding: 1.25rem;
+    border-radius: 9999px;
+    background: rgba(231, 238, 255, 0.5);
+    border: 1px solid rgba(133, 179, 255, 0.25);
+    color: #003266;
+    font-size: 1.125rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.ghostButton:hover {
+    background: rgba(231, 238, 255, 0.75);
+}
+
+@media (min-width: 640px) {
+    .modalActions {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    .modalCard {
+        background: rgba(15, 23, 42, 0.92);
+        border-color: rgba(59, 130, 246, 0.25);
+    }
+    .modalTitle {
+        color: rgb(226 232 240);
+    }
+    .modalDesc {
+        color: rgba(148, 163, 184, 0.9);
+    }
+    .modalClose {
+        color: rgba(226, 232, 240, 0.9);
+    }
+    .modalClose:hover {
+        background: rgba(30, 41, 59, 0.6);
+    }
+    .ghostButton {
+        background: rgba(30, 41, 59, 0.6);
+        border-color: rgba(51, 65, 85, 0.9);
+        color: rgb(226 232 240);
+    }
+    .ghostButton:hover {
+        background: rgba(30, 41, 59, 0.85);
+    }
+}
+
+.pageFooter {
+    width: 100%;
+    padding: 2.5rem 2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1.5rem;
+    max-width: 1800px;
+    margin: 0 auto;
+    border-top: 1px solid rgba(133, 179, 255, 0.2);
+    background: rgba(249, 249, 255, 0.5);
+    backdrop-filter: blur(16px);
+}
+
+.pageFooterText {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 500;
+    letter-spacing: normal;
+    color: rgba(29, 95, 174, 0.7);
+}
+
+.pageFooterNav {
+    display: flex;
+    gap: 2.5rem;
+}
+
+.pageFooterLink {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: rgba(29, 95, 174, 0.7);
+    transition: color 0.2s;
+}
+
+.pageFooterLink:hover {
+    color: #0c56d0;
+}
+
+
+/* Responsive */
+
+@media (min-width: 1024px) {
+    .grid {
+        grid-template-columns: repeat(12, 1fr);
+        gap: 4rem;
+    }
+    .leftSection {
+        grid-column: span 7;
+        align-items: center;
+        text-align: center;
+    }
+    .logoContainer {
+        margin-left: 0;
+    }
+    .mainTitle {
+        font-size: 4rem;
+    }
+    .description {
+        font-size: 1.5rem;
+        max-width: 48rem;
+    }
+    .rightSection {
+        grid-column: span 5;
+    }
+    .formContainer {
+        padding: 3rem 4rem;
+    }
+    .formHeader {
+        text-align: left;
+    }
+    .navLinks {
+        display: flex;
+        gap: 2.5rem;
+    }
+}
+
+@media (min-width: 1280px) {
+    .mainTitle {
+        font-size: 5rem;
+    }
+    .description {
+        font-size: 1.75rem;
+    }
+}
+
+@media (min-width: 768px) {
+    .navLinks {
+        display: flex;
+    }
+    .main {
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }
+    .socialButtons {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@keyframes pulse {
+    0%,
+    100% {
+        opacity: 0.5;
+    }
+    50% {
+        opacity: 1;
+    }
+}
