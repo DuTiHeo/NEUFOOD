@@ -37,9 +37,10 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 
 ## 2. Phân Hệ Thành Viên 1: Xác Thực, Người Dùng, Blacklist & Cấu Hình (`/auth`, `/users`, `/settings`)
 
-### 2.1. Đăng Ký Tài Khoản (`UC01`, `BR-01`, `EX-01`)
+### 2.1. Đăng Ký Tài Khoản Khách Hàng (`UC01`, `BR-01`, `EX-01`)
 - **Endpoint**: `POST /api/v1/auth/register`
-- **Quyền hạn**: Public
+- **Quyền hạn**: Public (Không yêu cầu JWT)
+- **Headers**: `Content-Type: application/json`
 - **Request Body**:
 ```json
 {
@@ -50,14 +51,68 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
   "student_id": "11218888"
 }
 ```
-- **Quy tắc kiểm tra**:
-  - `phone_number` phải đúng định dạng 10 chữ số Việt Nam (`^0\d{9}$`).
-  - Nếu `email` hoặc `student_id` đã tồn tại $\rightarrow$ Trả lỗi `400` (`EX-01`).
-  - Mặc định gán `role = "customer"`.
+- **Ràng buộc dữ liệu (`schemas/auth.py`)**:
+  - `email`: Bắt buộc, chuỗi email hợp lệ RFC chuẩn (`EmailStr`).
+  - `password`: Bắt buộc, độ dài từ 6 đến 128 ký tự (`min_length=6, max_length=128`).
+  - `full_name`: Bắt buộc, từ 2 đến 150 ký tự, tự động cắt tỉa khoảng trắng hai đầu (`strip`).
+  - `phone_number`: Bắt buộc, số di động Việt Nam hợp lệ gồm đúng 10 chữ số bắt đầu bằng `0` (`^0\d{9}$`) theo `BR-01`.
+  - `student_id`: Không bắt buộc (Optional), tối đa 30 ký tự; chuỗi rỗng tự động chuyển thành `null` (`None`).
+- **Quy tắc nghiệp vụ & Kịch bản ngoại lệ**:
+  - `BR-01`: Tài khoản đăng ký mới luôn được gán vai trò mặc định `role = "customer"`.
+  - `EX-01`: Nếu `email` đã tồn tại trên hệ thống $\rightarrow$ Trả về `400 Bad Request` (`"Email đã tồn tại trên hệ thống (EX-01)"`).
+  - `EX-01`: Nếu `student_id` đã được liên kết với một tài khoản khác $\rightarrow$ Trả về `400 Bad Request` (`"Mã sinh viên đã tồn tại trên hệ thống (EX-01)"`).
+  - `BR-01` / Lỗi Validate: Nếu `phone_number` không đúng định dạng 10 số bắt đầu bằng 0 $\rightarrow$ Trả về `422 Unprocessable Entity` (`"Số điện thoại không hợp lệ, phải gồm đúng 10 chữ số và bắt đầu bằng số 0 (BR-01)"`).
+  - Request body không phải JSON object hợp lệ $\rightarrow$ Trả về `400 Bad Request` (`"Dữ liệu đầu vào phải là JSON object hợp lệ"`).
+- **Response (`201 Created`)**:
+```json
+{
+  "success": true,
+  "message": "Đăng ký tài khoản thành công",
+  "data": {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "token_type": "Bearer",
+    "user": {
+      "id": 2,
+      "email": "sinhvien_moi@neu.edu.vn",
+      "full_name": "Nguyễn Văn Sinh Viên",
+      "phone_number": "0912345678",
+      "student_id": "11218888",
+      "role": "customer",
+      "avatar_url": null,
+      "is_blacklisted": false,
+      "blacklist_reason": null
+    }
+  }
+}
+```
+- **Response lỗi (`400 Bad Request` - Trùng Email / MSSV)**:
+```json
+{
+  "success": false,
+  "message": "Email đã tồn tại trên hệ thống (EX-01)",
+  "data": null
+}
+```
+- **Response lỗi (`422 Unprocessable Entity` - Sai định dạng SĐT)**:
+```json
+{
+  "success": false,
+  "message": "Số điện thoại không hợp lệ, phải gồm đúng 10 chữ số và bắt đầu bằng số 0 (BR-01)",
+  "data": null,
+  "errors": [
+    {
+      "loc": ["phone_number"],
+      "msg": "String should match pattern '^0\\d{9}$'",
+      "type": "string_pattern_mismatch"
+    }
+  ]
+}
+```
 
-### 2.2. Đăng Nhập & Khóa Tạm Thời 15 Phút (`UC02`, `BR-02`, `EX-02`)
+### 2.2. Đăng Nhập Hệ Thống & Bảo Vệ Chống Dò Mật Khẩu (`UC02`, `BR-01`, `BR-02`, `EX-02`)
 - **Endpoint**: `POST /api/v1/auth/login`
-- **Quyền hạn**: Public
+- **Quyền hạn**: Public (Không yêu cầu JWT)
+- **Headers**: `Content-Type: application/json`
 - **Request Body**:
 ```json
 {
@@ -65,17 +120,27 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
   "password": "password123"
 }
 ```
-- **Quy tắc kiểm tra**:
-  - Kiểm tra `user.locked_until`: Nếu `locked_until > now()` $\rightarrow$ Trả lỗi `403` ("Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần" - `EX-02`).
-  - Nếu sai mật khẩu: Tăng `failed_login_attempts += 1`. Khi chạm mốc `5` $\rightarrow$ Gán `locked_until = now() + 15 minutes` (`BR-02`).
-  - Nếu đúng mật khẩu: Reset `failed_login_attempts = 0`, `locked_until = null`.
+- **Ràng buộc dữ liệu (`schemas/auth.py`)**:
+  - `email`: Bắt buộc, định dạng email chuẩn (`EmailStr`).
+  - `password`: Bắt buộc, chuỗi từ 1 đến 128 ký tự (`min_length=1`).
+- **Quy tắc nghiệp vụ & Cơ chế bảo mật (`BR-02`, `EX-02`)**:
+  - **Kiểm tra trạng thái tài khoản trước khi xác thực mật khẩu**:
+    - Nếu tài khoản có `is_active == false` $\rightarrow$ Trả lỗi `403 Forbidden` (`"Tài khoản này đã bị khóa"`).
+    - Nếu tài khoản đang trong thời gian khóa tạm thời 15 phút (`locked_until > now()`) $\rightarrow$ Trả lỗi `403 Forbidden` (`"Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần (EX-02)"`).
+  - **Xác thực mật khẩu**:
+    - Nếu sai mật khẩu: Tăng `failed_login_attempts += 1`.
+      - Khi `failed_login_attempts < 5` $\rightarrow$ Trả lỗi `401 Unauthorized` (`"Email hoặc mật khẩu không chính xác"`).
+      - Khi chạm mốc `failed_login_attempts >= 5` lần liên tiếp $\rightarrow$ Thiết lập `locked_until = now() + 15 minutes` và trả ngay `403 Forbidden` (`"Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần (EX-02)"`).
+    - Nếu đúng mật khẩu:
+      - Reset `failed_login_attempts = 0` và xóa mốc khóa `locked_until = null`.
+      - Cấp JWT Access Token chứa payload (`sub`, `email`, `role`, `name`) có hiệu lực mặc định 24 giờ.
 - **Response (`200 OK`)**:
 ```json
 {
   "success": true,
   "message": "Đăng nhập thành công",
   "data": {
-    "access_token": "eyJhbGciOiJIUzI1NiIs...",
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "token_type": "Bearer",
     "user": {
       "id": 1,
@@ -84,33 +149,266 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
       "phone_number": "0988888888",
       "student_id": "ADMIN01",
       "role": "admin",
-      "avatar_url": "https://...",
+      "avatar_url": null,
       "is_blacklisted": false,
       "blacklist_reason": null
     }
   }
 }
 ```
+- **Response lỗi (`401 Unauthorized` - Sai mật khẩu < 5 lần)**:
+```json
+{
+  "success": false,
+  "message": "Email hoặc mật khẩu không chính xác",
+  "data": null
+}
+```
+- **Response lỗi (`403 Forbidden` - Khóa tạm thời 15 phút do sai 5 lần)**:
+```json
+{
+  "success": false,
+  "message": "Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần (EX-02)",
+  "data": null
+}
+```
+- **Response lỗi (`403 Forbidden` - Tài khoản bị vô hiệu hóa `is_active=False`)**:
+```json
+{
+  "success": false,
+  "message": "Tài khoản này đã bị khóa",
+  "data": null
+}
+```
 
-### 2.3. Lấy Thông Tin Phiên Hiện Tại & Cập Nhật Hồ Sơ (`UC04`, `BR-01`, `EX-03`)
-- `GET /api/v1/auth/me` (Header: `Bearer <token>`)
+### 2.3. Lấy Thông Tin Phiên Hiện Tại (`UC03`, `UC04`)
+- **Endpoint**: `GET /api/v1/auth/me`
+- **Quyền hạn**: Authenticated (`@jwt_required` - Tất cả các role: `customer`, `staff`, `manager`, `admin`)
+- **Headers**: `Authorization: Bearer <access_token>`
+- **Quy tắc nghiệp vụ**:
+  - Trích xuất định danh người dùng từ claim `sub` trong JWT.
+  - Kiểm tra người dùng tồn tại và tài khoản đang kích hoạt (`is_active == true`).
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Thành công",
+  "data": {
+    "id": 1,
+    "email": "admin@neufood.vn",
+    "full_name": "Nguyễn Quản Trị (Admin)",
+    "phone_number": "0988888888",
+    "student_id": "ADMIN01",
+    "role": "admin",
+    "avatar_url": null,
+    "is_blacklisted": false,
+    "blacklist_reason": null
+  }
+}
+```
+- **Response lỗi mẫu**:
+  - `401 Unauthorized` (Thiếu hoặc Token hết hạn): `{"success": false, "message": "Token không hợp lệ hoặc đã hết hạn", "data": null}`
+  - `403 Forbidden` (Tài khoản bị vô hiệu hóa): `{"success": false, "message": "Tài khoản này đã bị khóa", "data": null}`
+  - `404 Not Found` (Không tìm thấy user): `{"success": false, "message": "Không tìm thấy người dùng", "data": null}`
+
+### 2.4. Đăng Xuất Hệ Thống (`UC03`)
+- **Endpoint**: `POST /api/v1/auth/logout`
+- **Quyền hạn**: Authenticated (`@jwt_required`)
+- **Headers**: `Authorization: Bearer <access_token>`
+- **Request Body**: Không yêu cầu (None)
+- **Quy tắc xử lý**:
+  - Kiểm tra JWT hợp lệ của phiên làm việc.
+  - Phía Client khi nhận phản hồi `200` sẽ xóa Token khỏi `localStorage` / Session Storage.
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Đăng xuất thành công",
+  "data": null
+}
+```
+- **Response lỗi (`401 Unauthorized`)**:
+```json
+{
+  "success": false,
+  "message": "Thiếu token xác thực trong header Authorization",
+  "data": null
+}
+```
+
+### 2.5. Đổi Mật Khẩu Tài Khoản (`UC05`)
+- **Endpoint**: `POST /api/v1/auth/change-password`
+- **Quyền hạn**: Authenticated (`@jwt_required`)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: application/json`
+- **Request Body**:
+```json
+{
+  "old_password": "password123",
+  "new_password": "newpassword456"
+}
+```
+- **Ràng buộc dữ liệu (`schemas/auth.py`)**:
+  - `old_password`: Bắt buộc, độ dài từ 1 đến 128 ký tự.
+  - `new_password`: Bắt buộc, độ dài từ 6 đến 128 ký tự (`min_length=6, max_length=128`).
+- **Quy tắc nghiệp vụ**:
+  - Kiểm tra `old_password` có khớp với hash mật khẩu hiện tại trong DB hay không. Nếu sai $\rightarrow$ Trả về `400 Bad Request` (`"Mật khẩu hiện tại không chính xác"`).
+  - Kiểm tra `new_password` không được trùng với mật khẩu hiện tại (`old_password` hoặc hash DB). Nếu trùng $\rightarrow$ Trả về `400 Bad Request` (`"Mật khẩu mới không được trùng với mật khẩu hiện tại"`).
+  - Mật khẩu mới được băm bảo mật bằng thuật toán Argon2/Bcrypt thông qua hàm `update_user_password(db, user, new_password)`.
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Đổi mật khẩu thành công",
+  "data": null
+}
+```
+- **Response lỗi (`400 Bad Request` - Mật khẩu cũ không đúng)**:
+```json
+{
+  "success": false,
+  "message": "Mật khẩu hiện tại không chính xác",
+  "data": null
+}
+```
+- **Response lỗi (`400 Bad Request` - Trùng mật khẩu cũ)**:
+```json
+{
+  "success": false,
+  "message": "Mật khẩu mới không được trùng với mật khẩu hiện tại",
+  "data": null
+}
+```
+- **Response lỗi (`422 Unprocessable Entity` - Mật khẩu mới < 6 ký tự)**:
+```json
+{
+  "success": false,
+  "message": "Dữ liệu đổi mật khẩu không hợp lệ",
+  "data": null,
+  "errors": [
+    {
+      "loc": ["new_password"],
+      "msg": "String should have at least 6 characters",
+      "type": "string_too_short"
+    }
+  ]
+}
+```
+
+### 2.6. Quên Mật Khẩu & Gửi Mã OTP (`UC05`, `EX-04`)
+- **Endpoint**: `POST /api/v1/auth/forgot-password`
+- **Quyền hạn**: Public (Không yêu cầu JWT)
+- **Headers**: `Content-Type: application/json`
+- **Request Body**:
+```json
+{
+  "email": "sinhvien@neu.edu.vn"
+}
+```
+- **Ràng buộc dữ liệu (`schemas/auth.py`)**:
+  - `email`: Bắt buộc, chuỗi email hợp lệ RFC chuẩn (`EmailStr`).
+- **Quy tắc nghiệp vụ & Kịch bản ngoại lệ (`EX-04`)**:
+  - Kiểm tra email có tồn tại trên hệ thống hay không; nếu không tồn tại $\rightarrow$ Trả về `404 Not Found` (`"Email không tồn tại trên hệ thống"`).
+  - Kiểm tra tài khoản có bị vô hiệu hóa `is_active == false` hay không; nếu bị khóa $\rightarrow$ Trả về `403 Forbidden` (`"Tài khoản này đã bị khóa"`).
+  - **Giới hạn số lần gửi OTP (`EX-04`)**: Tối đa 3 lần/ngày/email (`daily_count >= 3` bị chặn) $\rightarrow$ Trả về `400 Bad Request` (`"Bạn đã vượt quá giới hạn gửi mã OTP tối đa 3 lần/ngày. Vui lòng thử lại vào ngày mai (EX-04)"`).
+  - **Hiệu lực OTP (`EX-04`)**: Mã OTP gồm đúng 6 chữ số ngẫu nhiên (`000000` - `999999`), có thời hạn hiệu lực chính xác `5 phút` (300 giây) kể từ thời điểm tạo.
+  - **Cơ chế lưu trữ in-memory & Hỗ trợ Dev/Test**: Lưu trữ trong `OTP_STORE` tại `routes/auth.py`. Trong môi trường phát triển (dev/test), trường `otp_debug` được trả kèm trong `data` phản hồi để tạo điều kiện kiểm thử tự động và test Postman mà không cần cấu hình Mail Server bên ngoài.
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Mã OTP khôi phục mật khẩu đã được gửi (hiệu lực 5 phút)",
+  "data": {
+    "email": "sinhvien@neu.edu.vn",
+    "otp_debug": "582103",
+    "expires_in_seconds": 300,
+    "daily_count": 1
+  }
+}
+```
+- **Response lỗi (`400 Bad Request` - Vượt quá 3 lần/ngày)**:
+```json
+{
+  "success": false,
+  "message": "Bạn đã vượt quá giới hạn gửi mã OTP tối đa 3 lần/ngày. Vui lòng thử lại vào ngày mai (EX-04)",
+  "data": null
+}
+```
+- **Response lỗi (`404 Not Found` - Email không tồn tại)**:
+```json
+{
+  "success": false,
+  "message": "Email không tồn tại trên hệ thống",
+  "data": null
+}
+```
+
+### 2.7. Đặt Lại Mật Khẩu Bằng Mã OTP (`UC05`, `BR-02`, `EX-04`)
+- **Endpoint**: `POST /api/v1/auth/reset-password`
+- **Quyền hạn**: Public (Không yêu cầu JWT)
+- **Headers**: `Content-Type: application/json`
+- **Request Body**:
+```json
+{
+  "email": "sinhvien@neu.edu.vn",
+  "otp": "582103",
+  "new_password": "newpassword123"
+}
+```
+- **Ràng buộc dữ liệu (`schemas/auth.py`)**:
+  - `email`: Bắt buộc, chuỗi email hợp lệ RFC chuẩn (`EmailStr`).
+  - `otp`: Bắt buộc, chuỗi mã OTP từ 1 đến 20 ký tự.
+  - `new_password`: Bắt buộc, mật khẩu mới có độ dài từ 6 đến 128 ký tự (`min_length=6, max_length=128`).
+- **Quy tắc nghiệp vụ & Kịch bản ngoại lệ (`BR-02`, `EX-04`)**:
+  - **Kiểm tra OTP (`EX-04`)**:
+    - Nếu không tìm thấy OTP trong bộ nhớ hoặc OTP đã bị hủy trước đó $\rightarrow$ Trả về `400 Bad Request` (`"Mã xác nhận OTP không hợp lệ hoặc đã hết hiệu lực (EX-04)"`).
+    - Nếu thời điểm xác thực vượt quá hạn 5 phút (`now > expires_at`) $\rightarrow$ Trả về `400 Bad Request` (`"Mã xác nhận OTP đã hết hiệu lực (quá 5 phút). Vui lòng yêu cầu gửi lại mã OTP (EX-04)"`).
+    - Nếu mã OTP gửi lên không khớp với mã đã sinh $\rightarrow$ Trả về `400 Bad Request` (`"Mã xác nhận OTP không chính xác (EX-04)"`).
+  - **Mở khóa tài khoản & Đặt lại mật khẩu (`BR-02`)**:
+    - Cập nhật mật khẩu mới cho người dùng.
+    - Tự động xóa mốc khóa tạm thời (`locked_until = None`) và reset bộ đếm đăng nhập sai `failed_login_attempts = 0` ngay lập tức, cho phép người dùng đăng nhập lại ngay mà không phải chờ hết 15 phút.
+    - Hủy mã OTP khỏi `OTP_STORE` (`otp = None`, `expires_at = None`) để chống sử dụng lại (Replay Attack), nhưng vẫn bảo lưu `daily_count` trong ngày.
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Đặt lại mật khẩu thành công",
+  "data": null
+}
+```
+- **Response lỗi (`400 Bad Request` - OTP hết hạn 5 phút)**:
+```json
+{
+  "success": false,
+  "message": "Mã xác nhận OTP đã hết hiệu lực (quá 5 phút). Vui lòng yêu cầu gửi lại mã OTP (EX-04)",
+  "data": null
+}
+```
+- **Response lỗi (`400 Bad Request` - OTP không chính xác)**:
+```json
+{
+  "success": false,
+  "message": "Mã xác nhận OTP không chính xác (EX-04)",
+  "data": null
+}
+```
+- **Response lỗi (`400 Bad Request` - OTP không hợp lệ hoặc đã sử dụng)**:
+```json
+{
+  "success": false,
+  "message": "Mã xác nhận OTP không hợp lệ hoặc đã hết hiệu lực (EX-04)",
+  "data": null
+}
+```
+
+### 2.8. Hồ Sơ Người Dùng Cá Nhân (`UC04`, `BR-01`, `EX-03`)
 - `GET /api/v1/users/profile` (Header: `Bearer <token>`)
 - `PUT /api/v1/users/profile` (Header: `Bearer <token>`)
   - **Request Body**: `{"full_name": "...", "phone_number": "0912345678", "student_id": "...", "avatar_url": "..."}`
   - **Quy tắc**: Kiểm tra `phone_number` 10 số và không trùng với tài khoản khác (`EX-03`).
 
-### 2.4. Đăng Xuất, Đổi Mật Khẩu & Khôi Phục Mật Khẩu (`UC03`, `UC05`, `EX-04`)
-- `POST /api/v1/auth/logout` (`UC03` - Header: `Bearer <token>`):
-  - **Response (`200 OK`)**: `{"success": true, "message": "Đăng xuất thành công", "data": null}` (Client xóa token khỏi `localStorage`).
-- `POST /api/v1/auth/change-password` (Header: `Bearer <token>`):
-  - **Request Body**: `{"old_password": "password123", "new_password": "newpassword123"}`
-- `POST /api/v1/auth/forgot-password` (Public):
-  - **Request Body**: `{"email": "sinhvien@neu.edu.vn"}`
-  - **Cơ chế lưu OTP (Không cần sửa `models.py`)**: Lưu trong biến dictionary in-memory tại `backend/app/routes/auth.py` (ví dụ `OTP_STORE[email] = {"otp": "123456", "expires_at": now + 5m, "daily_count": 1, "date": today}`). Kiểm tra tối đa 3 lần gửi/ngày và hạn 5 phút theo `EX-04`. Trong môi trường dev, trả kèm `{"otp_debug": "123456"}` trong `data` để test nhanh trên Postman.
-- `POST /api/v1/auth/reset-password` (Public):
-  - **Request Body**: `{"email": "sinhvien@neu.edu.vn", "otp": "123456", "new_password": "newpassword123"}`
-
-### 2.5. Quản Trị Tài Khoản & Blacklist COD (`UC23`, `BR-22`, `EX-22` - Role: `admin`)
+### 2.9. Quản Trị Tài Khoản & Blacklist COD (`UC23`, `BR-22`, `EX-22` - Role: `admin`)
 - `GET /api/v1/users/admin/all?role=customer&is_blacklisted=true&search=...`
 - `PATCH /api/v1/users/admin/<user_id>/status`:
   - **Request Body**: `{"is_active": false, "role": "staff"}`
@@ -118,7 +416,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 - `PATCH /api/v1/users/admin/<user_id>/blacklist`:
   - **Request Body**: `{"is_blacklisted": true, "blacklist_reason": "Boom hàng đơn NF..."}`
 
-### 2.6. Cấu Hình Tham Số Vận Hành Hệ Thống (`/api/v1/settings`)
+### 2.10. Cấu Hình Tham Số Vận Hành Hệ Thống (`/api/v1/settings`)
 - `GET /api/v1/settings` (Public/Authenticated): Lấy toàn bộ tham số (`order_timeout_minutes`, `pickup_hold_minutes`, `system_maintenance_fee`, `delivery_fee`, `max_cod_amount`...).
 - `PUT /api/v1/settings/<setting_key>` (Role: `admin`):
   - **Request Body**: `{"setting_value": "5000", "description": "..."}`
