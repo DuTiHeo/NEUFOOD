@@ -4,8 +4,15 @@ from sqlalchemy.orm import sessionmaker, scoped_session, declarative_base
 from app.core.config import settings
 
 # Khởi tạo SQLAlchemy Engine
+db_url = settings.DATABASE_URL
+if db_url.startswith("postgresql://") and not db_url.startswith("postgresql+"):
+    try:
+        import psycopg
+    except ImportError:
+        db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+
 engine = create_engine(
-    settings.DATABASE_URL,
+    db_url,
     pool_pre_ping=True,
     pool_recycle=3600,
     echo=(settings.FLASK_ENV == "development")

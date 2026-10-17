@@ -11,6 +11,7 @@ Hệ thống đặt và giao đồ ăn nội bộ khuôn viên trường Đại 
 ├── .gitignore
 ├── docker-compose.yml
 ├── README.md
+├── AGENTS.md                              # Tệp ngữ cảnh & hướng dẫn dành cho AI Coding Agents
 │
 ├── database/
 │   ├── README.md                          # Hướng dẫn thiết lập, tài liệu ERD
@@ -171,3 +172,4 @@ Khi mới `git pull` dự án về, các bạn trong nhóm vui lòng đọc theo
 5. **[Hướng dẫn Test Postman & Xem Database qua TablePlus / MS SQL Server (docs/TESTING_AND_DATABASE_GUIDE.md)](docs/TESTING_AND_DATABASE_GUIDE.md)**: Cách cấu hình Postman tự động lưu JWT token và kết nối Database trên macOS / Windows.
 6. **[Tài liệu Kiến Trúc Hệ Thống (docs/ARCHITECTURE.md)](docs/ARCHITECTURE.md)** & **[Thiết kế Cơ sở Dữ liệu & ERD (database/README.md)](database/README.md)**.
 7. **[Quy tắc làm việc với Git/GitHub của nhóm (QUY TẮC LÀM VIỆC VỚI GIT-GITHUB CỦA NHÓM.md)](QUY%20T%E1%BA%AEC%20L%C3%80M%20VI%E1%BB%86C%20V%E1%BB%9AI%20GIT-GITHUB%20C%E1%BB%A6A%20NH%C3%93M.md)**.
+8. **[Hướng dẫn cho AI Agents & Lập trình viên (AGENTS.md)](AGENTS.md)**: Ngữ cảnh kỹ thuật, kiến trúc, quy tắc nghiệp vụ, invariants và chỉ dẫn cho AI Coding Agents.

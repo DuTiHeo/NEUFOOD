@@ -33,6 +33,7 @@ services:
       FLASK_APP: run.py
       FLASK_ENV: development
       FLASK_DEBUG: 1
+      PORT: 5000
       DATABASE_URL: postgresql://${DB_USER:-neufood_user}:${DB_PASSWORD:-neufood_password}@database:5432/${DB_NAME:-neufood_db}
       SECRET_KEY: ${SECRET_KEY:-neufood_jwt_secret_key_change_in_production}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
@@ -52,7 +53,7 @@ services:
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
     environment:
-      - VITE_API_BASE_URL=http://localhost:5000/api/v1
+      - VITE_API_BASE_URL=http://localhost:${BACKEND_PORT:-5000}/api/v1
     volumes:
       - ./frontend:/app
       - /app/node_modules

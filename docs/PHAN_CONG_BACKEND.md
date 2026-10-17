@@ -40,7 +40,7 @@ flowchart TD
 
 ## 3. Checklist Chi Tiết Từng Thành Viên
 
-### 👤 Thành Viên 1: Auth, Users, Blacklist COD & System Settings
+### Tiến Hào: Auth, Users, Blacklist COD & System Settings
 **Lệnh khởi tạo nhánh:**
 ```bash
 git checkout main && git pull origin main

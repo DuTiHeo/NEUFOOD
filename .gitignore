@@ -56,6 +56,10 @@ Thumbs.db
 *.swp
 *.swo
 
+# AI agent instructions and configuration
+/.agents/
+/AGENTS.md
+
 # Build Outputs
 dist/
 dist-ssr/

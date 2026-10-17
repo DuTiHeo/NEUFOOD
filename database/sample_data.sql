@@ -2,26 +2,26 @@
 -- NEUFood Database Seed Data - Dữ Liệu Mẫu Chuẩn Nghiệp Vụ
 -- Phù hợp 100% với tài liệu: docs/Quy_Trinh_Nghiep_Vu.md
 -- Mật khẩu mặc định cho tất cả tài khoản mẫu: password123
--- Bcrypt hash: $2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW
+-- Bcrypt hash: $2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y
 -- ==============================================================================
 
 -- 1. USERS (4 VAI TRÒ ĐĂNG NHẬP THEO CHƯƠNG 2)
 INSERT INTO users (id, email, password_hash, full_name, phone_number, student_id, role, avatar_url, is_active, is_blacklisted, blacklist_reason, blacklisted_at)
 VALUES
 -- Quản trị viên hệ thống (Admin)
-(1, 'admin@neufood.vn', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', 'Nguyễn Quản Trị (Admin)', '0988888888', 'ADMIN01', 'admin', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
+(1, 'admin@neufood.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Nguyễn Quản Trị (Admin)', '0988888888', 'ADMIN01', 'admin', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
 
 -- Quản lý Canteen A2 (Manager)
-(2, 'manager.a2@neufood.vn', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', 'Hoàng Văn Quản Lý (Canteen A2)', '0912345679', 'MGR01', 'manager', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
+(2, 'manager.a2@neufood.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Hoàng Văn Quản Lý (Canteen A2)', '0912345679', 'MGR01', 'manager', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
 
 -- Nhân viên Canteen A2 / Shipper nội bộ (Staff)
-(3, 'shipper01@neufood.vn', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', 'Trần Văn Nhân Viên (Bếp & Shipper)', '0987654321', 'STAFF01', 'staff', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
+(3, 'shipper01@neufood.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Trần Văn Nhân Viên (Bếp & Shipper)', '0987654321', 'STAFF01', 'staff', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
 
 -- Khách hàng sinh viên NEU (Customer 1 - Bình thường)
-(4, 'sinhvien@neu.edu.vn', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', 'Nguyễn Sinh Viên', '0977112233', '11215432', 'customer', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
+(4, 'sinhvien@neu.edu.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Nguyễn Sinh Viên', '0977112233', '11215432', 'customer', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
 
 -- Khách hàng sinh viên NEU (Customer 2 - Đã có đơn khiếu nại)
-(5, 'thanhhuong@neu.edu.vn', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', 'Lê Thị Thanh Hương', '0912345678', '11200001', 'customer', 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
+(5, 'thanhhuong@neu.edu.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Lê Thị Thanh Hương', '0912345678', '11200001', 'customer', 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
 
 -- Khách hàng vi phạm Blacklist COD (Customer 3 - BR-22, EX-10)
 (6, 'boomhang@neu.edu.vn', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', 'Vũ Boom Hàng', '0901234567', '11199999', 'customer', 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=200&q=80', TRUE, TRUE, 'Không nghe máy nhận hàng khi shipper giao tới và không ra quầy Canteen A2 lấy sau 30 phút lưu giữ (BR-22)', NOW() - INTERVAL '2 days')
