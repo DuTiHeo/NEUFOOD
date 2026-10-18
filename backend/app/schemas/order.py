@@ -1,6 +1,6 @@
 from typing import List, Optional
 from datetime import datetime
-from pydantic import AwareDatetime, BaseModel, Field
+from pydantic import AwareDatetime, BaseModel, Field, model_validator
 
 VALID_ORDER_STATUSES = (
     "^(CHO_XAC_NHAN|DANG_CHUAN_BI|DANG_GIAO|SAN_SANG_LAY|"
@@ -48,6 +48,23 @@ class OrderStatusUpdateRequest(BaseModel):
     status: str = Field(..., pattern=VALID_ORDER_STATUSES)
     cancelled_reason: Optional[str] = None
 
+    @model_validator(mode="after")
+    def require_rejection_reason(self):
+        if self.status == "TU_CHOI" and not (self.cancelled_reason or "").strip():
+            raise ValueError("Cần nhập lý do từ chối đơn")
+        return self
+
+
+class OrderProcessRequest(BaseModel):
+    action: str = Field(..., pattern="^(accept|reject)$")
+    reason: Optional[str] = None
+
+    @model_validator(mode="after")
+    def require_rejection_reason(self):
+        if self.action == "reject" and not (self.reason or "").strip():
+            raise ValueError("Cần nhập lý do từ chối đơn")
+        return self
+
 
 class OrderResponse(BaseModel):
     id: str
@@ -70,6 +87,7 @@ class OrderResponse(BaseModel):
     payment_method: str
     payment_status: str
     eta: Optional[str] = None
+    pickup_deadline: Optional[datetime] = None
     created_at: Optional[datetime] = None
     items: List[OrderItemResponse] = []
 

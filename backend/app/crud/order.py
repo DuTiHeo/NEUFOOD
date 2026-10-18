@@ -50,6 +50,7 @@ def create_order(
             "Tài khoản của bạn đã bị khóa tính năng đặt hàng do vi phạm chính sách nhận hàng/thanh toán COD. Vui lòng liên hệ Admin để giải quyết",
             "EX-10", 403,
         )
+    sync_overdue_orders(db, user_id=user_id)
     if db.query(Order.id).filter(Order.user_id == user_id, Order.status.in_(ACTIVE_ORDER_STATUSES)).first():
         raise OrderError(
             "Bạn đang có một đơn hàng chưa hoàn tất. Vui lòng hoàn thành đơn hiện tại trước khi đặt đơn mới",
@@ -186,6 +187,7 @@ def cancel_order(db: Session, order_id: str, user_id: int) -> Order:
     ).populate_existing().with_for_update().first()
     if not order:
         raise OrderError("Không tìm thấy đơn hàng", "NOT_FOUND", 404)
+    sync_overdue_orders(db, order_id=order.id)
     if order.status != "CHO_XAC_NHAN":
         message = ("Bếp đã bắt đầu nấu đơn hàng của bạn, không thể hủy đơn vào lúc này"
                    if order.status == "DANG_CHUAN_BI" else "Chỉ được hủy đơn khi đang chờ xác nhận")
@@ -195,11 +197,26 @@ def cancel_order(db: Session, order_id: str, user_id: int) -> Order:
     return order
 
 
+def sync_overdue_orders(db: Session, user_id: Optional[int] = None, order_id: Optional[str] = None):
+    """BR16: đồng bộ đơn chờ quá hạn khi truy cập, trong giao dịch của caller."""
+    timeout = max(1, get_setting_int(db, "order_timeout_minutes", 10))
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=timeout)
+    query = db.query(Order).filter(Order.status == "CHO_XAC_NHAN", Order.created_at < cutoff)
+    if user_id is not None:
+        query = query.filter(Order.user_id == user_id)
+    if order_id is not None:
+        query = query.filter(Order.id == order_id)
+    query.update({Order.status: "TU_DONG_HUY", Order.cancelled_reason: "Canteen không xác nhận đơn trong thời hạn"},
+                 synchronize_session="fetch")
+
+
 def get_order_by_id(db: Session, order_id: str) -> Optional[Order]:
+    sync_overdue_orders(db, order_id=order_id)
     return db.query(Order).filter(Order.id == order_id).first()
 
 
 def get_user_orders(db: Session, user_id: int) -> List[Order]:
+    sync_overdue_orders(db, user_id=user_id)
     return db.query(Order).filter(Order.user_id == user_id).order_by(Order.created_at.desc()).all()
 
 
@@ -209,6 +226,7 @@ def get_all_orders(
     page: int = 1,
     limit: int = 20,
 ) -> Tuple[List[Order], int]:
+    sync_overdue_orders(db)
     query = db.query(Order)
     if status and status != "all":
         query = query.filter(Order.status == status)
@@ -218,14 +236,33 @@ def get_all_orders(
 
 
 def update_order_status(
-    db: Session, order: Order, new_status: str, cancelled_reason: Optional[str] = None
+    db: Session, order: Order, new_status: str, cancelled_reason: Optional[str] = None,
+    staff_id: Optional[int] = None,
 ) -> Order:
     # Đọc lại sau khi lấy khóa để không ghi đè đơn vừa được khách hủy.
     db.refresh(order, with_for_update=True)
     if order.status == "DA_HUY_KHACH" or new_status == "DA_HUY_KHACH":
         raise OrderError("Đơn đã hủy không thể cập nhật; khách hủy qua endpoint /cancel", "EX-12")
+    actor = db.query(User).filter(User.id == staff_id).first()
+    if not actor or not actor.is_active or actor.role not in ("staff", "manager"):
+        raise OrderError("Tài khoản không có quyền vận hành đơn", "FORBIDDEN", 403)
+    sync_overdue_orders(db, order_id=order.id)
+    if order.status == "TU_DONG_HUY":
+        raise OrderError("Đơn đã quá thời hạn xác nhận và đã tự động hủy", "EX-16")
+    if order.status == "CHO_XAC_NHAN" and new_status in ("DANG_CHUAN_BI", "TU_CHOI"):
+        if new_status == "TU_CHOI":
+            if not (cancelled_reason or "").strip():
+                raise OrderError("Cần nhập lý do từ chối đơn", "INVALID_REASON")
+            order.cancelled_reason = cancelled_reason.strip()
+        order.staff_id = staff_id
+    elif order.status == "DANG_CHUAN_BI" and new_status == (
+        "DANG_GIAO" if order.order_type == "delivery" else "SAN_SANG_LAY"
+    ):
+        if new_status == "SAN_SANG_LAY":
+            hold_minutes = max(1, get_setting_int(db, "pickup_hold_minutes", 30))
+            order.pickup_deadline = datetime.now(timezone.utc) + timedelta(minutes=hold_minutes)
+    else:
+        raise OrderError("Không được chuyển trạng thái đơn theo bước này", "INVALID_TRANSITION")
     order.status = new_status
-    if cancelled_reason is not None:
-        order.cancelled_reason = cancelled_reason
     db.flush()
     return order

@@ -5,7 +5,7 @@ from app.crud.order import (
     create_order, cancel_order, get_order_by_id, get_user_orders, get_all_orders, update_order_status, OrderError
 )
 from app.core.security import jwt_required, role_required
-from app.schemas.order import OrderCreateRequest, OrderStatusUpdateRequest
+from app.schemas.order import OrderCreateRequest, OrderStatusUpdateRequest, OrderProcessRequest
 from app.utils.helpers import api_response
 
 order_bp = Blueprint("orders", __name__, url_prefix="/orders")
@@ -36,6 +36,7 @@ def _serialize_order(o: object) -> dict:
         "cancelled_reason": o.cancelled_reason,
         "delivered_at": o.delivered_at.isoformat() if o.delivered_at else None,
         "completed_at": o.completed_at.isoformat() if o.completed_at else None,
+        "pickup_deadline": o.pickup_deadline.isoformat() if o.pickup_deadline else None,
         "created_at": o.created_at.isoformat() if o.created_at else None,
         "items": [
             {
@@ -99,12 +100,12 @@ def cancel_my_order(order_id: str):
         user_id = int(g.current_user["sub"])
     except (KeyError, TypeError, ValueError):
         return api_response(message="Phiên đăng nhập không hợp lệ", status_code=401, success=False)
-    try:
-        with get_db() as db:
+    with get_db() as db:
+        try:
             order = cancel_order(db, order_id, user_id)
             return api_response(data=_serialize_order(order), message="Hủy đơn hàng thành công")
-    except OrderError as e:
-        return api_response(message=str(e), errors=[{"code": e.code}], status_code=e.status_code, success=False)
+        except OrderError as e:
+            return api_response(message=str(e), errors=[{"code": e.code}], status_code=e.status_code, success=False)
 
 
 @order_bp.route("", methods=["GET"])
@@ -141,22 +142,41 @@ def get_all_orders_admin():
 
 
 @order_bp.route("/<order_id>/status", methods=["PATCH"])
-@role_required("staff", "manager", "admin")
+@role_required("staff", "manager")
 def update_status(order_id: str):
     try:
-        data = OrderStatusUpdateRequest(**request.get_json(force=True))
+        data = OrderStatusUpdateRequest.model_validate(request.get_json(silent=True))
     except ValidationError as e:
-        return api_response(message="Trạng thái không hợp lệ", errors=e.errors(), status_code=422, success=False)
+        return api_response(message="Trạng thái không hợp lệ", errors=e.errors(include_context=False), status_code=422, success=False)
+    return _change_order_status(order_id, data.status, data.cancelled_reason)
 
+
+@order_bp.route("/<order_id>/process", methods=["PATCH"])
+@role_required("staff", "manager")
+def process_order(order_id: str):
     try:
-        with get_db() as db:
+        data = OrderProcessRequest.model_validate(request.get_json(silent=True))
+    except ValidationError as e:
+        return api_response(message="Dữ liệu duyệt đơn không hợp lệ", errors=e.errors(include_context=False), status_code=422, success=False)
+    status = "DANG_CHUAN_BI" if data.action == "accept" else "TU_CHOI"
+    return _change_order_status(order_id, status, data.reason)
+
+
+def _change_order_status(order_id: str, status: str, reason):
+    try:
+        staff_id = int(g.current_user["sub"])
+    except (KeyError, TypeError, ValueError):
+        return api_response(message="Phiên đăng nhập không hợp lệ", status_code=401, success=False)
+    with get_db() as db:
+        # Bắt lỗi nghiệp vụ trong context để lưu TU_DONG_HUY khi đơn đã quá hạn.
+        try:
             order = get_order_by_id(db, order_id)
             if not order:
                 return api_response(message="Không tìm thấy đơn hàng", status_code=404, success=False)
-            updated = update_order_status(db, order, data.status, data.cancelled_reason)
+            updated = update_order_status(db, order, status, reason, staff_id=staff_id)
             return api_response(
-                data={"id": updated.id, "status": updated.status},
+                data=_serialize_order(updated),
                 message="Cập nhật trạng thái thành công",
             )
-    except OrderError as e:
-        return api_response(message=str(e), errors=[{"code": e.code}], status_code=e.status_code, success=False)
+        except OrderError as e:
+            return api_response(message=str(e), errors=[{"code": e.code}], status_code=e.status_code, success=False)

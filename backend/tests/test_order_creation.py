@@ -1,4 +1,4 @@
-"""UC08–UC10 and UC12 integration tests. TEST_DATABASE_URL must name a disposable *_orders_test DB.
+"""Orders integration tests. TEST_DATABASE_URL must name a disposable *_orders_test DB.
 
 Initialize that database with database/init_db.sql, then run from backend:
 python -m unittest discover -s tests -p test_order_creation.py -v
@@ -443,6 +443,182 @@ class OrderCreationTests(unittest.TestCase):
         self.assertEqual(response.get_json()["errors"][0]["code"], "EX-12")
         with self.sessions() as db:
             self.assertEqual(db.get(Order, order_id).status, "CHO_XAC_NHAN")
+
+    def staff_patch(self, order_id, body, endpoint="status", user=3, role="staff"):
+        token = create_access_token({"sub": str(user), "role": role})
+        with self.app.test_client() as client:
+            return client.patch(f"/api/v1/orders/{order_id}/{endpoint}", json=body,
+                                headers={"Authorization": f"Bearer {token}"})
+
+    def test_staff_and_manager_accept_with_both_endpoints(self):
+        for customer, actor, role, endpoint, body in [
+            (1, 3, "staff", "status", {"status": "DANG_CHUAN_BI"}),
+            (2, 4, "manager", "process", {"action": "accept"}),
+        ]:
+            order_id = self.post(user=customer).get_json()["data"]["id"]
+            response = self.staff_patch(order_id, body, endpoint, actor, role)
+            self.assertEqual(response.status_code, 200, response.get_json())
+            self.assertEqual(response.get_json()["data"]["status"], "DANG_CHUAN_BI")
+            with self.sessions() as db:
+                order = db.get(Order, order_id)
+                self.assertEqual(order.staff_id, actor)
+                self.assertEqual(order.payment_status, "chua_thanh_toan")
+
+    def test_rejection_records_reason_via_both_endpoints(self):
+        for endpoint, body in [("status", {"status": "TU_CHOI", "cancelled_reason": " Hết nguyên liệu "}),
+                               ("process", {"action": "reject", "reason": " Hết nguyên liệu "})]:
+            order_id = self.post().get_json()["data"]["id"]
+            response = self.staff_patch(order_id, body, endpoint)
+            self.assertEqual(response.status_code, 200, response.get_json())
+            data = response.get_json()["data"]
+            self.assertEqual((data["status"], data["cancelled_reason"], data["staff_id"]),
+                             ("TU_CHOI", "Hết nguyên liệu", 3))
+
+    def test_rejection_reason_and_malformed_bodies_are_validated(self):
+        order_id = self.post().get_json()["data"]["id"]
+        for endpoint, body in [("status", {"status": "TU_CHOI"}),
+                               ("process", {"action": "reject", "reason": "  "}),
+                               ("process", {"action": "unknown"}), ("process", []), ("status", [])]:
+            response = self.staff_patch(order_id, body, endpoint)
+            self.assertEqual(response.status_code, 422, response.get_json())
+        with self.sessions() as db:
+            self.assertEqual(db.get(Order, order_id).status, "CHO_XAC_NHAN")
+
+    def test_delivery_cooking_progress_cannot_skip_or_use_pickup_branch(self):
+        order_id = self.post().get_json()["data"]["id"]
+        self.assertEqual(self.staff_patch(order_id, {"status": "DANG_GIAO"}).status_code, 400)
+        self.assertEqual(self.staff_patch(order_id, {"status": "DANG_CHUAN_BI"}).status_code, 200)
+        self.assertEqual(self.staff_patch(order_id, {"status": "SAN_SANG_LAY"}).status_code, 400)
+        response = self.staff_patch(order_id, {"status": "DANG_GIAO"})
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.get_json()["data"]["pickup_deadline"])
+        for target in ("DANG_CHUAN_BI", "DANG_GIAO", "DA_GIAO", "HOAN_THANH", "BO_DON_BLACKLIST", "KHIEU_NAI"):
+            self.assertEqual(self.staff_patch(order_id, {"status": target}).status_code, 400)
+        with self.sessions() as db:
+            order = db.get(Order, order_id)
+            self.assertEqual((order.status, order.payment_status, order.staff_id), ("DANG_GIAO", "chua_thanh_toan", 3))
+
+    def test_pickup_ready_sets_deadline_once(self):
+        payload = self.payload()
+        payload["order_type"] = "pickup"
+        order_id = self.post(payload).get_json()["data"]["id"]
+        self.assertEqual(self.staff_patch(order_id, {"action": "accept"}, "process").status_code, 200)
+        self.assertEqual(self.staff_patch(order_id, {"status": "DANG_GIAO"}).status_code, 400)
+        with patch("app.crud.order.datetime") as clock:
+            clock.now.return_value = self.now
+            response = self.staff_patch(order_id, {"status": "SAN_SANG_LAY"})
+        self.assertEqual(response.status_code, 200, response.get_json())
+        with self.sessions() as db:
+            self.assertEqual(db.get(Order, order_id).pickup_deadline, self.now + timedelta(minutes=30))
+        self.assertEqual(self.staff_patch(order_id, {"status": "SAN_SANG_LAY"}).status_code, 400)
+        with self.sessions() as db:
+            self.assertEqual(db.get(Order, order_id).pickup_deadline, self.now + timedelta(minutes=30))
+
+    def test_expired_accept_or_reject_returns_ex16_and_commits_auto_cancel(self):
+        for endpoint, body in [("status", {"status": "DANG_CHUAN_BI"}),
+                               ("process", {"action": "reject", "reason": "Hết món"})]:
+            order_id = self.post().get_json()["data"]["id"]
+            with self.sessions.begin() as db:
+                order = db.get(Order, order_id)
+                order.created_at = self.now - timedelta(minutes=10, microseconds=1)
+                order.is_preorder, order.scheduled_at = True, self.now + timedelta(hours=1)
+            with patch("app.crud.order.datetime") as clock:
+                clock.now.return_value = self.now
+                response = self.staff_patch(order_id, body, endpoint)
+            self.assertEqual(response.status_code, 400, response.get_json())
+            self.assertEqual(response.get_json()["errors"][0]["code"], "EX-16")
+            with self.sessions() as db:
+                order = db.get(Order, order_id)
+                self.assertEqual(order.status, "TU_DONG_HUY")
+                self.assertIsNone(order.staff_id)
+                self.assertEqual(order.payment_status, "chua_thanh_toan")
+
+    def test_exact_ten_minutes_can_still_be_accepted(self):
+        order_id = self.post().get_json()["data"]["id"]
+        with self.sessions.begin() as db:
+            db.get(Order, order_id).created_at = self.now - timedelta(minutes=10)
+        with patch("app.crud.order.datetime") as clock:
+            clock.now.return_value = self.now
+            response = self.staff_patch(order_id, {"action": "accept"}, "process")
+        self.assertEqual(response.status_code, 200, response.get_json())
+
+    def test_expiry_on_read_and_before_creating_another_order(self):
+        order_id = self.post().get_json()["data"]["id"]
+        with self.sessions.begin() as db:
+            db.get(Order, order_id).created_at = datetime.now(timezone.utc) - timedelta(minutes=11)
+        response = self.post()
+        self.assertEqual(response.status_code, 201, response.get_json())
+        with self.sessions() as db:
+            self.assertEqual(db.get(Order, order_id).status, "TU_DONG_HUY")
+        new_id = response.get_json()["data"]["id"]
+        with self.sessions.begin() as db:
+            db.get(Order, new_id).created_at = datetime.now(timezone.utc) - timedelta(minutes=11)
+        token = create_access_token({"sub": "1", "role": "customer"})
+        with self.app.test_client() as client:
+            response = client.get(f"/api/v1/orders/{new_id}", headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.get_json()["data"]["status"], "TU_DONG_HUY")
+        with self.sessions() as db:
+            self.assertEqual(db.get(Order, new_id).status, "TU_DONG_HUY")
+
+    def test_staff_permissions_and_database_account_are_checked(self):
+        order_id = self.post().get_json()["data"]["id"]
+        for endpoint in ("status", "process"):
+            body = {"status": "DANG_CHUAN_BI"} if endpoint == "status" else {"action": "accept"}
+            for user, role in [(1, "customer"), (5, "admin")]:
+                self.assertEqual(self.staff_patch(order_id, body, endpoint, user, role).status_code, 403)
+            with self.app.test_client() as client:
+                self.assertEqual(client.patch(f"/api/v1/orders/{order_id}/{endpoint}", json=body).status_code, 401)
+        with self.sessions.begin() as db:
+            db.get(User, 3).is_active = False
+        self.assertEqual(self.staff_patch(order_id, {"status": "DANG_CHUAN_BI"}).status_code, 403)
+        with self.sessions.begin() as db:
+            actor = db.get(User, 3)
+            actor.is_active, actor.role = True, "customer"
+        self.assertEqual(self.staff_patch(order_id, {"action": "accept"}, "process").status_code, 403)
+        with self.sessions() as db:
+            self.assertEqual(db.get(Order, order_id).status, "CHO_XAC_NHAN")
+
+    def test_cooking_timer_settings(self):
+        payload = self.payload()
+        payload["order_type"] = "pickup"
+        order_id = self.post(payload).get_json()["data"]["id"]
+        with self.sessions.begin() as db:
+            db.add_all([SystemSetting(setting_key="order_timeout_minutes", setting_value="5"),
+                        SystemSetting(setting_key="pickup_hold_minutes", setting_value="45")])
+            db.get(Order, order_id).created_at = self.now - timedelta(minutes=5)
+        with patch("app.crud.order.datetime") as clock:
+            clock.now.return_value = self.now
+            self.assertEqual(self.staff_patch(order_id, {"action": "accept"}, "process").status_code, 200)
+            response = self.staff_patch(order_id, {"status": "SAN_SANG_LAY"})
+        self.assertEqual(response.status_code, 200)
+        with self.sessions() as db:
+            self.assertEqual(db.get(Order, order_id).pickup_deadline, self.now + timedelta(minutes=45))
+
+    def test_two_accepts_cannot_both_succeed(self):
+        order_id = self.post().get_json()["data"]["id"]
+        barrier = Barrier(2)
+
+        def concurrent_update(*args, **kwargs):
+            barrier.wait(timeout=5)
+            return update_order_status(*args, **kwargs)
+
+        with patch("app.routes.order.update_order_status", side_effect=concurrent_update):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                futures = [pool.submit(self.staff_patch, order_id, {"action": "accept"}, "process") for _ in range(2)]
+                self.assertEqual(sorted(f.result(timeout=15).status_code for f in futures), [200, 400])
+
+    def test_staff_change_missing_order(self):
+        self.assertEqual(self.staff_patch("missing", {"action": "accept"}, "process").status_code, 404)
+
+    def test_expired_customer_cancel_persists_auto_cancel(self):
+        order_id = self.post().get_json()["data"]["id"]
+        with self.sessions.begin() as db:
+            db.get(Order, order_id).created_at = datetime.now(timezone.utc) - timedelta(minutes=11)
+        response = self.cancel(order_id)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["errors"][0]["code"], "EX-12")
+        with self.sessions() as db:
+            self.assertEqual(db.get(Order, order_id).status, "TU_DONG_HUY")
 
 
 if __name__ == "__main__":

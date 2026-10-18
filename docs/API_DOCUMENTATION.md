@@ -1167,11 +1167,13 @@ Kiểm thử tích hợp: `backend/tests/test_order_creation.py`. Dùng PostgreS
 > - Các đơn có `status == 'CHO_XAC_NHAN'` và `now() - created_at > 10 minutes` $\rightarrow$ Tự động chuyển sang `TU_DONG_HUY` (`BR-16`, `EX-16`).
 > - Các đơn có `status IN ('DA_GIAO', 'DA_BAN_GIAO')` và `auto_complete_at <= now()` $\rightarrow$ Tự động chuyển sang `HOAN_THANH` (`EX-13`).
 
+UC17–UC18 hiện thực đồng bộ đơn chờ quá hạn (dòng đầu); tự hoàn tất sau giao (dòng thứ hai) thuộc UC13, chưa triển khai. Đồng bộ diễn ra lúc đọc danh sách/chi tiết, tạo đơn, hủy, duyệt hoặc cập nhật tiến độ; chưa có tác vụ nền chạy khi không có truy cập.
+
 | Endpoint | Method | Role được phép | Chuyển trạng thái | Quy tắc / Ngoại lệ kiểm tra |
 | :--- | :---: | :---: | :--- | :--- |
 | `/api/v1/orders/<id>/cancel` | `POST` | `customer` | `CHO_XAC_NHAN` $\rightarrow$ `DA_HUY_KHACH` | `UC12`, `BR-17`, `EX-12`: Chỉ hủy được khi `status == 'CHO_XAC_NHAN'`. Nếu bếp đã chuyển sang `DANG_CHUAN_BI` thì báo lỗi `400`. |
 | `/api/v1/orders/<id>/process` | `PATCH` | `staff`, `manager` | `CHO_XAC_NHAN` $\rightarrow$ `DANG_CHUAN_BI` hoặc `TU_CHOI` | `UC17`, `BR-16`, `EX-16`: Body `{"action": "accept"}` (gán `staff_id`) hoặc `{"action": "reject", "reason": "Hết nguyên liệu"}`. Nếu đơn quá 10 phút chưa duyệt thì chuyển sang `TU_DONG_HUY`. |
-| `/api/v1/orders/<id>/status` | `PATCH` | `staff`, `manager`, `admin` | `DANG_CHUAN_BI` $\rightarrow$ `DANG_GIAO` / `SAN_SANG_LAY` | `UC18`, `BR-21`: Body `{"status": "DANG_GIAO"}` hoặc `{"status": "SAN_SANG_LAY"}`. Khi chuyển sang `SAN_SANG_LAY`, gán `pickup_deadline = now() + 30 minutes`. |
+| `/api/v1/orders/<id>/status` | `PATCH` | `staff`, `manager` | `CHO_XAC_NHAN` $\rightarrow$ `DANG_CHUAN_BI` / `TU_CHOI`; `DANG_CHUAN_BI` $\rightarrow$ `DANG_GIAO` / `SAN_SANG_LAY` | `UC17`, `UC18`, `BR-16`, `BR-21`: Body có `status`; từ chối cần `cancelled_reason`. Chỉ đơn delivery được chuyển sang `DANG_GIAO`, pickup sang `SAN_SANG_LAY` và gán `pickup_deadline = now() + 30 minutes` mặc định. |
 | `/api/v1/orders/<id>/handover` | `POST` | `staff`, `manager` | `DANG_GIAO` $\rightarrow$ `DA_GIAO`<br/>`SAN_SANG_LAY` $\rightarrow$ `DA_BAN_GIAO`<br/>`GIAO_THAT_BAI` $\rightarrow$ `DA_BAN_GIAO` | `UC19`, `BR-15`, `BR-18`, `EX-17`: Body `{"order_code_suffix": "9921"}`. Bắt buộc khớp 4 số cuối của đơn mới cho bàn giao, đổi `payment_status = "da_thanh_toan"`, `delivered_at = now()`, `auto_complete_at = now() + 30 minutes`. |
 | `/api/v1/orders/<id>/delivery-issue` | `POST` | `staff`, `manager` | `DANG_GIAO` $\rightarrow$ `GIAO_THAT_BAI` hoặc `BO_DON_BLACKLIST` | `BR-20`, `BR-22`, `EX-18`, `EX-19`: Body `{"issue_type": "no_answer" \| "refuse_payment" \| "pickup_timeout", "reason": "..."}`. Nếu `no_answer`: chuyển sang `GIAO_THAT_BAI` giữ tại quầy 30p. Nếu `refuse_payment` hoặc `pickup_timeout`: chuyển đơn sang `BO_DON_BLACKLIST` **và tự động khóa `user.is_blacklisted = true`**. |
 | `/api/v1/orders/<id>/confirm-receipt` | `POST` | `customer` | `DA_GIAO` / `DA_BAN_GIAO` $\rightarrow$ `HOAN_THANH` | `UC13`, `EX-13`: Khách bấm xác nhận đã nhận hàng, gán `completed_at = now()`. |
@@ -1185,7 +1187,26 @@ Kiểm thử tích hợp: `backend/tests/test_order_creation.py`. Dùng PostgreS
 - **Thành công (`200`):** đổi trạng thái thành `DA_HUY_KHACH`, trả envelope chuẩn với `data` là chi tiết đơn và `message: "Hủy đơn hàng thành công"`. Giữ nguyên món, giá và trạng thái thanh toán. Khách có thể tạo đơn mới sau khi hủy.
 - **Lỗi:** chưa đăng nhập `401`; không có quyền/tài khoản bị vô hiệu hóa `403`; đơn không tồn tại hoặc thuộc người khác `404` (không trả dữ liệu đơn); trạng thái khác `CHO_XAC_NHAN` trả `400` với `errors: [{"code": "EX-12"}]`. Riêng `DANG_CHUAN_BI` trả thông báo "Bếp đã bắt đầu nấu đơn hàng của bạn, không thể hủy đơn vào lúc này". Hủy lại đơn đã hủy cũng trả `400 EX-12`.
 - **Đồng thời:** khóa dòng đơn trong giao dịch và đọc lại trạng thái sau khi lấy khóa. Cập nhật qua `/status` không được ghi đè đơn đã hủy hoặc dùng trạng thái `DA_HUY_KHACH` để hủy thay khách. Nếu hủy và tiếp nhận đồng thời, chỉ một thao tác thành công.
-- **Phạm vi:** UC12 chỉ xử lý hủy theo trạng thái; tự hủy sau 10 phút (`BR-16`) thuộc phần vòng đời tự động, chưa được triển khai trong UC12. Test UC12 nằm cùng bộ `backend/tests/test_order_creation.py` với UC08–UC10; dùng database thử PostgreSQL riêng theo hướng dẫn ở mục 4.1.
+- **Quá hạn:** UC17–UC18 bổ sung đồng bộ tự hủy theo BR-16. Nếu đơn chờ đã quá hạn lúc khách bấm hủy, lưu `TU_DONG_HUY` và trả `400 EX-12`; không ghi thành `DA_HUY_KHACH`. Test UC12 nằm cùng bộ `backend/tests/test_order_creation.py` với UC08–UC10; dùng database thử PostgreSQL riêng theo hướng dẫn ở mục 4.1.
+
+### 4.5. Duyệt Đơn Và Nấu Xong (`UC17`, `UC18`, `BR-16`, `BR-21`)
+
+Hai endpoint dùng chung logic CRUD và khóa dòng đơn; cả JWT và tài khoản DB phải là Staff/Manager còn hoạt động. Admin có quyền xem giám sát, không vận hành đơn theo ma trận nghiệp vụ (sửa quyền `/status` trong baseline cũ).
+
+| Thao tác | Request | Trạng thái nguồn → đích |
+| --- | --- | --- |
+| Tiếp nhận | `PATCH /orders/<id>/process` với `{"action":"accept"}` hoặc `/status` với `{"status":"DANG_CHUAN_BI"}` | `CHO_XAC_NHAN` → `DANG_CHUAN_BI`; gán `staff_id` người xử lý |
+| Từ chối | `/process` với `{"action":"reject","reason":"Hết nguyên liệu"}` hoặc `/status` với `{"status":"TU_CHOI","cancelled_reason":"Hết nguyên liệu"}` | `CHO_XAC_NHAN` → `TU_CHOI`; bắt buộc lý do không trắng, lưu lý do và `staff_id` |
+| Nấu xong, giao tận nơi | `/status` với `{"status":"DANG_GIAO"}` | `DANG_CHUAN_BI` → `DANG_GIAO`, chỉ `delivery` |
+| Nấu xong, nhận tại quầy | `/status` với `{"status":"SAN_SANG_LAY"}` | `DANG_CHUAN_BI` → `SAN_SANG_LAY`, chỉ `pickup`; gán hạn nhận |
+
+Các URL trong bảng có tiền tố `/api/v1`, các thao tác đều dùng `PATCH`. Thành công `200` trả envelope chuẩn, `data` là chi tiết đơn gồm `staff_id`, `cancelled_reason` và `pickup_deadline` (ISO 8601 có múi giờ hoặc `null`). Không thay đổi giá/món, không đánh dấu đã thanh toán trong UC17–UC18.
+
+- Mặc định đúng 10 phút vẫn được duyệt; **quá** 10 phút tính từ `created_at` chuyển `TU_DONG_HUY` và trả `400` với `errors: [{"code":"EX-16"}]`. Trạng thái tự hủy vẫn được commit dù request duyệt bị từ chối. Đơn hẹn giờ cũng áp dụng mốc từ lúc tạo, không chờ tới `scheduled_at`.
+- Đọc `order_timeout_minutes` (mặc định 10) và `pickup_hold_minutes` (mặc định 30) từ cấu hình hiện có. Hạn nhận tại quầy tính từ lần đầu chuyển sang `SAN_SANG_LAY`; gọi lặp bị chặn, không gia hạn deadline. Dữ liệu thời gian dùng UTC có múi giờ.
+- Sai bước hoặc sai loại đơn trả `400 INVALID_TRANSITION`; đơn khách đã hủy trả `400 EX-12`; schema/body sai hoặc thiếu lý do từ chối trả `422`; thiếu JWT `401`, sai quyền/tài khoản bị khóa `403`, đơn không tồn tại `404`. `/status` không cho nhảy sang trạng thái giao thành công, thanh toán, hoàn tất, khiếu nại hoặc blacklist; các bước này cần endpoint nghiệp vụ riêng.
+- Chỉ một yêu cầu thắng khi hai người cùng duyệt, hoặc khi khách hủy và Canteen duyệt đồng thời. Staff/Manager khác có thể cập nhật tiến độ trong cùng Canteen A2; giữ `staff_id` đã ghi lúc duyệt.
+- Phạm vi tự động hiện tại là đồng bộ trạng thái khi truy cập. Chưa có lịch chạy nền, thông báo chủ động hay log phạt hiệu suất theo toàn bộ kịch bản EX-16; chưa xử lý bàn giao/thu COD hoặc tự hoàn tất sau giao.
 
 ---
 
