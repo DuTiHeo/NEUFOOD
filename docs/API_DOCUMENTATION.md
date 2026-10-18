@@ -735,10 +735,285 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 }
 ```
 
-### 2.10. Cấu Hình Tham Số Vận Hành Hệ Thống (`/api/v1/settings`)
-- `GET /api/v1/settings` (Public/Authenticated): Lấy toàn bộ tham số (`order_timeout_minutes`, `pickup_hold_minutes`, `system_maintenance_fee`, `delivery_fee`, `max_cod_amount`...).
-- `PUT /api/v1/settings/<setting_key>` (Role: `admin`):
-  - **Request Body**: `{"setting_value": "5000", "description": "..."}`
+### 2.10. Cấu Hình Tham Số Vận Hành Hệ Thống (`/api/v1/settings` - `UC23`, `BR-07`, `BR-08`, `BR-11`–`BR-15`, `BR-17`, `BR-20`, `BR-23`)
+
+Phân hệ cấu hình tham số vận hành hệ thống lưu trữ tập trung các ngưỡng thời gian, mức phí, hạn mức và quy tắc hoạt động của toàn bộ nền tảng NEUFood trong bảng `system_settings` (`UC23`). Các tham số này chi phối trực tiếp logic tính toán của các phân hệ khác (Menu, Đơn hàng, Khiếu nại, Ca trực).
+
+#### Bảng Tra Cứu 11 Tham Số Hệ Thống Mặc Định
+| Khóa cấu hình (`setting_key`) | Giá trị mặc định (`setting_value`) | Kiểu dữ liệu / Đơn vị | Quy tắc nghiệp vụ liên kết | Mô tả chi tiết chức năng |
+| :--- | :--- | :--- | :--- | :--- |
+| `order_timeout_minutes` | `"10"` | Số nguyên dương (`phút`) | `BR-15`, `EX-12` | Thời gian tối đa để Canteen tiếp nhận hoặc từ chối đơn hàng trước khi hệ thống tự động hủy đơn (`TU_DONG_HUY`). |
+| `pickup_hold_minutes` | `"30"` | Số nguyên dương (`phút`) | `BR-20`, `EX-18` | Thời gian lưu giữ món tại quầy Canteen A2 cho đơn Pick-up trước khi chuyển trạng thái hủy/thất bại (`GIAO_THAT_BAI`). |
+| `auto_complete_minutes` | `"30"` | Số nguyên dương (`phút`) | `BR-17` | Thời gian tự động chuyển đơn từ `DA_GIAO` / `DA_BAN_GIAO` sang `HOAN_THANH` nếu khách hàng không gửi khiếu nại. |
+| `complaint_window_hours` | `"24"` | Số nguyên dương (`giờ`) | `BR-23`, `EX-14` | Thời gian tối đa cho phép khách hàng tạo ticket khiếu nại sau khi đơn hàng được giao thành công. |
+| `system_maintenance_fee` | `"5000"` | Số nguyên không âm (`VNĐ`) | `BR-12` | Phụ phí bảo trì hệ thống trực tuyến cộng dồn vào giá gốc Canteen A2 (`base_price`) để hình thành giá niêm yết (`price`). |
+| `delivery_fee` | `"5000"` | Số nguyên không âm (`VNĐ`) | `BR-13` | Phí vận chuyển cố định áp dụng cho tất cả đơn hàng giao tận nơi (`delivery`) đến các phòng/tòa nhà nội khu NEU. |
+| `max_cod_amount` | `"500000"` | Số nguyên không âm (`VNĐ`) | `BR-14`, `EX-08` | Hạn mức giá trị tối đa cho phép thanh toán khi nhận hàng (COD). Đơn vượt quá hạn mức này sẽ bị chặn đặt. |
+| `max_dish_quantity_per_order` | `"10"` | Số nguyên dương (`phần`) | `BR-07`, `EX-06` | Số lượng tối đa của một món ăn cụ thể mà khách hàng được phép thêm vào một đơn hàng. |
+| `min_preorder_lead_minutes` | `"30"` | Số nguyên dương (`phút`) | `BR-11`, `EX-11` | Khoảng thời gian đặt trước tối thiểu đối với các đơn hẹn giờ nhận món trong ngày (`is_preorder = true`). |
+| `canteen_open_time` | `"06:30"` | Chuỗi giờ (`HH:MM`) | `BR-08`, `EX-10` | Giờ mở cửa phục vụ hàng ngày của Canteen A2 (`00:00` - `23:59`). Bắt buộc phải trước giờ đóng cửa `canteen_close_time`. |
+| `canteen_close_time` | `"19:30"` | Chuỗi giờ (`HH:MM`) | `BR-08`, `EX-10` | Giờ đóng cửa ngừng nhận đơn của Canteen A2 (`00:00` - `23:59`). Bắt buộc phải sau giờ mở cửa `canteen_open_time`. |
+
+---
+
+#### 2.10.1. Lấy Danh Sách Toàn Bộ Tham Số Hệ Thống (`UC23`)
+- **Endpoint**: `GET /api/v1/settings`
+- **Quyền hạn**: Public / Authenticated (Khách vãng lai, Sinh viên, Nhân viên, Quản lý và Quản trị viên đều có thể gọi để lấy thông số hiển thị giao diện và tính toán phía client).
+- **Headers**: Không bắt buộc (Nếu có: `Authorization: Bearer <access_token>`).
+- **Query Parameters**: Không có.
+- **Quy tắc nghiệp vụ**:
+  - Truy vấn toàn bộ danh sách bản ghi từ bảng `system_settings`, tự động sắp xếp theo thứ tự bảng chữ cái của `setting_key` (`SystemSetting.setting_key.asc()`).
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Lấy danh sách tham số cấu hình thành công",
+  "data": [
+    {
+      "setting_key": "auto_complete_minutes",
+      "setting_value": "30",
+      "description": "Thời gian tự động hoàn thành đơn hàng kể từ lúc giao nếu không khiếu nại (phút)",
+      "updated_at": "2026-10-18T00:00:00+00:00"
+    },
+    {
+      "setting_key": "canteen_close_time",
+      "setting_value": "19:30",
+      "description": "Giờ đóng cửa ngừng nhận đơn của Canteen A2",
+      "updated_at": "2026-10-18T00:00:00+00:00"
+    },
+    {
+      "setting_key": "canteen_open_time",
+      "setting_value": "06:30",
+      "description": "Giờ mở cửa phục vụ hàng ngày của Canteen A2",
+      "updated_at": "2026-10-18T00:00:00+00:00"
+    },
+    {
+      "setting_key": "complaint_window_hours",
+      "setting_value": "24",
+      "description": "Thời gian tối đa cho phép khách hàng gửi ticket khiếu nại sau khi nhận hàng (giờ)",
+      "updated_at": "2026-10-18T00:00:00+00:00"
+    },
+    {
+      "setting_key": "delivery_fee",
+      "setting_value": "5000",
+      "description": "Phí vận chuyển cố định cho đơn giao tận nơi nội khu NEU (VNĐ)",
+      "updated_at": "2026-10-18T00:00:00+00:00"
+    },
+    {
+      "setting_key": "max_cod_amount",
+      "setting_value": "500000",
+      "description": "Hạn mức giá trị tối đa cho một đơn hàng thanh toán COD (VNĐ)",
+      "updated_at": "2026-10-18T00:00:00+00:00"
+    },
+    {
+      "setting_key": "max_dish_quantity_per_order",
+      "setting_value": "10",
+      "description": "Số lượng tối đa của một món ăn trong một đơn hàng (phần)",
+      "updated_at": "2026-10-18T00:00:00+00:00"
+    },
+    {
+      "setting_key": "min_preorder_lead_minutes",
+      "setting_value": "30",
+      "description": "Thời gian đặt trước tối thiểu cho đơn hẹn giờ (phút)",
+      "updated_at": "2026-10-18T00:00:00+00:00"
+    },
+    {
+      "setting_key": "order_timeout_minutes",
+      "setting_value": "10",
+      "description": "Thời gian tối đa để Canteen tiếp nhận hoặc từ chối đơn hàng (phút)",
+      "updated_at": "2026-10-18T00:00:00+00:00"
+    },
+    {
+      "setting_key": "pickup_hold_minutes",
+      "setting_value": "30",
+      "description": "Thời gian lưu giữ món tại quầy Canteen A2 trước khi hủy đơn bỏ rơi (phút)",
+      "updated_at": "2026-10-18T00:00:00+00:00"
+    },
+    {
+      "setting_key": "system_maintenance_fee",
+      "setting_value": "5000",
+      "description": "Phụ phí bảo trì hệ thống trực tuyến cộng vào giá niêm yết mỗi món (VNĐ)",
+      "updated_at": "2026-10-18T00:00:00+00:00"
+    }
+  ]
+}
+```
+
+---
+
+#### 2.10.2. Lấy Chi Tiết Một Tham Số Cấu Hình Theo Khóa (`UC23`)
+- **Endpoint**: `GET /api/v1/settings/<setting_key>`
+- **Quyền hạn**: Public / Authenticated (Không yêu cầu đăng nhập).
+- **Headers**: Không bắt buộc (Nếu có: `Authorization: Bearer <access_token>`).
+- **Path Parameters**:
+  - `setting_key`: Khóa định danh của tham số cấu hình (ví dụ: `delivery_fee`, `order_timeout_minutes`, `canteen_open_time`).
+- **Quy tắc nghiệp vụ & Kịch bản ngoại lệ**:
+  - Kiểm tra sự tồn tại của bản ghi theo `setting_key` trong bảng `system_settings`.
+  - Nếu không tìm thấy khóa $\rightarrow$ Trả về `404 Not Found` (`"Không tìm thấy cấu hình với khóa '<setting_key>'"`).
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Lấy thông tin cấu hình thành công",
+  "data": {
+    "setting_key": "delivery_fee",
+    "setting_value": "5000",
+    "description": "Phí vận chuyển cố định cho đơn giao tận nơi nội khu NEU (VNĐ)",
+    "updated_at": "2026-10-18T00:00:00+00:00"
+  }
+}
+```
+- **Response lỗi (`404 Not Found` - Không tìm thấy khóa cấu hình)**:
+```json
+{
+  "success": false,
+  "message": "Không tìm thấy cấu hình với khóa 'unknown_key'",
+  "data": null
+}
+```
+
+---
+
+#### 2.10.3. Cập Nhật Một Tham Số Cấu Hình Hệ Thống (`UC23`, `BR-07`, `BR-08`, `BR-12`, `BR-14`, `BR-15`, `BR-17`, `BR-20`, `BR-23`)
+- **Endpoint**: `PUT /api/v1/settings/<setting_key>`
+- **Quyền hạn**: Độc quyền Quản trị viên (`@role_required("admin")`)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: application/json`
+- **Path Parameters**:
+  - `setting_key`: Khóa định danh của tham số cần cập nhật.
+- **Request Body**:
+```json
+{
+  "setting_value": "15",
+  "description": "Thời gian tối đa để Canteen tiếp nhận hoặc từ chối đơn hàng (phút)"
+}
+```
+- **Ràng buộc dữ liệu (`schemas/setting.py` - `SystemSettingUpdateRequest`)**:
+  - `setting_value`: Bắt buộc (`str`, độ dài từ 1 đến 255 ký tự sau khi `.strip()`), không được để trống hoặc chỉ chứa khoảng trắng.
+  - `description`: Không bắt buộc (`Optional[str]`, tối đa 500 ký tự sau khi `.strip()`).
+- **Quy tắc nghiệp vụ & Điều kiện biên kiểm tra (`UC23`)**:
+  - **Xác thực & Phân quyền**: Yêu cầu Bearer Token hợp lệ của tài khoản có vai trò `admin`.
+    - Thiếu hoặc sai token $\rightarrow$ `401 Unauthorized` (`"Token không hợp lệ hoặc đã hết hạn"`).
+    - Vai trò không phải `admin` $\rightarrow$ `403 Forbidden` (`"Truy cập bị từ chối. Yêu cầu một trong các quyền: admin"`).
+    - Tài khoản Admin đang bị khóa (`is_active == false`) $\rightarrow$ `403 Forbidden` (`"Tài khoản này đã bị khóa"`).
+  - **Định dạng dữ liệu đầu vào**: Nếu body rỗng hoặc không phải JSON object hợp lệ $\rightarrow$ `400 Bad Request` (`"Dữ liệu đầu vào phải là JSON object hợp lệ"`).
+  - **Quy tắc giá trị theo từng nhóm tham số**:
+    - **Nhóm thời gian số nguyên dương (`> 0`)** (`order_timeout_minutes`, `pickup_hold_minutes`, `auto_complete_minutes`, `complaint_window_hours`, `max_dish_quantity_per_order`, `min_preorder_lead_minutes`): Giá trị bắt buộc là số nguyên $> 0$. Nếu là số âm, bằng 0 hoặc không thể parse thành số $\rightarrow$ Trả về `422 Unprocessable Entity` (ví dụ: `"Thời gian order_timeout_minutes phải là số nguyên dương lớn hơn 0"`).
+    - **Nhóm tiền tệ không âm (`>= 0`)** (`system_maintenance_fee`, `delivery_fee`, `max_cod_amount`): Giá trị bắt buộc là số nguyên $\ge 0$. Nếu là số âm hoặc không parse được số $\rightarrow$ Trả về `422 Unprocessable Entity` (ví dụ: `"Phí vận chuyển phải là số nguyên không âm (>= 0)"`, `"Hạn mức COD phải là số nguyên không âm (>= 0)"`).
+    - **Nhóm giờ mở/đóng cửa Canteen (`HH:MM`)** (`canteen_open_time`, `canteen_close_time`): Định dạng bắt buộc khớp regex `^([01]\d|2[0-3]):[0-5]\d$` (từ `00:00` đến `23:59`). Nếu sai định dạng $\rightarrow$ Trả về `422 Unprocessable Entity` (`"Định dạng giờ mở/đóng cửa không hợp lệ, phải là HH:MM (00:00 - 23:59)"`).
+    - **Logic tương quan giờ mở/đóng cửa Canteen (`BR-08`)**:
+      - Khi cập nhật `canteen_open_time`, hệ thống tự động đối chiếu với `canteen_close_time` hiện tại trong cơ sở dữ liệu. Nếu `open_time >= close_time` $\rightarrow$ Chặn thao tác và trả về `422 Unprocessable Entity` (`"Giờ mở cửa Canteen phải trước giờ đóng cửa"`).
+      - Khi cập nhật `canteen_close_time`, hệ thống tự động đối chiếu với `canteen_open_time` hiện tại trong cơ sở dữ liệu. Nếu `close_time <= open_time` $\rightarrow$ Chặn thao tác và trả về `422 Unprocessable Entity` (`"Giờ mở cửa Canteen phải trước giờ đóng cửa"`).
+  - **Cơ chế Upsert**: Nếu tham số đã tồn tại, hệ thống cập nhật giá trị mới, mô tả mới và cập nhật mốc thời gian `updated_at`. Nếu tham số chưa tồn tại, hệ thống tự động thêm mới bản ghi.
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Cập nhật tham số hệ thống thành công",
+  "data": {
+    "setting_key": "order_timeout_minutes",
+    "setting_value": "15",
+    "description": "Thời gian tối đa để Canteen tiếp nhận hoặc từ chối đơn hàng (phút)",
+    "updated_at": "2026-10-18T12:00:00+00:00"
+  }
+}
+```
+- **Response lỗi mẫu**:
+  - `400 Bad Request` (Dữ liệu không phải JSON): `{"success": false, "message": "Dữ liệu đầu vào phải là JSON object hợp lệ", "data": null}`
+  - `401 Unauthorized` (Token không hợp lệ): `{"success": false, "message": "Token không hợp lệ hoặc đã hết hạn", "data": null}`
+  - `403 Forbidden` (Không đủ quyền Admin): `{"success": false, "message": "Truy cập bị từ chối. Yêu cầu một trong các quyền: admin", "data": null}`
+  - `422 Unprocessable Entity` (Giá trị không hợp lệ): `{"success": false, "message": "Thời gian order_timeout_minutes phải là số nguyên dương lớn hơn 0", "data": null}`
+  - `422 Unprocessable Entity` (Giờ mở cửa không trước giờ đóng cửa `BR-08`): `{"success": false, "message": "Giờ mở cửa Canteen phải trước giờ đóng cửa", "data": null}`
+
+---
+
+#### 2.10.4. Cập Nhật Đồng Loạt Tham Số Hệ Thống - Bulk Update (`UC23`, Atomicity Transaction)
+- **Endpoint**: `PUT /api/v1/settings/bulk`
+- **Quyền hạn**: Độc quyền Quản trị viên (`@role_required("admin")`)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: application/json`
+- **Request Body**:
+```json
+{
+  "settings": [
+    {
+      "setting_key": "canteen_open_time",
+      "setting_value": "06:00",
+      "description": "Giờ mở cửa phục vụ hàng ngày của Canteen A2"
+    },
+    {
+      "setting_key": "canteen_close_time",
+      "setting_value": "20:00",
+      "description": "Giờ đóng cửa ngừng nhận đơn của Canteen A2"
+    },
+    {
+      "setting_key": "delivery_fee",
+      "setting_value": "7000",
+      "description": "Phí vận chuyển cố định cho đơn giao tận nơi nội khu NEU (VNĐ)"
+    },
+    {
+      "setting_key": "max_cod_amount",
+      "setting_value": "1000000",
+      "description": "Hạn mức giá trị tối đa cho một đơn hàng thanh toán COD (VNĐ)"
+    }
+  ]
+}
+```
+- **Ràng buộc dữ liệu (`schemas/setting.py` - `SystemSettingBulkUpdateRequest`)**:
+  - `settings`: Danh sách bản ghi cấu hình bắt buộc (`List[SystemSettingBulkItem]`, tối thiểu 1 phần tử).
+  - Từng phần tử trong mảng:
+    - `setting_key`: Bắt buộc (`str`, 1 đến 50 ký tự), không được để trống hoặc chỉ có khoảng trắng.
+    - `setting_value`: Bắt buộc (`str`, 1 đến 255 ký tự), không được để trống hoặc chỉ có khoảng trắng.
+    - `description`: Không bắt buộc (`Optional[str]`, tối đa 500 ký tự).
+- **Quy tắc nghiệp vụ & Tính nguyên tử (Transaction Atomicity)**:
+  - **Kiểm tra hợp lệ trước giao dịch (All-or-Nothing)**: Toàn bộ danh sách cài đặt trong request được kiểm tra tính hợp lệ trước khi bắt đầu ghi dữ liệu. Nếu có bất kỳ tham số nào có giá trị không hợp lệ (sai số nguyên dương, số âm, sai định dạng giờ hoặc vi phạm logic thời gian Canteen) $\rightarrow$ Hệ thống lập tức trả về `422 Unprocessable Entity` và **không có bất kỳ tham số nào được cập nhật vào cơ sở dữ liệu**.
+  - **Kiểm tra tương quan thời gian mở/đóng Canteen đồng thời (`BR-08`)**:
+    - Nếu request chứa cả `canteen_open_time` và `canteen_close_time`, hệ thống đối chiếu trực tiếp 2 giá trị mới trong request để bảo đảm `open_time < close_time`.
+    - Nếu request chỉ chứa 1 trong 2 tham số trên, hệ thống đối chiếu giá trị mới với tham số còn lại đang lưu trong cơ sở dữ liệu.
+    - Nếu `open_time >= close_time` $\rightarrow$ Trả về `422 Unprocessable Entity` (`"Giờ mở cửa Canteen phải trước giờ đóng cửa"`).
+  - Toàn bộ danh sách được ghi nhận và `commit()` trong cùng một giao dịch database duy nhất qua `bulk_upsert_settings`.
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Cập nhật danh sách cấu hình hệ thống thành công",
+  "data": [
+    {
+      "setting_key": "canteen_open_time",
+      "setting_value": "06:00",
+      "description": "Giờ mở cửa phục vụ hàng ngày của Canteen A2",
+      "updated_at": "2026-10-18T12:05:00+00:00"
+    },
+    {
+      "setting_key": "canteen_close_time",
+      "setting_value": "20:00",
+      "description": "Giờ đóng cửa ngừng nhận đơn của Canteen A2",
+      "updated_at": "2026-10-18T12:05:00+00:00"
+    },
+    {
+      "setting_key": "delivery_fee",
+      "setting_value": "7000",
+      "description": "Phí vận chuyển cố định cho đơn giao tận nơi nội khu NEU (VNĐ)",
+      "updated_at": "2026-10-18T12:05:00+00:00"
+    },
+    {
+      "setting_key": "max_cod_amount",
+      "setting_value": "1000000",
+      "description": "Hạn mức giá trị tối đa cho một đơn hàng thanh toán COD (VNĐ)",
+      "updated_at": "2026-10-18T12:05:00+00:00"
+    }
+  ]
+}
+```
+- **Response lỗi mẫu**:
+  - `400 Bad Request` (Dữ liệu đầu vào không phải JSON): `{"success": false, "message": "Dữ liệu đầu vào phải là JSON object hợp lệ", "data": null}`
+  - `401 Unauthorized` (Thiếu hoặc sai JWT token): `{"success": false, "message": "Token không hợp lệ hoặc đã hết hạn", "data": null}`
+  - `403 Forbidden` (Không đủ quyền Admin): `{"success": false, "message": "Truy cập bị từ chối. Yêu cầu một trong các quyền: admin", "data": null}`
+  - `422 Unprocessable Entity` (Mảng `settings` rỗng hoặc sai cấu trúc): `{"success": false, "message": "Dữ liệu cấu hình không hợp lệ", "data": null, "errors": [...]}`
+  - `422 Unprocessable Entity` (Tham số chứa giá trị âm hoặc sai nghiệp vụ): `{"success": false, "message": "Phí giao hàng phải là số nguyên không âm (>= 0)", "data": null}`
+  - `422 Unprocessable Entity` (Giờ mở cửa không trước giờ đóng cửa `BR-08`): `{"success": false, "message": "Giờ mở cửa Canteen phải trước giờ đóng cửa", "data": null}`
 
 ---
 
