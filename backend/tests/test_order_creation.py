@@ -1,4 +1,4 @@
-"""UC08–UC10 integration tests. TEST_DATABASE_URL must name a disposable *_orders_test DB.
+"""UC08–UC10 and UC12 integration tests. TEST_DATABASE_URL must name a disposable *_orders_test DB.
 
 Initialize that database with database/init_db.sql, then run from backend:
 python -m unittest discover -s tests -p test_order_creation.py -v
@@ -19,7 +19,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 from app.core.security import create_access_token
-from app.crud.order import ACTIVE_ORDER_STATUSES, create_order
+from app.crud.order import ACTIVE_ORDER_STATUSES, OrderError, cancel_order, create_order, update_order_status
 from app.db.models import CampusLocation, Dish, Order, OrderItem, SystemSetting, User
 from app.routes.order import order_bp
 
@@ -312,6 +312,137 @@ class OrderCreationTests(unittest.TestCase):
         finally:
             with self.engine.begin() as conn:
                 conn.execute(text("ALTER TABLE order_items DROP CONSTRAINT test_item_failure"))
+
+    def cancel(self, order_id, user=1, role="customer"):
+        token = create_access_token({"sub": str(user), "role": role})
+        with self.app.test_client() as client:
+            return client.post(f"/api/v1/orders/{order_id}/cancel",
+                               headers={"Authorization": f"Bearer {token}"})
+
+    def test_customer_cancels_pending_order_and_can_place_again(self):
+        before = self.post().get_json()["data"]
+        response = self.cancel(before["id"])
+        self.assertEqual(response.status_code, 200, response.get_json())
+        after = response.get_json()["data"]
+        self.assertEqual(after["status"], "DA_HUY_KHACH")
+        for field in ("payment_status", "total_amount", "items", "order_code_suffix", "user_id"):
+            self.assertEqual(after[field], before[field])
+        self.assertEqual(self.post().status_code, 201)
+
+    def test_cancel_rejects_every_non_pending_state(self):
+        order_id = self.post().get_json()["data"]["id"]
+        states = ("DANG_CHUAN_BI", "DANG_GIAO", "SAN_SANG_LAY", "DA_GIAO", "DA_BAN_GIAO",
+                  "GIAO_THAT_BAI", "HOAN_THANH", "DA_HUY_KHACH", "TU_CHOI", "TU_DONG_HUY",
+                  "BO_DON_BLACKLIST", "KHIEU_NAI", "DA_GIAI_QUYET")
+        for state in states:
+            with self.subTest(state=state):
+                with self.sessions.begin() as db:
+                    db.get(Order, order_id).status = state
+                response = self.cancel(order_id)
+                self.assertEqual(response.status_code, 400, response.get_json())
+                self.assertEqual(response.get_json()["errors"][0]["code"], "EX-12")
+                if state == "DANG_CHUAN_BI":
+                    self.assertEqual(response.get_json()["message"],
+                                     "Bếp đã bắt đầu nấu đơn hàng của bạn, không thể hủy đơn vào lúc này")
+                with self.sessions() as db:
+                    self.assertEqual(db.get(Order, order_id).status, state)
+
+    def test_cancel_not_found_and_other_customers_order_are_hidden(self):
+        order_id = self.post().get_json()["data"]["id"]
+        for target, user in [("missing", 1), (order_id, 2)]:
+            response = self.cancel(target, user=user)
+            self.assertEqual(response.status_code, 404)
+            self.assertIsNone(response.get_json()["data"])
+        with self.sessions() as db:
+            self.assertEqual(db.get(Order, order_id).status, "CHO_XAC_NHAN")
+
+    def test_cancel_requires_customer_and_active_database_account(self):
+        order_id = self.post().get_json()["data"]["id"]
+        with self.app.test_client() as client:
+            self.assertEqual(client.post(f"/api/v1/orders/{order_id}/cancel").status_code, 401)
+        for user, role in [(3, "staff"), (4, "manager"), (5, "admin")]:
+            self.assertEqual(self.cancel(order_id, user=user, role=role).status_code, 403)
+        with self.sessions.begin() as db:
+            db.get(User, 1).is_active = False
+        self.assertEqual(self.cancel(order_id).status_code, 403)
+        with self.sessions.begin() as db:
+            user = db.get(User, 1)
+            user.is_active, user.role = True, "staff"
+        self.assertEqual(self.cancel(order_id).status_code, 403)
+        with self.sessions() as db:
+            self.assertEqual(db.get(Order, order_id).status, "CHO_XAC_NHAN")
+
+    def test_blacklist_does_not_block_cancellation(self):
+        order_id = self.post().get_json()["data"]["id"]
+        with self.sessions.begin() as db:
+            db.get(User, 1).is_blacklisted = True
+        self.assertEqual(self.cancel(order_id).status_code, 200)
+
+    def test_two_simultaneous_cancellations_only_one_succeeds(self):
+        order_id = self.post().get_json()["data"]["id"]
+        barrier = Barrier(2)
+
+        def concurrent_cancel(*args, **kwargs):
+            barrier.wait(timeout=5)
+            return cancel_order(*args, **kwargs)
+
+        with patch("app.routes.order.cancel_order", side_effect=concurrent_cancel):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                futures = [pool.submit(self.cancel, order_id) for _ in range(2)]
+                self.assertEqual(sorted(f.result(timeout=15).status_code for f in futures), [200, 400])
+        with self.sessions() as db:
+            self.assertEqual(db.get(Order, order_id).status, "DA_HUY_KHACH")
+
+    def test_stale_staff_update_cannot_overwrite_cancellation(self):
+        order_id = self.post().get_json()["data"]["id"]
+        with self.sessions() as db:
+            stale = db.get(Order, order_id)
+            self.assertEqual(self.cancel(order_id).status_code, 200)
+            with self.assertRaises(OrderError) as error:
+                update_order_status(db, stale, "DANG_CHUAN_BI")
+            self.assertEqual(error.exception.code, "EX-12")
+        with self.sessions() as db:
+            self.assertEqual(db.get(Order, order_id).status, "DA_HUY_KHACH")
+
+    def test_cancel_and_staff_accept_cannot_both_succeed(self):
+        order_id = self.post().get_json()["data"]["id"]
+        barrier = Barrier(2)
+
+        def concurrent_cancel(*args, **kwargs):
+            barrier.wait(timeout=5)
+            return cancel_order(*args, **kwargs)
+
+        def concurrent_update(*args, **kwargs):
+            barrier.wait(timeout=5)
+            return update_order_status(*args, **kwargs)
+
+        def accept():
+            token = create_access_token({"sub": "3", "role": "staff"})
+            with self.app.test_client() as client:
+                return client.patch(f"/api/v1/orders/{order_id}/status", json={"status": "DANG_CHUAN_BI"},
+                                    headers={"Authorization": f"Bearer {token}"})
+
+        with patch("app.routes.order.cancel_order", side_effect=concurrent_cancel), \
+                patch("app.routes.order.update_order_status", side_effect=concurrent_update):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                cancel_future = pool.submit(self.cancel, order_id)
+                accept_future = pool.submit(accept)
+                cancelled, accepted = cancel_future.result(timeout=15), accept_future.result(timeout=15)
+        self.assertEqual(sorted([cancelled.status_code, accepted.status_code]), [200, 400])
+        with self.sessions() as db:
+            expected = "DA_HUY_KHACH" if cancelled.status_code == 200 else "DANG_CHUAN_BI"
+            self.assertEqual(db.get(Order, order_id).status, expected)
+
+    def test_generic_status_endpoint_cannot_cancel_for_customer(self):
+        order_id = self.post().get_json()["data"]["id"]
+        token = create_access_token({"sub": "3", "role": "staff"})
+        with self.app.test_client() as client:
+            response = client.patch(f"/api/v1/orders/{order_id}/status", json={"status": "DA_HUY_KHACH"},
+                                    headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["errors"][0]["code"], "EX-12")
+        with self.sessions() as db:
+            self.assertEqual(db.get(Order, order_id).status, "CHO_XAC_NHAN")
 
 
 if __name__ == "__main__":

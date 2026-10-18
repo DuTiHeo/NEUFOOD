@@ -14,7 +14,7 @@ ACTIVE_ORDER_STATUSES = (
 )
 
 
-class OrderCreationError(ValueError):
+class OrderError(ValueError):
     def __init__(self, message: str, code: str, status_code: int = 400):
         super().__init__(message)
         self.code = code
@@ -44,27 +44,27 @@ def create_order(
     # Khóa khách thay vì khóa đơn: khách chưa có đơn vẫn cần chống hai request đồng thời.
     user = db.query(User).filter(User.id == user_id).populate_existing().with_for_update().first()
     if not user or not user.is_active or user.role != "customer":
-        raise OrderCreationError("Tài khoản không có quyền đặt hàng", "FORBIDDEN", 403)
+        raise OrderError("Tài khoản không có quyền đặt hàng", "FORBIDDEN", 403)
     if user.is_blacklisted:
-        raise OrderCreationError(
+        raise OrderError(
             "Tài khoản của bạn đã bị khóa tính năng đặt hàng do vi phạm chính sách nhận hàng/thanh toán COD. Vui lòng liên hệ Admin để giải quyết",
             "EX-10", 403,
         )
     if db.query(Order.id).filter(Order.user_id == user_id, Order.status.in_(ACTIVE_ORDER_STATUSES)).first():
-        raise OrderCreationError(
+        raise OrderError(
             "Bạn đang có một đơn hàng chưa hoàn tất. Vui lòng hoàn thành đơn hiện tại trước khi đặt đơn mới",
             "EX-09",
         )
 
     if order_type not in ("delivery", "pickup") or payment_method not in ("cod_cash", "cod_vietqr"):
-        raise OrderCreationError("Phương thức nhận hàng hoặc thanh toán không hợp lệ", "INVALID_ORDER")
+        raise OrderError("Phương thức nhận hàng hoặc thanh toán không hợp lệ", "INVALID_ORDER")
 
     now = datetime.now(timezone.utc)
     if is_preorder:
         lead_minutes = max(30, get_setting_int(db, "min_preorder_lead_minutes", 30))
         if (scheduled_at is None or scheduled_at.utcoffset() is None
                 or scheduled_at < now + timedelta(minutes=lead_minutes)):
-            raise OrderCreationError(
+            raise OrderError(
                 f"Đơn hẹn trước phải cách thời điểm hiện tại tối thiểu {lead_minutes} phút", "EX-08",
             )
         scheduled_at = scheduled_at.astimezone(timezone.utc)
@@ -76,21 +76,21 @@ def create_order(
         else:
             is_open = open_time != close_time and (local_time >= open_time or local_time < close_time)
         if not is_open:
-            raise OrderCreationError("Giờ hẹn phải nằm trong khung giờ mở cửa của Canteen", "EX-08")
+            raise OrderError("Giờ hẹn phải nằm trong khung giờ mở cửa của Canteen", "EX-08")
     elif scheduled_at is not None:
-        raise OrderCreationError("Chỉ gửi scheduled_at khi đặt hẹn giờ", "EX-08")
+        raise OrderError("Chỉ gửi scheduled_at khi đặt hẹn giờ", "EX-08")
 
     quantities = Counter()
     max_quantity = min(10, get_setting_int(db, "max_dish_quantity_per_order", 10))
     if not items_data:
-        raise OrderCreationError("Đơn hàng phải có ít nhất một món", "EX-05")
+        raise OrderError("Đơn hàng phải có ít nhất một món", "EX-05")
     for item in items_data:
         quantity = item["quantity"]
         if type(quantity) is not int or quantity < 1:
-            raise OrderCreationError("Số lượng phải là số nguyên dương", "EX-06")
+            raise OrderError("Số lượng phải là số nguyên dương", "EX-06")
         quantities[item["dish_id"]] += quantity
         if quantities[item["dish_id"]] > max_quantity:
-            raise OrderCreationError(f"Số lượng tối đa cho mỗi món là {max_quantity} phần", "EX-06")
+            raise OrderError(f"Số lượng tối đa cho mỗi món là {max_quantity} phần", "EX-06")
 
     dishes = {
         dish.id: dish for dish in db.query(Dish).filter(Dish.id.in_(quantities))
@@ -99,17 +99,17 @@ def create_order(
     for dish_id in quantities:
         dish = dishes.get(dish_id)
         if not dish or not dish.is_available or not dish.is_active or dish.is_deleted:
-            raise OrderCreationError("Món đã hết hàng hoặc không còn được phục vụ", "EX-05")
+            raise OrderError("Món đã hết hàng hoặc không còn được phục vụ", "EX-05")
         if (not dish.price.is_finite() or not dish.base_price.is_finite()
                 or dish.price < 0 or dish.base_price < 0):
-            raise OrderCreationError("Giá món ăn không hợp lệ", "EX-05")
+            raise OrderError("Giá món ăn không hợp lệ", "EX-05")
 
     ship_fee = Decimal(get_setting_int(db, "delivery_fee", 5000)) if order_type == "delivery" else Decimal(0)
     resolved_address = "Quầy trả món Canteen A2"
     if order_type == "delivery":
         loc = db.query(CampusLocation).filter(CampusLocation.id == campus_location_id).populate_existing().with_for_update(read=True).first()
         if not loc or not loc.is_active:
-            raise OrderCreationError("Vui lòng chọn địa điểm giao hàng nội khu NEU hợp lệ", "EX-07")
+            raise OrderError("Vui lòng chọn địa điểm giao hàng nội khu NEU hợp lệ", "EX-07")
         prefix = f"{room_detail}, " if room_detail else ""
         resolved_address = f"{prefix}{loc.building_name}, Đại học Kinh tế Quốc dân"
     else:
@@ -121,7 +121,7 @@ def create_order(
     # Hai trần vẫn được bảo vệ bởi CHECK của schema PostgreSQL hiện hành.
     max_cod = min(500000, get_setting_int(db, "max_cod_amount", 500000))
     if ship_fee < 0 or total_amount > max_cod:
-        raise OrderCreationError(
+        raise OrderError(
             f"Đơn hàng COD không được vượt quá {max_cod:,.0f} VNĐ. Vui lòng giảm số lượng món", "EX-11",
         )
 
@@ -176,6 +176,25 @@ def create_order(
     return order
 
 
+def cancel_order(db: Session, order_id: str, user_id: int) -> Order:
+    """UC12: chỉ chủ đơn còn chờ xác nhận được hủy; caller quản lý giao dịch."""
+    user = db.query(User).filter(User.id == user_id).with_for_update(read=True).first()
+    if not user or not user.is_active or user.role != "customer":
+        raise OrderError("Tài khoản không có quyền hủy đơn", "FORBIDDEN", 403)
+    order = db.query(Order).filter(
+        Order.id == order_id, Order.user_id == user_id,
+    ).populate_existing().with_for_update().first()
+    if not order:
+        raise OrderError("Không tìm thấy đơn hàng", "NOT_FOUND", 404)
+    if order.status != "CHO_XAC_NHAN":
+        message = ("Bếp đã bắt đầu nấu đơn hàng của bạn, không thể hủy đơn vào lúc này"
+                   if order.status == "DANG_CHUAN_BI" else "Chỉ được hủy đơn khi đang chờ xác nhận")
+        raise OrderError(message, "EX-12")
+    order.status = "DA_HUY_KHACH"
+    db.flush()
+    return order
+
+
 def get_order_by_id(db: Session, order_id: str) -> Optional[Order]:
     return db.query(Order).filter(Order.id == order_id).first()
 
@@ -201,9 +220,12 @@ def get_all_orders(
 def update_order_status(
     db: Session, order: Order, new_status: str, cancelled_reason: Optional[str] = None
 ) -> Order:
+    # Đọc lại sau khi lấy khóa để không ghi đè đơn vừa được khách hủy.
+    db.refresh(order, with_for_update=True)
+    if order.status == "DA_HUY_KHACH" or new_status == "DA_HUY_KHACH":
+        raise OrderError("Đơn đã hủy không thể cập nhật; khách hủy qua endpoint /cancel", "EX-12")
     order.status = new_status
     if cancelled_reason is not None:
         order.cancelled_reason = cancelled_reason
-    db.commit()
-    db.refresh(order)
+    db.flush()
     return order

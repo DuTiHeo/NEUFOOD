@@ -2,7 +2,7 @@ from flask import Blueprint, request, g
 from pydantic import ValidationError
 from app.db.session import get_db
 from app.crud.order import (
-    create_order, get_order_by_id, get_user_orders, get_all_orders, update_order_status, OrderCreationError
+    create_order, cancel_order, get_order_by_id, get_user_orders, get_all_orders, update_order_status, OrderError
 )
 from app.core.security import jwt_required, role_required
 from app.schemas.order import OrderCreateRequest, OrderStatusUpdateRequest
@@ -87,7 +87,23 @@ def submit_order():
             return api_response(
                 data=_serialize_order(order), message="Đặt hàng thành công", status_code=201,
             )
-    except OrderCreationError as e:
+    except OrderError as e:
+        return api_response(message=str(e), errors=[{"code": e.code}], status_code=e.status_code, success=False)
+
+
+@order_bp.route("/<order_id>/cancel", methods=["POST"])
+@role_required("customer")
+def cancel_my_order(order_id: str):
+    """UC12 không yêu cầu body; quyền sở hữu và trạng thái được kiểm tra trong CRUD."""
+    try:
+        user_id = int(g.current_user["sub"])
+    except (KeyError, TypeError, ValueError):
+        return api_response(message="Phiên đăng nhập không hợp lệ", status_code=401, success=False)
+    try:
+        with get_db() as db:
+            order = cancel_order(db, order_id, user_id)
+            return api_response(data=_serialize_order(order), message="Hủy đơn hàng thành công")
+    except OrderError as e:
         return api_response(message=str(e), errors=[{"code": e.code}], status_code=e.status_code, success=False)
 
 
@@ -132,12 +148,15 @@ def update_status(order_id: str):
     except ValidationError as e:
         return api_response(message="Trạng thái không hợp lệ", errors=e.errors(), status_code=422, success=False)
 
-    with get_db() as db:
-        order = get_order_by_id(db, order_id)
-        if not order:
-            return api_response(message="Không tìm thấy đơn hàng", status_code=404, success=False)
-        updated = update_order_status(db, order, data.status, data.cancelled_reason)
-        return api_response(
-            data={"id": updated.id, "status": updated.status},
-            message="Cập nhật trạng thái thành công",
-        )
+    try:
+        with get_db() as db:
+            order = get_order_by_id(db, order_id)
+            if not order:
+                return api_response(message="Không tìm thấy đơn hàng", status_code=404, success=False)
+            updated = update_order_status(db, order, data.status, data.cancelled_reason)
+            return api_response(
+                data={"id": updated.id, "status": updated.status},
+                message="Cập nhật trạng thái thành công",
+            )
+    except OrderError as e:
+        return api_response(message=str(e), errors=[{"code": e.code}], status_code=e.status_code, success=False)

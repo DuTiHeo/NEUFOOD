@@ -1178,6 +1178,17 @@ Kiểm thử tích hợp: `backend/tests/test_order_creation.py`. Dùng PostgreS
 
 ---
 
+### 4.4. Khách Hủy Đơn (`UC12`, `BR-17`, `EX-12`)
+
+- **Endpoint:** `POST /api/v1/orders/<id>/cancel`, JWT role `customer`; không yêu cầu request body, không cần schema đầu vào mới.
+- **Điều kiện:** tài khoản còn hoạt động, role trong DB vẫn là `customer`, đơn thuộc khách đang đăng nhập và trạng thái hiện tại là `CHO_XAC_NHAN`. Blacklist COD không tước quyền hủy đơn đã có.
+- **Thành công (`200`):** đổi trạng thái thành `DA_HUY_KHACH`, trả envelope chuẩn với `data` là chi tiết đơn và `message: "Hủy đơn hàng thành công"`. Giữ nguyên món, giá và trạng thái thanh toán. Khách có thể tạo đơn mới sau khi hủy.
+- **Lỗi:** chưa đăng nhập `401`; không có quyền/tài khoản bị vô hiệu hóa `403`; đơn không tồn tại hoặc thuộc người khác `404` (không trả dữ liệu đơn); trạng thái khác `CHO_XAC_NHAN` trả `400` với `errors: [{"code": "EX-12"}]`. Riêng `DANG_CHUAN_BI` trả thông báo "Bếp đã bắt đầu nấu đơn hàng của bạn, không thể hủy đơn vào lúc này". Hủy lại đơn đã hủy cũng trả `400 EX-12`.
+- **Đồng thời:** khóa dòng đơn trong giao dịch và đọc lại trạng thái sau khi lấy khóa. Cập nhật qua `/status` không được ghi đè đơn đã hủy hoặc dùng trạng thái `DA_HUY_KHACH` để hủy thay khách. Nếu hủy và tiếp nhận đồng thời, chỉ một thao tác thành công.
+- **Phạm vi:** UC12 chỉ xử lý hủy theo trạng thái; tự hủy sau 10 phút (`BR-16`) thuộc phần vòng đời tự động, chưa được triển khai trong UC12. Test UC12 nằm cùng bộ `backend/tests/test_order_creation.py` với UC08–UC10; dùng database thử PostgreSQL riêng theo hướng dẫn ở mục 4.1.
+
+---
+
 ## 5. Phân Hệ Thành Viên 4: Đánh Giá, Khiếu Nại, Chốt Ca COD & Báo Cáo (`/reviews`, `/complaints`, `/shifts`)
 
 ### 5.1. Đánh Giá Món Ăn (`UC14`)
