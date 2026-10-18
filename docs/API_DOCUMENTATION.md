@@ -402,19 +402,338 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 }
 ```
 
-### 2.8. Hồ Sơ Người Dùng Cá Nhân (`UC04`, `BR-01`, `EX-03`)
-- `GET /api/v1/users/profile` (Header: `Bearer <token>`)
-- `PUT /api/v1/users/profile` (Header: `Bearer <token>`)
-  - **Request Body**: `{"full_name": "...", "phone_number": "0912345678", "student_id": "...", "avatar_url": "..."}`
-  - **Quy tắc**: Kiểm tra `phone_number` 10 số và không trùng với tài khoản khác (`EX-03`).
+### 2.8. Hồ Sơ Người Dùng Cá Nhân (`UC04`, `BR-01`, `EX-01`, `EX-03`)
 
-### 2.9. Quản Trị Tài Khoản & Blacklist COD (`UC23`, `BR-22`, `EX-22` - Role: `admin`)
-- `GET /api/v1/users/admin/all?role=customer&is_blacklisted=true&search=...`
-- `PATCH /api/v1/users/admin/<user_id>/status`:
-  - **Request Body**: `{"is_active": false, "role": "staff"}`
-  - **Quy tắc (`EX-22`)**: Chặn khóa tài khoản nếu user đang có đơn hàng chưa kết thúc (`CHO_XAC_NHAN`, `DANG_CHUAN_BI`, `DANG_GIAO`, `SAN_SANG_LAY`, `GIAO_THAT_BAI`).
-- `PATCH /api/v1/users/admin/<user_id>/blacklist`:
-  - **Request Body**: `{"is_blacklisted": true, "blacklist_reason": "Boom hàng đơn NF..."}`
+#### 2.8.1. Xem Hồ Sơ Cá Nhân (`UC04`)
+- **Endpoint**: `GET /api/v1/users/profile`
+- **Quyền hạn**: Authenticated (`@jwt_required` - Tất cả các role: `customer`, `staff`, `manager`, `admin`)
+- **Headers**: `Authorization: Bearer <access_token>`
+- **Quy tắc nghiệp vụ**:
+  - Trích xuất định danh người dùng `user_id` từ claim `sub` trong JWT.
+  - Kiểm tra người dùng tồn tại trong cơ sở dữ liệu (`404 Not Found` nếu không tìm thấy) và tài khoản đang hoạt động (`is_active == true`, trả về `403 Forbidden` nếu đã bị khóa).
+  - Trả về đầy đủ 12 trường thông tin hồ sơ cá nhân chuẩn hóa qua `_serialize_user(user)`.
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Thành công",
+  "data": {
+    "id": 2,
+    "email": "sinhvien@neu.edu.vn",
+    "full_name": "Trần Thị Sinh Viên",
+    "phone_number": "0912345678",
+    "student_id": "11210102",
+    "role": "customer",
+    "avatar_url": null,
+    "is_active": true,
+    "is_blacklisted": false,
+    "blacklist_reason": null,
+    "blacklisted_at": null,
+    "created_at": "2026-10-18T02:00:00+00:00"
+  }
+}
+```
+- **Response lỗi mẫu**:
+  - `401 Unauthorized` (Thiếu hoặc Token không hợp lệ): `{"success": false, "message": "Thiếu token xác thực trong header Authorization", "data": null}`
+  - `403 Forbidden` (Tài khoản đang bị khóa `is_active == false`): `{"success": false, "message": "Tài khoản này đã bị khóa", "data": null}`
+  - `404 Not Found` (Không tìm thấy người dùng): `{"success": false, "message": "Không tìm thấy người dùng", "data": null}`
+
+#### 2.8.2. Cập Nhật Hồ Sơ Cá Nhân (`UC04`, `BR-01`, `EX-01`, `EX-03`)
+- **Endpoint**: `PUT /api/v1/users/profile`
+- **Quyền hạn**: Authenticated (`@jwt_required` - Tất cả các role: `customer`, `staff`, `manager`, `admin`)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: application/json`
+- **Request Body**:
+```json
+{
+  "full_name": "Trần Thị Sinh Viên NEU",
+  "phone_number": "0912345678",
+  "student_id": "11210102",
+  "avatar_url": "https://images.unsplash.com/photo-avatar"
+}
+```
+- **Ràng buộc dữ liệu (`schemas/user.py` - `UserUpdateRequest`)**:
+  - `full_name`: Không bắt buộc (`Optional`), độ dài từ 2 đến 150 ký tự (`min_length=2, max_length=150`), tự động cắt khoảng trắng hai đầu (`.strip()`). Không được gửi tường minh `null`.
+  - `phone_number`: Không bắt buộc (`Optional`), tự động `.strip()`, phải khớp định dạng số di động Việt Nam gồm đúng 10 chữ số và bắt đầu bằng số `0` (`^0\d{9}$`) theo `BR-01`, `EX-03`. Không được gửi tường minh `null`.
+  - `student_id`: Không bắt buộc (`Optional`), tối đa 30 ký tự (`max_length=30`), tự động `.strip()`; nếu truyền chuỗi rỗng `""` hoặc `null` thì hệ thống chuẩn hóa về `None` (cho phép xóa mã sinh viên).
+  - `avatar_url`: Không bắt buộc (`Optional`), tối đa 2000 ký tự (`max_length=2000`), tự động `.strip()`; nếu truyền chuỗi rỗng `""` hoặc `null` thì hệ thống chuẩn hóa về `None`.
+- **Quy tắc nghiệp vụ & Kịch bản ngoại lệ (`UC04`, `BR-01`, `EX-01`, `EX-03`)**:
+  - Payload gửi lên không phải JSON object hợp lệ $\rightarrow$ Trả về `400 Bad Request` (`"Dữ liệu đầu vào phải là JSON object hợp lệ"`).
+  - `BR-01` & `EX-03`: Nếu `phone_number` sai định dạng `^0\d{9}$`, truyền chuỗi rỗng `""` hoặc gửi tường minh `{"phone_number": null}` $\rightarrow$ Trả về `422 Unprocessable Entity` (`"Số điện thoại không hợp lệ, phải gồm đúng 10 chữ số và bắt đầu bằng số 0 (BR-01, EX-03)"`).
+  - Nếu gửi tường minh `{"full_name": null}` $\rightarrow$ Trả về `422 Unprocessable Entity` (`"Họ và tên không được để trống"`).
+  - `EX-03`: Nếu `phone_number` mới đã được sử dụng bởi một tài khoản khác (`existing_user.id != current_user.id`) $\rightarrow$ Chặn lưu và trả về `400 Bad Request` (`"Số điện thoại đã được sử dụng bởi tài khoản khác (EX-03)"`). Nếu gửi lại chính số điện thoại hiện tại của bản thân thì vẫn hợp lệ (`200 OK`).
+  - `BR-01` & `EX-01`: Nếu `student_id` mới (khác `None`) đã tồn tại ở một tài khoản khác (`existing_user.id != current_user.id`) $\rightarrow$ Chặn lưu và trả về `400 Bad Request` (`"Mã sinh viên đã tồn tại trên hệ thống (EX-01)"`).
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Cập nhật hồ sơ thành công",
+  "data": {
+    "id": 2,
+    "email": "sinhvien@neu.edu.vn",
+    "full_name": "Trần Thị Sinh Viên NEU",
+    "phone_number": "0912345678",
+    "student_id": "11210102",
+    "role": "customer",
+    "avatar_url": "https://images.unsplash.com/photo-avatar",
+    "is_active": true,
+    "is_blacklisted": false,
+    "blacklist_reason": null,
+    "blacklisted_at": null,
+    "created_at": "2026-10-18T02:00:00+00:00"
+  }
+}
+```
+- **Response lỗi (`400 Bad Request` - Trùng SĐT với tài khoản khác `EX-03`)**:
+```json
+{
+  "success": false,
+  "message": "Số điện thoại đã được sử dụng bởi tài khoản khác (EX-03)",
+  "data": null
+}
+```
+- **Response lỗi (`400 Bad Request` - Trùng Mã sinh viên với tài khoản khác `EX-01`)**:
+```json
+{
+  "success": false,
+  "message": "Mã sinh viên đã tồn tại trên hệ thống (EX-01)",
+  "data": null
+}
+```
+- **Response lỗi (`422 Unprocessable Entity` - Sai định dạng SĐT `BR-01`, `EX-03`)**:
+```json
+{
+  "success": false,
+  "message": "Số điện thoại không hợp lệ, phải gồm đúng 10 chữ số và bắt đầu bằng số 0 (BR-01, EX-03)",
+  "data": null,
+  "errors": [
+    {
+      "loc": ["phone_number"],
+      "msg": "String should match pattern '^0\\d{9}$'",
+      "type": "string_pattern_mismatch",
+      "input": "0912345"
+    }
+  ]
+}
+```
+
+### 2.9. Quản Trị Tài Khoản & Blacklist COD (`UC23`, `BR-02`, `BR-08`, `BR-22`, `EX-22` - Role: `admin`)
+
+#### 2.9.1. Danh Sách & Lọc Tài Khoản Người Dùng (`UC23`)
+- **Endpoint**: `GET /api/v1/users/admin/all`
+- **Quyền hạn**: Độc quyền Quản trị viên (`@role_required("admin")`)
+- **Headers**: `Authorization: Bearer <access_token>`
+- **Query Parameters (Không bắt buộc)**:
+  - `role`: Lọc theo vai trò hệ thống (`customer`, `staff`, `manager`, `admin` - tự động chuẩn hóa chữ thường).
+  - `is_blacklisted`: Lọc theo trạng thái danh sách đen COD (`true`, `false`, `1`, `0`).
+  - `is_active`: Lọc theo trạng thái hoạt động của tài khoản (`true`, `false`, `1`, `0`).
+  - `search`: Từ khóa tìm kiếm không phân biệt hoa thường (`ILIKE`) đồng thời trên 4 trường: `full_name`, `email`, `phone_number`, `student_id`.
+- **Quy tắc nghiệp vụ & Kiểm tra tham số (`UC23`)**:
+  - Nếu `role` được truyền nhưng không thuộc `("customer", "staff", "manager", "admin")` $\rightarrow$ Trả về `400 Bad Request` (`"Vai trò lọc không hợp lệ, chỉ chấp nhận: customer, staff, manager, admin"`).
+  - Nếu `is_blacklisted` được truyền nhưng khác `("true", "false", "1", "0")` $\rightarrow$ Trả về `400 Bad Request` (`"Tham số is_blacklisted không hợp lệ, chỉ chấp nhận true hoặc false"`).
+  - Nếu `is_active` được truyền nhưng khác `("true", "false", "1", "0")` $\rightarrow$ Trả về `400 Bad Request` (`"Tham số is_active không hợp lệ, chỉ chấp nhận true hoặc false"`).
+  - Kiểm tra tài khoản Admin đang thực hiện tồn tại (`404 Not Found`) và đang kích hoạt (`is_active == true`, trả về `403 Forbidden` nếu bị khóa).
+  - Danh sách kết quả được sắp xếp tăng dần theo `id` (`User.id.asc()`).
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Lấy danh sách người dùng thành công",
+  "data": [
+    {
+      "id": 1,
+      "email": "admin@neufood.vn",
+      "full_name": "Nguyễn Quản Trị (Admin)",
+      "phone_number": "0988888888",
+      "student_id": "ADMIN01",
+      "role": "admin",
+      "avatar_url": null,
+      "is_active": true,
+      "is_blacklisted": false,
+      "blacklist_reason": null,
+      "blacklisted_at": null,
+      "created_at": "2026-10-18T01:00:00+00:00"
+    },
+    {
+      "id": 5,
+      "email": "boomhang@neu.edu.vn",
+      "full_name": "Lê Văn Bùng Đơn (Đã khóa COD)",
+      "phone_number": "0900000000",
+      "student_id": "11209999",
+      "role": "customer",
+      "avatar_url": null,
+      "is_active": true,
+      "is_blacklisted": true,
+      "blacklist_reason": "Boom hàng đơn NF2610142299 tại Giảng đường B (từ chối nhận và không thanh toán COD)",
+      "blacklisted_at": "2026-10-18T01:30:00+00:00",
+      "created_at": "2026-10-18T01:00:00+00:00"
+    }
+  ]
+}
+```
+- **Response lỗi mẫu**:
+  - `400 Bad Request` (Sai tham số lọc): `{"success": false, "message": "Vai trò lọc không hợp lệ, chỉ chấp nhận: customer, staff, manager, admin", "data": null}`
+  - `403 Forbidden` (Không phải role `admin`): `{"success": false, "message": "Truy cập bị từ chối. Yêu cầu một trong các quyền: admin", "data": null}`
+
+#### 2.9.2. Khóa / Mở Khóa & Phân Quyền Tài Khoản (`UC23`, `BR-02`, `BR-08`, `EX-22`)
+- **Endpoint**: `PATCH /api/v1/users/admin/<int:user_id>/status`
+- **Quyền hạn**: Độc quyền Quản trị viên (`@role_required("admin")`)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: application/json`
+- **Request Body**:
+```json
+{
+  "is_active": false,
+  "role": "staff"
+}
+```
+- **Ràng buộc dữ liệu (`schemas/user.py` - `AdminUserStatusUpdateRequest`)**:
+  - `is_active`: Không bắt buộc (`Optional[bool]`).
+  - `role`: Không bắt buộc (`Optional[Literal["customer", "staff", "manager", "admin"]]`).
+  - `@model_validator`: Bắt buộc phải cung cấp ít nhất một trong hai trường `is_active` hoặc `role`. Nếu gửi `{}` (cả hai trường đều `None`) hoặc truyền `role` ngoài 4 vai trò hợp lệ $\rightarrow$ Trả về `422 Unprocessable Entity` (`"Dữ liệu cập nhật trạng thái không hợp lệ"`).
+- **Quy tắc nghiệp vụ & Kịch bản ngoại lệ (`UC23`, `BR-02`, `BR-08`, `EX-22`)**:
+  - Kiểm tra tài khoản mục tiêu `user_id` tồn tại trong DB; nếu không tồn tại $\rightarrow$ Trả về `404 Not Found` (`"Không tìm thấy người dùng"`).
+  - **Cơ chế tự bảo vệ tài khoản Admin**:
+    - Nếu `target_user.id == admin_id` và `is_active == false` $\rightarrow$ Chặn thao tác và trả về `400 Bad Request` (`"Quản trị viên không thể tự khóa tài khoản của chính mình"`).
+    - Nếu `target_user.id == admin_id` và `role` khác vai trò hiện tại $\rightarrow$ Chặn thao tác và trả về `400 Bad Request` (`"Quản trị viên không thể tự thay đổi vai trò của chính mình"`).
+  - **`EX-22` & `BR-08` (Chặn khóa tài khoản đang có đơn hàng chưa hoàn tất)**:
+    - Khi Admin thực hiện khóa tài khoản (`is_active == false`), hệ thống kiểm tra qua `has_active_orders(db, target_user.id)` xem người dùng mục tiêu (với vai trò khách đặt hàng `Order.user_id == user_id` hoặc nhân viên phụ trách đơn `Order.staff_id == user_id`) có đơn hàng nào đang nằm trong 5 trạng thái chưa kết thúc (`CHO_XAC_NHAN`, `DANG_CHUAN_BI`, `DANG_GIAO`, `SAN_SANG_LAY`, `GIAO_THAT_BAI`) hay không.
+    - Nếu đang có đơn hàng chưa hoàn tất $\rightarrow$ Chặn khóa tài khoản và trả về `400 Bad Request` (`"Không thể khóa tài khoản đang có đơn hàng chưa hoàn tất. Vui lòng hoàn tất hoặc hủy các đơn hàng trước (EX-22)"`).
+  - **`BR-02` (Mở khóa tài khoản)**:
+    - Khi Admin mở khóa tài khoản (`is_active == true`), hệ thống đồng thời tự động reset `failed_login_attempts = 0` và xóa mốc khóa tạm thời `locked_until = None`.
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Cập nhật trạng thái tài khoản thành công",
+  "data": {
+    "id": 2,
+    "email": "sinhvien@neu.edu.vn",
+    "full_name": "Trần Thị Sinh Viên",
+    "phone_number": "0912345678",
+    "student_id": "11210102",
+    "role": "staff",
+    "avatar_url": null,
+    "is_active": false,
+    "is_blacklisted": false,
+    "blacklist_reason": null,
+    "blacklisted_at": null,
+    "created_at": "2026-10-18T02:00:00+00:00"
+  }
+}
+```
+- **Response lỗi (`400 Bad Request` - Chặn khóa tài khoản đang có đơn hàng dở `EX-22`)**:
+```json
+{
+  "success": false,
+  "message": "Không thể khóa tài khoản đang có đơn hàng chưa hoàn tất. Vui lòng hoàn tất hoặc hủy các đơn hàng trước (EX-22)",
+  "data": null
+}
+```
+- **Response lỗi (`400 Bad Request` - Admin tự khóa hoặc tự đổi vai trò chính mình)**:
+```json
+{
+  "success": false,
+  "message": "Quản trị viên không thể tự khóa tài khoản của chính mình",
+  "data": null
+}
+```
+- **Response lỗi (`422 Unprocessable Entity` - Body rỗng hoặc sai vai trò)**:
+```json
+{
+  "success": false,
+  "message": "Dữ liệu cập nhật trạng thái không hợp lệ",
+  "data": null,
+  "errors": [
+    {
+      "loc": [],
+      "msg": "Value error, Phải cung cấp ít nhất một trong hai trường: is_active hoặc role",
+      "type": "value_error",
+      "input": {}
+    }
+  ]
+}
+```
+
+#### 2.9.3. Quản Trị Danh Sách Đen COD - Blacklist (`UC23`, `BR-22`)
+- **Endpoint**: `PATCH /api/v1/users/admin/<int:user_id>/blacklist`
+- **Quyền hạn**: Độc quyền Quản trị viên (`@role_required("admin")`)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: application/json`
+- **Request Body**:
+```json
+{
+  "is_blacklisted": true,
+  "blacklist_reason": "Boom hàng đơn NF2610142299 tại Giảng đường B"
+}
+```
+- **Ràng buộc dữ liệu (`schemas/user.py` - `AdminUserBlacklistUpdateRequest`)**:
+  - `is_blacklisted`: Bắt buộc (`bool`).
+  - `blacklist_reason`: Không bắt buộc (`Optional[str]`), tối đa 500 ký tự (`max_length=500`), tự động cắt khoảng trắng hai đầu (`.strip()`); nếu là chuỗi rỗng `""` thì chuyển thành `None`.
+- **Quy tắc nghiệp vụ & Kịch bản ngoại lệ (`UC23`, `BR-22`)**:
+  - Kiểm tra tài khoản mục tiêu `user_id` tồn tại trong DB; nếu không tồn tại $\rightarrow$ Trả về `404 Not Found` (`"Không tìm thấy người dùng"`).
+  - **Cơ chế tự bảo vệ tài khoản Admin**: Nếu `target_user.id == admin_id` và `is_blacklisted == true` $\rightarrow$ Chặn thao tác và trả về `400 Bad Request` (`"Quản trị viên không thể tự đưa tài khoản của chính mình vào danh sách đen"`).
+  - **Đưa tài khoản vào Blacklist COD (`is_blacklisted == true` - `BR-22`)**:
+    - Thiết lập `is_blacklisted = true`.
+    - Ghi nhận `blacklist_reason` theo nội dung Admin truyền lên; nếu bỏ trống hoặc `null` thì tự động gán lý do mặc định `"Vi phạm chính sách nhận hàng/thanh toán COD (BR-22)"`.
+    - Ghi nhận thời điểm đưa vào danh sách đen `blacklisted_at = now() (UTC)`.
+    - Phản hồi `200 OK` với thông điệp `"Đã đưa tài khoản vào danh sách đen COD (BR-22)"`.
+  - **Gỡ tài khoản khỏi Blacklist COD (`is_blacklisted == false` - `BR-22`)**:
+    - Thiết lập `is_blacklisted = false`, đồng thời xóa sạch `blacklist_reason = null` và `blacklisted_at = null`.
+    - Phản hồi `200 OK` với thông điệp `"Đã gỡ tài khoản khỏi danh sách đen COD"`.
+- **Response (`200 OK` - Đưa vào Blacklist COD)**:
+```json
+{
+  "success": true,
+  "message": "Đã đưa tài khoản vào danh sách đen COD (BR-22)",
+  "data": {
+    "id": 2,
+    "email": "sinhvien@neu.edu.vn",
+    "full_name": "Trần Thị Sinh Viên",
+    "phone_number": "0912345678",
+    "student_id": "11210102",
+    "role": "customer",
+    "avatar_url": null,
+    "is_active": true,
+    "is_blacklisted": true,
+    "blacklist_reason": "Boom hàng đơn NF2610142299 tại Giảng đường B",
+    "blacklisted_at": "2026-10-18T03:15:00+00:00",
+    "created_at": "2026-10-18T02:00:00+00:00"
+  }
+}
+```
+- **Response (`200 OK` - Gỡ khỏi Blacklist COD)**:
+```json
+{
+  "success": true,
+  "message": "Đã gỡ tài khoản khỏi danh sách đen COD",
+  "data": {
+    "id": 2,
+    "email": "sinhvien@neu.edu.vn",
+    "full_name": "Trần Thị Sinh Viên",
+    "phone_number": "0912345678",
+    "student_id": "11210102",
+    "role": "customer",
+    "avatar_url": null,
+    "is_active": true,
+    "is_blacklisted": false,
+    "blacklist_reason": null,
+    "blacklisted_at": null,
+    "created_at": "2026-10-18T02:00:00+00:00"
+  }
+}
+```
+- **Response lỗi (`400 Bad Request` - Admin tự đưa chính mình vào Blacklist)**:
+```json
+{
+  "success": false,
+  "message": "Quản trị viên không thể tự đưa tài khoản của chính mình vào danh sách đen",
+  "data": null
+}
+```
 
 ### 2.10. Cấu Hình Tham Số Vận Hành Hệ Thống (`/api/v1/settings`)
 - `GET /api/v1/settings` (Public/Authenticated): Lấy toàn bộ tham số (`order_timeout_minutes`, `pickup_hold_minutes`, `system_maintenance_fee`, `delivery_fee`, `max_cod_amount`...).
