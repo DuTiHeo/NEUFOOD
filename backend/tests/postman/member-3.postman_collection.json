@@ -1,0 +1,363 @@
+{
+  "info": {
+    "name": "NEUFood - Thành viên 3 - Kiểm thử theo Phần 2",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Chỉ các ca Thành viên 3 trong docs/TESTING_AND_DATABASE_GUIDE.md phần 2.4. API thử riêng localhost:5001, database fixture riêng. Đăng nhập chỉ để thiết lập JWT, không kiểm thử chức năng của thành viên khác. Collection cần fixture bàn giao DANG_GIAO/chưa thanh toán trước mỗi lần chạy; chạy lại sau bàn giao thành công sẽ khác trạng thái. Không dùng database ứng dụng."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "01 - Đăng nhập khách Blacklist (thiết lập)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/auth/login",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"boomhang@neu.edu.vn\",\n  \"password\": \"password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const res = pm.response.json();",
+              "pm.test(\"Đúng role customer\", () => pm.expect(res.data.user.role).to.eql(\"customer\"));",
+              "pm.test(\"Nhận JWT\", () => pm.expect(res.data.access_token).to.be.a(\"string\").and.not.empty);",
+              "if (res.success && res.data?.access_token) { pm.environment.set(\"token\", res.data.access_token); } else { pm.execution.setNextRequest(null); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - EX-10: Chặn khách Blacklist tạo COD",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/orders",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"order_type\": \"delivery\",\n  \"recipient_name\": \"Khách thử Thành viên 3\",\n  \"recipient_phone\": \"0977112233\",\n  \"campus_location_id\": 1,\n  \"room_detail\": \"Phòng thử 502\",\n  \"payment_method\": \"cod_cash\",\n  \"items\": [\n    {\n      \"dish_id\": \"pho-bo-tai-lan\",\n      \"quantity\": 1\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const res = pm.response.json();",
+              "pm.test(\"EX-10\", () => pm.expect(res.errors[0].code).to.eql(\"EX-10\"));",
+              "pm.test(\"Không tạo đơn\", () => { pm.expect(res.success).to.eql(false); pm.expect(res.data).to.eql(null); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Đăng nhập khách không có đơn hoạt động (thiết lập)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/auth/login",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"thanhhuong@neu.edu.vn\",\n  \"password\": \"password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const res = pm.response.json();",
+              "pm.test(\"Đúng role customer\", () => pm.expect(res.data.user.role).to.eql(\"customer\"));",
+              "pm.test(\"Nhận JWT\", () => pm.expect(res.data.access_token).to.be.a(\"string\").and.not.empty);",
+              "if (res.success && res.data?.access_token) { pm.environment.set(\"token\", res.data.access_token); } else { pm.execution.setNextRequest(null); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - EX-06: Chặn 12 phần mỗi món",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/orders",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"order_type\": \"delivery\",\n  \"recipient_name\": \"Khách thử Thành viên 3\",\n  \"recipient_phone\": \"0977112233\",\n  \"campus_location_id\": 1,\n  \"room_detail\": \"Phòng thử 502\",\n  \"payment_method\": \"cod_cash\",\n  \"items\": [\n    {\n      \"dish_id\": \"pho-bo-tai-lan\",\n      \"quantity\": 12\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "const res = pm.response.json();",
+              "pm.test(\"Lỗi tại quantity\", () => pm.expect(res.errors.some(e => e.loc.includes(\"quantity\"))).to.eql(true));",
+              "pm.test(\"Không tạo đơn\", () => pm.expect(res.success).to.eql(false));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - EX-11: Chặn COD 545000đ",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/orders",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"order_type\": \"delivery\",\n  \"recipient_name\": \"Khách thử Thành viên 3\",\n  \"recipient_phone\": \"0977112233\",\n  \"campus_location_id\": 1,\n  \"room_detail\": \"Phòng thử 502\",\n  \"payment_method\": \"cod_cash\",\n  \"items\": [\n    {\n      \"dish_id\": \"postman-cod-cap\",\n      \"quantity\": 9\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const res = pm.response.json();",
+              "pm.test(\"EX-11, không bị che bởi EX-09\", () => pm.expect(res.errors[0].code).to.eql(\"EX-11\"));",
+              "pm.test(\"Không tạo đơn vượt hạn mức\", () => pm.expect(res.success).to.eql(false));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Đăng nhập Staff (thiết lập)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/auth/login",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"shipper01@neufood.vn\",\n  \"password\": \"password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const res = pm.response.json();",
+              "pm.test(\"Đúng role staff\", () => pm.expect(res.data.user.role).to.eql(\"staff\"));",
+              "pm.test(\"Nhận JWT\", () => pm.expect(res.data.access_token).to.be.a(\"string\").and.not.empty);",
+              "if (res.success && res.data?.access_token) { pm.environment.set(\"token\", res.data.access_token); } else { pm.execution.setNextRequest(null); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - EX-17: Bàn giao mã sai 0000",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/orders/NF2610159921/handover",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"order_code_suffix\": \"0000\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const res = pm.response.json();",
+              "pm.test(\"EX-17\", () => pm.expect(res.errors[0].code).to.eql(\"EX-17\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 - Kiểm tra mã sai chưa ghi thanh toán",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/orders/NF2610159921"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const res = pm.response.json();",
+              "pm.test(\"Vẫn DANG_GIAO\", () => pm.expect(res.data.status).to.eql(\"DANG_GIAO\"));",
+              "pm.test(\"Vẫn chưa thanh toán\", () => pm.expect(res.data.payment_status).to.eql(\"chua_thanh_toan\"));",
+              "pm.test(\"Chưa có delivered_at\", () => pm.expect(res.data.delivered_at).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 - UC19: Bàn giao đúng mã 9921",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/orders/NF2610159921/handover",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"order_code_suffix\": \"9921\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const res = pm.response.json();",
+              "pm.test(\"DA_GIAO\", () => pm.expect(res.data.status).to.eql(\"DA_GIAO\"));",
+              "pm.test(\"Đã thu COD\", () => pm.expect(res.data.payment_status).to.eql(\"da_thanh_toan\"));",
+              "pm.test(\"Giữ tổng 75000đ\", () => pm.expect(res.data.total_amount).to.eql(75000));",
+              "pm.test(\"Có thời điểm giao\", () => pm.expect(res.data.delivered_at).to.be.a(\"string\").and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 - Đọc lại xác nhận bàn giao đã lưu",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/orders/NF2610159921"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const res = pm.response.json();",
+              "pm.test(\"Lưu DA_GIAO và đã thanh toán\", () => { pm.expect(res.data.status).to.eql(\"DA_GIAO\"); pm.expect(res.data.payment_status).to.eql(\"da_thanh_toan\"); });",
+              "pm.test(\"Đúng đơn và suffix\", () => { pm.expect(res.data.id).to.eql(\"NF2610159921\"); pm.expect(res.data.order_code_suffix).to.eql(\"9921\"); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
