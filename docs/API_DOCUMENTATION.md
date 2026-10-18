@@ -1144,6 +1144,17 @@ Phân hệ cấu hình tham số vận hành hệ thống lưu trữ tập trung
   6. `BR-05` & `BR-14` / `EX-11`: Chốt `unit_price = dish.price`, `base_price = dish.base_price` vào `order_items`. Tính `subtotal_amount` và `total_amount = subtotal_amount + ship_fee`. Nếu `total_amount > 500000` $\rightarrow$ Chặn tạo đơn (`400 Bad Request` - `EX-11`).
   7. `BR-18`: Sinh mã đơn `NF...` (ví dụ `NF2610161234`), lưu 4 số cuối `"1234"` vào cột `order_code_suffix`, trạng thái khởi tạo `status = "CHO_XAC_NHAN"`, `payment_status = "chua_thanh_toan"`.
 
+**Chi tiết xử lý UC08–UC10:**
+- Chỉ JWT có role `customer` được tạo đơn; backend kiểm tra lại tài khoản còn tồn tại, đang hoạt động và role trong DB. Blacklist chặn đặt hàng, không thay đổi quyền đăng nhập.
+- Request phải là JSON object. Lỗi cấu trúc/kiểu dữ liệu trả `422` theo envelope chuẩn: số lượng phải là số nguyên thực sự (không nhận boolean, số thập phân hoặc chuỗi); số điện thoại di động Việt Nam 10 chữ số. Lỗi nghiệp vụ trả `400`, riêng tài khoản không được phép/blacklist trả `403`. `errors` của lỗi nghiệp vụ chứa `[{"code": "EX-09"}]` hoặc mã tương ứng `EX-05`–`EX-11`.
+- Giới hạn số lượng tính gộp **mọi dòng cùng `dish_id`**, kể cả các dòng có ghi chú khác nhau. Món còn phải `is_active == true`; món không tồn tại, bị ẩn/xóa hoặc hết hàng đều bị từ chối.
+- Giá, phí và tổng tiền được tính phía server bằng số thập phân chính xác; giá/tổng do client gửi không được dùng để tính tiền. Địa chỉ giao được dựng từ địa điểm NEU hợp lệ và `room_detail`; `delivery_address` tự nhập không thay thế địa điểm trong danh mục. Pickup luôn dùng địa chỉ quầy, lưu `campus_location_id`/`room_detail` là `null`.
+- `scheduled_at` cần múi giờ, ví dụ `2026-10-20T12:00:00+07:00`, chỉ gửi khi `is_preorder == true`. Giờ hẹn phải nằm trong giờ mở cửa theo giờ Việt Nam (mặc định từ **06:30**, trước **19:30**).
+- Đọc cấu hình `delivery_fee`, `max_cod_amount`, `max_dish_quantity_per_order`, `min_preorder_lead_minutes`, `canteen_open_time`, `canteen_close_time`. Mặc định tương ứng 5.000đ, 500.000đ, 10 phần, 30 phút, 06:30, 19:30. Trần cứng của schema hiện hành vẫn là 500.000đ/10 phần; thời gian hẹn không thấp hơn 30 phút. Tăng hai trần tiền/số lượng cần phối hợp thay đổi schema trước.
+- Khóa dòng tài khoản trong cùng giao dịch từ lúc kiểm tra đơn hoạt động đến lúc lưu đơn và chi tiết: hai request tạo đơn đồng thời không vượt giới hạn một đơn. Lỗi ghi bất kỳ chi tiết nào rollback toàn bộ đơn. Mã đơn có tiền tố `NF`, suffix luôn là chuỗi 4 chữ số, giữ cả số 0 đầu.
+
+Kiểm thử tích hợp: `backend/tests/test_order_creation.py`. Dùng PostgreSQL riêng có tên kết thúc `_orders_test`, khởi tạo bằng `database/init_db.sql`, đặt `TEST_DATABASE_URL` trỏ đến database thử, rồi chạy từ thư mục `backend`: `python -m unittest discover -s tests -p test_order_creation.py -v`. Test xóa dữ liệu trong database thử; không dùng database ứng dụng.
+
 ### 4.2. Xem Đơn Hàng (`UC11`)
 - `GET /api/v1/orders` (`@jwt_required`): Lịch sử đơn hàng của khách hàng hiện tại.
 - `GET /api/v1/orders/<order_id>` (`@jwt_required`): Xem chi tiết đơn hàng (gồm `order_code_suffix` 4 số cuối, trạng thái, danh sách món).

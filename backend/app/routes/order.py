@@ -2,7 +2,7 @@ from flask import Blueprint, request, g
 from pydantic import ValidationError
 from app.db.session import get_db
 from app.crud.order import (
-    create_order, get_order_by_id, get_user_orders, get_all_orders, update_order_status
+    create_order, get_order_by_id, get_user_orders, get_all_orders, update_order_status, OrderCreationError
 )
 from app.core.security import jwt_required, role_required
 from app.schemas.order import OrderCreateRequest, OrderStatusUpdateRequest
@@ -54,41 +54,41 @@ def _serialize_order(o: object) -> dict:
 
 
 @order_bp.route("", methods=["POST"])
-@jwt_required
+@role_required("customer")
 def submit_order():
-    """
-    Tạo đơn hàng COD mới (UC10).
-    TODO (Thành viên 3): Bổ sung kiểm tra các quy tắc BR-06 -> BR-22, EX-05 -> EX-11 và các endpoints:
-    POST /<id>/cancel, PATCH /<id>/process, POST /<id>/handover, POST /<id>/delivery-issue, POST /<id>/confirm-receipt.
-    """
-    user_id = int(g.current_user["sub"])
+    """Tạo đơn COD (UC08–UC10); nghiệp vụ và giao dịch nằm trong CRUD."""
+    try:
+        user_id = int(g.current_user["sub"])
+    except (KeyError, TypeError, ValueError):
+        return api_response(message="Phiên đăng nhập không hợp lệ", status_code=401, success=False)
 
     try:
-        data = OrderCreateRequest(**request.get_json(force=True))
+        data = OrderCreateRequest.model_validate(request.get_json(silent=True))
     except ValidationError as e:
-        return api_response(message="Dữ liệu đơn hàng không hợp lệ", errors=e.errors(), status_code=422, success=False)
+        return api_response(message="Dữ liệu đơn hàng không hợp lệ", errors=e.errors(include_context=False), status_code=422, success=False)
 
-    with get_db() as db:
-        order = create_order(
-            db=db,
-            user_id=user_id,
-            order_type=data.order_type,
-            recipient_name=data.recipient_name,
-            recipient_phone=data.recipient_phone,
-            campus_location_id=data.campus_location_id,
-            room_detail=data.room_detail,
-            delivery_address=data.delivery_address,
-            delivery_note=data.delivery_note,
-            is_preorder=data.is_preorder,
-            scheduled_at=data.scheduled_at,
-            payment_method=data.payment_method,
-            items_data=[item.model_dump() for item in data.items],
-        )
-        return api_response(
-            data=_serialize_order(order),
-            message="Đặt hàng thành công",
-            status_code=201,
-        )
+    try:
+        with get_db() as db:
+            order = create_order(
+                db=db,
+                user_id=user_id,
+                order_type=data.order_type,
+                recipient_name=data.recipient_name,
+                recipient_phone=data.recipient_phone,
+                campus_location_id=data.campus_location_id,
+                room_detail=data.room_detail,
+                delivery_address=data.delivery_address,
+                delivery_note=data.delivery_note,
+                is_preorder=data.is_preorder,
+                scheduled_at=data.scheduled_at,
+                payment_method=data.payment_method,
+                items_data=[item.model_dump() for item in data.items],
+            )
+            return api_response(
+                data=_serialize_order(order), message="Đặt hàng thành công", status_code=201,
+            )
+    except OrderCreationError as e:
+        return api_response(message=str(e), errors=[{"code": e.code}], status_code=e.status_code, success=False)
 
 
 @order_bp.route("", methods=["GET"])
