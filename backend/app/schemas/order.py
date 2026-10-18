@@ -66,6 +66,15 @@ class OrderProcessRequest(BaseModel):
         return self
 
 
+class OrderHandoverRequest(BaseModel):
+    order_code_suffix: str = Field(..., strict=True, pattern=r"^[0-9]{4}$")
+
+
+class OrderIssueRequest(BaseModel):
+    issue_type: str = Field(..., pattern="^(no_answer|refuse_payment|pickup_timeout)$")
+    reason: str = Field(..., min_length=1, pattern=r"\S")
+
+
 class OrderResponse(BaseModel):
     id: str
     order_code_suffix: str
@@ -88,6 +97,8 @@ class OrderResponse(BaseModel):
     payment_status: str
     eta: Optional[str] = None
     pickup_deadline: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+    auto_complete_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     items: List[OrderItemResponse] = []
 

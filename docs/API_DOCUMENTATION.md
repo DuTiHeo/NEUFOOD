@@ -1175,7 +1175,7 @@ UC17–UC18 hiện thực đồng bộ đơn chờ quá hạn (dòng đầu); t�
 | `/api/v1/orders/<id>/process` | `PATCH` | `staff`, `manager` | `CHO_XAC_NHAN` $\rightarrow$ `DANG_CHUAN_BI` hoặc `TU_CHOI` | `UC17`, `BR-16`, `EX-16`: Body `{"action": "accept"}` (gán `staff_id`) hoặc `{"action": "reject", "reason": "Hết nguyên liệu"}`. Nếu đơn quá 10 phút chưa duyệt thì chuyển sang `TU_DONG_HUY`. |
 | `/api/v1/orders/<id>/status` | `PATCH` | `staff`, `manager` | `CHO_XAC_NHAN` $\rightarrow$ `DANG_CHUAN_BI` / `TU_CHOI`; `DANG_CHUAN_BI` $\rightarrow$ `DANG_GIAO` / `SAN_SANG_LAY` | `UC17`, `UC18`, `BR-16`, `BR-21`: Body có `status`; từ chối cần `cancelled_reason`. Chỉ đơn delivery được chuyển sang `DANG_GIAO`, pickup sang `SAN_SANG_LAY` và gán `pickup_deadline = now() + 30 minutes` mặc định. |
 | `/api/v1/orders/<id>/handover` | `POST` | `staff`, `manager` | `DANG_GIAO` $\rightarrow$ `DA_GIAO`<br/>`SAN_SANG_LAY` $\rightarrow$ `DA_BAN_GIAO`<br/>`GIAO_THAT_BAI` $\rightarrow$ `DA_BAN_GIAO` | `UC19`, `BR-15`, `BR-18`, `EX-17`: Body `{"order_code_suffix": "9921"}`. Bắt buộc khớp 4 số cuối của đơn mới cho bàn giao, đổi `payment_status = "da_thanh_toan"`, `delivered_at = now()`, `auto_complete_at = now() + 30 minutes`. |
-| `/api/v1/orders/<id>/delivery-issue` | `POST` | `staff`, `manager` | `DANG_GIAO` $\rightarrow$ `GIAO_THAT_BAI` hoặc `BO_DON_BLACKLIST` | `BR-20`, `BR-22`, `EX-18`, `EX-19`: Body `{"issue_type": "no_answer" \| "refuse_payment" \| "pickup_timeout", "reason": "..."}`. Nếu `no_answer`: chuyển sang `GIAO_THAT_BAI` giữ tại quầy 30p. Nếu `refuse_payment` hoặc `pickup_timeout`: chuyển đơn sang `BO_DON_BLACKLIST` **và tự động khóa `user.is_blacklisted = true`**. |
+| `/api/v1/orders/<id>/delivery-issue` | `POST` | `staff`, `manager` | Đơn đang giao / sẵn sàng lấy / giao thất bại $\rightarrow$ `GIAO_THAT_BAI` hoặc `BO_DON_BLACKLIST` theo từng sự cố | `BR-20`, `BR-22`, `EX-18`, `EX-19`: Body `{"issue_type": "no_answer" \| "refuse_payment" \| "pickup_timeout", "reason": "..."}`. `no_answer` chỉ áp dụng đơn đang giao tận nơi; `pickup_timeout` chỉ khi quá hạn giữ tại quầy. Bỏ đơn cập nhật đơn và `user.is_blacklisted = true` trong cùng giao dịch. |
 | `/api/v1/orders/<id>/confirm-receipt` | `POST` | `customer` | `DA_GIAO` / `DA_BAN_GIAO` $\rightarrow$ `HOAN_THANH` | `UC13`, `EX-13`: Khách bấm xác nhận đã nhận hàng, gán `completed_at = now()`. |
 
 ---
@@ -1206,7 +1206,32 @@ Các URL trong bảng có tiền tố `/api/v1`, các thao tác đều dùng `PA
 - Đọc `order_timeout_minutes` (mặc định 10) và `pickup_hold_minutes` (mặc định 30) từ cấu hình hiện có. Hạn nhận tại quầy tính từ lần đầu chuyển sang `SAN_SANG_LAY`; gọi lặp bị chặn, không gia hạn deadline. Dữ liệu thời gian dùng UTC có múi giờ.
 - Sai bước hoặc sai loại đơn trả `400 INVALID_TRANSITION`; đơn khách đã hủy trả `400 EX-12`; schema/body sai hoặc thiếu lý do từ chối trả `422`; thiếu JWT `401`, sai quyền/tài khoản bị khóa `403`, đơn không tồn tại `404`. `/status` không cho nhảy sang trạng thái giao thành công, thanh toán, hoàn tất, khiếu nại hoặc blacklist; các bước này cần endpoint nghiệp vụ riêng.
 - Chỉ một yêu cầu thắng khi hai người cùng duyệt, hoặc khi khách hủy và Canteen duyệt đồng thời. Staff/Manager khác có thể cập nhật tiến độ trong cùng Canteen A2; giữ `staff_id` đã ghi lúc duyệt.
-- Phạm vi tự động hiện tại là đồng bộ trạng thái khi truy cập. Chưa có lịch chạy nền, thông báo chủ động hay log phạt hiệu suất theo toàn bộ kịch bản EX-16; chưa xử lý bàn giao/thu COD hoặc tự hoàn tất sau giao.
+- Phạm vi tự động của UC17–UC18 là đồng bộ trạng thái khi truy cập. Chưa có lịch chạy nền, thông báo chủ động hay log phạt hiệu suất theo toàn bộ kịch bản EX-16; bàn giao/thu COD được bổ sung ở mục 4.6, tự hoàn tất sau giao thuộc UC13.
+
+### 4.6. Bàn Giao COD Và Xử Lý Bỏ Đơn (`UC19`, `BR-18`, `BR-20`, `BR-22`)
+
+Cả hai endpoint yêu cầu JWT Staff/Manager, kiểm tra lại role và tài khoản đang hoạt động trong DB. Khóa khách rồi khóa đơn theo cùng thứ tự với tạo/hủy đơn; cập nhật đơn, thanh toán và blacklist trong giao dịch do `get_db()` quản lý.
+
+**Bàn giao:** `POST /api/v1/orders/<id>/handover`, body `{"order_code_suffix":"0007"}`. Mã phải là chuỗi đúng 4 chữ số ASCII; số `7` hoặc chuỗi `"7"` không thay thế `"0007"`. Không yêu cầu trường thanh toán mới; nhân viên chỉ xác nhận sau khi đã thu đủ COD theo phương thức đã lưu trong đơn.
+
+- `DANG_GIAO` của đơn delivery → `DA_GIAO`; `SAN_SANG_LAY` của pickup hoặc `GIAO_THAT_BAI` của delivery → `DA_BAN_GIAO`.
+- Chỉ nhận đơn chưa thanh toán. Sai mã trả `400 EX-17`, không thay đổi trạng thái, tiền hoặc thời điểm giao. Đúng mã mới ghi `payment_status = "da_thanh_toan"`, `delivered_at = now`, `auto_complete_at = now + auto_complete_minutes` (mặc định 30 phút).
+- `staff_id` tại bàn giao là người thực tế nhận COD để phục vụ đối soát; có thể khác người duyệt đơn. Giữ nguyên món, giá, tổng và phương thức `cod_cash`/`cod_vietqr` đã lưu.
+- Nếu nhận tại quầy, bắt buộc có `pickup_deadline`. Đúng mốc hạn vẫn được nhận; quá hạn thì đóng `BO_DON_BLACKLIST`, blacklist khách và trả `400 EX-18`, không ghi đã thanh toán. Việc đóng đơn/blacklist vẫn được commit dù bàn giao bị từ chối.
+
+**Sự cố:** `POST /api/v1/orders/<id>/delivery-issue`, body gồm `issue_type` và `reason` là chuỗi không trắng:
+
+| `issue_type` | Điều kiện | Kết quả |
+| --- | --- | --- |
+| `no_answer` | Đơn delivery đang `DANG_GIAO`, chưa thu tiền; nhân viên xác nhận đã gọi/chờ 5–10 phút theo BR-20 | `GIAO_THAT_BAI`, lưu lý do, hạn giữ tại quầy `now + pickup_hold_minutes` (mặc định 30 phút). Chưa blacklist. Gọi lặp không được gia hạn. |
+| `pickup_timeout` | `SAN_SANG_LAY`/`GIAO_THAT_BAI`, có deadline và `now > pickup_deadline` | `BO_DON_BLACKLIST` và blacklist khách. Trước/đúng hạn hoặc đang giao ngoài quầy trả `400 EX-18`. |
+| `refuse_payment` | Đơn đang `DANG_GIAO`, `SAN_SANG_LAY` hoặc `GIAO_THAT_BAI`, chưa thu tiền | Đóng `BO_DON_BLACKLIST` và blacklist ngay lần đầu, bao gồm khách không đủ tiền COD. Không ghi giao thành công. |
+
+Khi blacklist: đặt `user.is_blacklisted = true`, ghi `blacklist_reason` và `blacklisted_at`, lưu lý do trên đơn. Không đổi `user.is_active` hay khóa đăng nhập. Khi khách đến lấy đơn từng giao thất bại trong hạn, vẫn phải đối chiếu mã và trả đủ cả phí ship ban đầu.
+
+Thành công `200` trả chi tiết đơn trong envelope chuẩn, gồm `delivered_at`, `auto_complete_at`, `pickup_deadline`. Thiếu JWT `401`; sai quyền/tài khoản bị khóa `403`; không có đơn `404`; body sai, mã sai định dạng hoặc thiếu lý do `422`; bước không hợp lệ/đơn đã thu tiền trả `400 INVALID_TRANSITION`. Yêu cầu lặp hoặc đồng thời không được ghi nhận thanh toán hai lần, hay vừa ghi đã thu tiền vừa blacklist vì từ chối thanh toán. Lỗi database rollback cả đơn và user.
+
+Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn giao quá hạn; chưa có tác vụ nền tự quét để blacklist. Việc đã gọi/chờ 5–10 phút là xác nhận nghiệp vụ của nhân viên, chưa có dữ liệu theo dõi cuộc gọi/đến nơi để tự xác minh. UC19 chỉ ghi mốc `auto_complete_at`; chuyển `HOAN_THANH` tự động sẽ triển khai ở UC13. Test nằm trong `backend/tests/test_order_creation.py`, chạy trên PostgreSQL thử riêng theo mục 4.1.
 
 ---
 

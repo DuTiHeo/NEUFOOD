@@ -266,3 +266,86 @@ def update_order_status(
     order.status = new_status
     db.flush()
     return order
+
+
+def _lock_delivery_order(db: Session, order_id: str, staff_id: int):
+    actor = db.query(User).filter(User.id == staff_id).first()
+    if not actor or not actor.is_active or actor.role not in ("staff", "manager"):
+        raise OrderError("Tài khoản không có quyền bàn giao hoặc xử lý sự cố", "FORBIDDEN", 403)
+    owner = db.query(Order.user_id).filter(Order.id == order_id).first()
+    if owner is None:
+        raise OrderError("Không tìm thấy đơn hàng", "NOT_FOUND", 404)
+    # Cùng thứ tự khóa khách → đơn như tạo/hủy đơn để tránh deadlock.
+    user = db.query(User).filter(User.id == owner[0]).populate_existing().with_for_update().first()
+    order = db.query(Order).filter(Order.id == order_id).populate_existing().with_for_update().first()
+    if not order:
+        raise OrderError("Không tìm thấy đơn hàng", "NOT_FOUND", 404)
+    return order, user
+
+
+def _blacklist_abandoned_order(db: Session, order: Order, user: Optional[User], staff_id: int, reason: str, now):
+    if user is None:
+        raise OrderError("Đơn không còn tài khoản khách để ghi nhận Blacklist COD", "CUSTOMER_NOT_FOUND")
+    order.status = "BO_DON_BLACKLIST"
+    order.cancelled_reason = reason
+    order.staff_id = staff_id
+    if not user.is_blacklisted or user.blacklisted_at is None:
+        user.blacklisted_at = now
+    user.is_blacklisted = True
+    user.blacklist_reason = reason
+    db.flush()
+
+
+def handover_order(db: Session, order_id: str, staff_id: int, order_code_suffix: str) -> Order:
+    order, user = _lock_delivery_order(db, order_id, staff_id)
+    if order.payment_status != "chua_thanh_toan" or not (
+        (order.order_type == "delivery" and order.status in ("DANG_GIAO", "GIAO_THAT_BAI"))
+        or (order.order_type == "pickup" and order.status == "SAN_SANG_LAY")
+    ):
+        raise OrderError("Đơn không ở trạng thái cho phép bàn giao COD", "INVALID_TRANSITION")
+    now = datetime.now(timezone.utc)
+    if order.status in ("SAN_SANG_LAY", "GIAO_THAT_BAI"):
+        if order.pickup_deadline is None:
+            raise OrderError("Đơn chưa có hạn nhận tại quầy hợp lệ", "EX-18")
+        if now > order.pickup_deadline:
+            _blacklist_abandoned_order(db, order, user, staff_id, "Khách quá hạn nhận món tại quầy", now)
+            raise OrderError("Đã quá hạn nhận món; đơn bị đóng và tài khoản bị Blacklist COD", "EX-18")
+    if not secrets.compare_digest(order.order_code_suffix, order_code_suffix):
+        raise OrderError("Mã 4 số cuối không khớp. Vui lòng đọc đúng mã đơn trước khi bàn giao", "EX-17")
+    order.status = "DA_GIAO" if order.status == "DANG_GIAO" else "DA_BAN_GIAO"
+    order.payment_status = "da_thanh_toan"
+    order.staff_id = staff_id
+    order.delivered_at = now
+    order.auto_complete_at = now + timedelta(minutes=max(1, get_setting_int(db, "auto_complete_minutes", 30)))
+    db.flush()
+    return order
+
+
+def report_delivery_issue(db: Session, order_id: str, staff_id: int, issue_type: str, reason: str) -> Order:
+    order, user = _lock_delivery_order(db, order_id, staff_id)
+    if order.payment_status != "chua_thanh_toan" or not (
+        (order.order_type == "delivery" and order.status in ("DANG_GIAO", "GIAO_THAT_BAI"))
+        or (order.order_type == "pickup" and order.status == "SAN_SANG_LAY")
+    ):
+        raise OrderError("Đơn không ở trạng thái cho phép báo sự cố COD", "INVALID_TRANSITION")
+    if not reason.strip():
+        raise OrderError("Cần nhập lý do sự cố", "INVALID_REASON")
+    now = datetime.now(timezone.utc)
+    if issue_type == "no_answer":
+        if order.status != "DANG_GIAO" or order.order_type != "delivery":
+            raise OrderError("Chỉ đơn đang giao tận nơi được báo không liên lạc được", "EX-18")
+        order.status = "GIAO_THAT_BAI"
+        order.cancelled_reason = reason.strip()
+        order.staff_id = staff_id
+        order.pickup_deadline = now + timedelta(minutes=max(1, get_setting_int(db, "pickup_hold_minutes", 30)))
+    elif issue_type == "pickup_timeout":
+        if (order.status not in ("SAN_SANG_LAY", "GIAO_THAT_BAI")
+                or order.pickup_deadline is None or now <= order.pickup_deadline):
+            raise OrderError("Đơn chưa quá hạn nhận món tại quầy", "EX-18")
+        _blacklist_abandoned_order(db, order, user, staff_id, reason.strip(), now)
+    elif issue_type == "refuse_payment":
+        _blacklist_abandoned_order(db, order, user, staff_id, reason.strip(), now)
+    else:
+        raise OrderError("Loại sự cố không hợp lệ", "INVALID_ISSUE")
+    db.flush()
+    return order

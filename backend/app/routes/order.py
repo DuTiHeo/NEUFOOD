@@ -2,10 +2,13 @@ from flask import Blueprint, request, g
 from pydantic import ValidationError
 from app.db.session import get_db
 from app.crud.order import (
-    create_order, cancel_order, get_order_by_id, get_user_orders, get_all_orders, update_order_status, OrderError
+    create_order, cancel_order, get_order_by_id, get_user_orders, get_all_orders, update_order_status, OrderError,
+    handover_order, report_delivery_issue,
 )
 from app.core.security import jwt_required, role_required
-from app.schemas.order import OrderCreateRequest, OrderStatusUpdateRequest, OrderProcessRequest
+from app.schemas.order import (
+    OrderCreateRequest, OrderStatusUpdateRequest, OrderProcessRequest, OrderHandoverRequest, OrderIssueRequest,
+)
 from app.utils.helpers import api_response
 
 order_bp = Blueprint("orders", __name__, url_prefix="/orders")
@@ -37,6 +40,7 @@ def _serialize_order(o: object) -> dict:
         "delivered_at": o.delivered_at.isoformat() if o.delivered_at else None,
         "completed_at": o.completed_at.isoformat() if o.completed_at else None,
         "pickup_deadline": o.pickup_deadline.isoformat() if o.pickup_deadline else None,
+        "auto_complete_at": o.auto_complete_at.isoformat() if o.auto_complete_at else None,
         "created_at": o.created_at.isoformat() if o.created_at else None,
         "items": [
             {
@@ -178,5 +182,35 @@ def _change_order_status(order_id: str, status: str, reason):
                 data=_serialize_order(updated),
                 message="Cập nhật trạng thái thành công",
             )
+        except OrderError as e:
+            return api_response(message=str(e), errors=[{"code": e.code}], status_code=e.status_code, success=False)
+
+
+@order_bp.route("/<order_id>/handover", methods=["POST"])
+@role_required("staff", "manager")
+def handover(order_id: str):
+    return _perform_delivery_action(order_id, OrderHandoverRequest, handover_order)
+
+
+@order_bp.route("/<order_id>/delivery-issue", methods=["POST"])
+@role_required("staff", "manager")
+def delivery_issue(order_id: str):
+    return _perform_delivery_action(order_id, OrderIssueRequest, report_delivery_issue)
+
+
+def _perform_delivery_action(order_id, schema, action):
+    try:
+        staff_id = int(g.current_user["sub"])
+    except (KeyError, TypeError, ValueError):
+        return api_response(message="Phiên đăng nhập không hợp lệ", status_code=401, success=False)
+    try:
+        data = schema.model_validate(request.get_json(silent=True))
+    except ValidationError as e:
+        return api_response(message="Dữ liệu bàn giao/sự cố không hợp lệ", errors=e.errors(include_context=False), status_code=422, success=False)
+    with get_db() as db:
+        # Hết hạn bàn giao trả lỗi nhưng vẫn lưu việc đóng đơn và blacklist.
+        try:
+            order = action(db, order_id, staff_id, **data.model_dump())
+            return api_response(data=_serialize_order(order), message="Xử lý đơn hàng thành công")
         except OrderError as e:
             return api_response(message=str(e), errors=[{"code": e.code}], status_code=e.status_code, success=False)

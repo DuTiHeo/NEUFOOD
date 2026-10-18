@@ -19,7 +19,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 from app.core.security import create_access_token
-from app.crud.order import ACTIVE_ORDER_STATUSES, OrderError, cancel_order, create_order, update_order_status
+from app.crud.order import (
+    ACTIVE_ORDER_STATUSES, OrderError, cancel_order, create_order, update_order_status,
+    handover_order, report_delivery_issue,
+)
 from app.db.models import CampusLocation, Dish, Order, OrderItem, SystemSetting, User
 from app.routes.order import order_bp
 
@@ -619,6 +622,240 @@ class OrderCreationTests(unittest.TestCase):
         self.assertEqual(response.get_json()["errors"][0]["code"], "EX-12")
         with self.sessions() as db:
             self.assertEqual(db.get(Order, order_id).status, "TU_DONG_HUY")
+
+    def ready_order(self, pickup=False, payment_method="cod_cash"):
+        payload = self.payload()
+        payload.update(order_type="pickup" if pickup else "delivery", payment_method=payment_method)
+        response = self.post(payload)
+        self.assertEqual(response.status_code, 201, response.get_json())
+        order_id = response.get_json()["data"]["id"]
+        self.assertEqual(self.staff_patch(order_id, {"action": "accept"}, "process").status_code, 200)
+        response = self.staff_patch(order_id, {"status": "SAN_SANG_LAY" if pickup else "DANG_GIAO"})
+        self.assertEqual(response.status_code, 200, response.get_json())
+        return response.get_json()["data"]
+
+    def delivery_post(self, order_id, body, endpoint="handover", user=3, role="staff"):
+        token = create_access_token({"sub": str(user), "role": role})
+        with self.app.test_client() as client:
+            return client.post(f"/api/v1/orders/{order_id}/{endpoint}", json=body,
+                               headers={"Authorization": f"Bearer {token}"})
+
+    def test_handover_delivery_checks_code_before_payment(self):
+        data = self.ready_order()
+        order_id, suffix = data["id"], data["order_code_suffix"]
+        wrong = "0000" if suffix != "0000" else "1111"
+        response = self.delivery_post(order_id, {"order_code_suffix": wrong})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["errors"][0]["code"], "EX-17")
+        with self.sessions() as db:
+            order = db.get(Order, order_id)
+            self.assertEqual((order.status, order.payment_status), ("DANG_GIAO", "chua_thanh_toan"))
+            self.assertIsNone(order.delivered_at)
+        with patch("app.crud.order.datetime") as clock:
+            clock.now.return_value = self.now
+            response = self.delivery_post(order_id, {"order_code_suffix": suffix}, user=4, role="manager")
+        self.assertEqual(response.status_code, 200, response.get_json())
+        after = response.get_json()["data"]
+        self.assertEqual((after["status"], after["payment_status"], after["staff_id"]), ("DA_GIAO", "da_thanh_toan", 4))
+        with self.sessions() as db:
+            order = db.get(Order, order_id)
+            self.assertEqual(order.delivered_at, self.now)
+            self.assertEqual(order.auto_complete_at, self.now + timedelta(minutes=30))
+            self.assertFalse(db.get(User, 1).is_blacklisted)
+        self.assertEqual(self.delivery_post(order_id, {"order_code_suffix": suffix}).status_code, 400)
+        with self.sessions() as db:
+            self.assertEqual(db.get(Order, order_id).delivered_at, self.now)
+            self.assertEqual(db.get(Order, order_id).staff_id, 4)
+
+    def test_pickup_handover_at_exact_deadline_and_vietqr(self):
+        with patch("app.crud.order.secrets.randbelow", return_value=7):
+            data = self.ready_order(pickup=True, payment_method="cod_vietqr")
+        self.assertEqual(data["order_code_suffix"], "0007")
+        deadline = datetime.fromisoformat(data["pickup_deadline"])
+        with self.sessions.begin() as db:
+            db.add(SystemSetting(setting_key="auto_complete_minutes", setting_value="45"))
+        with patch("app.crud.order.datetime") as clock:
+            clock.now.return_value = deadline
+            response = self.delivery_post(data["id"], {"order_code_suffix": "0007"})
+        self.assertEqual(response.status_code, 200, response.get_json())
+        after = response.get_json()["data"]
+        self.assertEqual((after["status"], after["payment_status"], after["payment_method"]),
+                         ("DA_BAN_GIAO", "da_thanh_toan", "cod_vietqr"))
+        self.assertEqual(datetime.fromisoformat(after["auto_complete_at"]), deadline + timedelta(minutes=45))
+
+    def test_no_answer_keeps_shipping_and_allows_pickup_after_failure(self):
+        data = self.ready_order()
+        body = {"issue_type": "no_answer", "reason": "Đã gọi và chờ, khách không nghe máy"}
+        with patch("app.crud.order.datetime") as clock:
+            clock.now.return_value = self.now
+            response = self.delivery_post(data["id"], body, "delivery-issue")
+        self.assertEqual(response.status_code, 200, response.get_json())
+        with self.sessions() as db:
+            order = db.get(Order, data["id"])
+            self.assertEqual(order.status, "GIAO_THAT_BAI")
+            self.assertEqual(order.pickup_deadline, self.now + timedelta(minutes=30))
+            self.assertFalse(db.get(User, 1).is_blacklisted)
+        self.assertEqual(self.delivery_post(data["id"], body, "delivery-issue").status_code, 400)
+        with patch("app.crud.order.datetime") as clock:
+            clock.now.return_value = self.now + timedelta(minutes=29)
+            response = self.delivery_post(data["id"], {"order_code_suffix": data["order_code_suffix"]})
+        self.assertEqual(response.status_code, 200, response.get_json())
+        after = response.get_json()["data"]
+        self.assertEqual(after["status"], "DA_BAN_GIAO")
+        self.assertEqual((after["ship_fee"], after["total_amount"]), (data["ship_fee"], data["total_amount"]))
+
+    def test_no_answer_does_not_apply_to_pickup(self):
+        data = self.ready_order(pickup=True)
+        response = self.delivery_post(data["id"], {"issue_type": "no_answer", "reason": "Không nghe máy"}, "delivery-issue")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["errors"][0]["code"], "EX-18")
+        with self.sessions() as db:
+            self.assertEqual(db.get(Order, data["id"]).status, "SAN_SANG_LAY")
+            self.assertFalse(db.get(User, 1).is_blacklisted)
+
+    def test_timeout_cannot_blacklist_early_and_blacklists_after_deadline(self):
+        data = self.ready_order(pickup=True)
+        deadline = datetime.fromisoformat(data["pickup_deadline"])
+        body = {"issue_type": "pickup_timeout", "reason": "Khách không đến nhận món"}
+        for now in (deadline - timedelta(seconds=1), deadline):
+            with patch("app.crud.order.datetime") as clock:
+                clock.now.return_value = now
+                response = self.delivery_post(data["id"], body, "delivery-issue")
+            self.assertEqual(response.status_code, 400)
+            with self.sessions() as db:
+                self.assertFalse(db.get(User, 1).is_blacklisted)
+        with patch("app.crud.order.datetime") as clock:
+            clock.now.return_value = deadline + timedelta(microseconds=1)
+            response = self.delivery_post(data["id"], body, "delivery-issue")
+        self.assertEqual(response.status_code, 200, response.get_json())
+        with self.sessions() as db:
+            order, user = db.get(Order, data["id"]), db.get(User, 1)
+            self.assertEqual((order.status, order.payment_status), ("BO_DON_BLACKLIST", "chua_thanh_toan"))
+            self.assertTrue(user.is_blacklisted)
+            self.assertTrue(user.is_active)
+            self.assertEqual(user.blacklist_reason, body["reason"])
+            self.assertEqual(user.blacklisted_at, deadline + timedelta(microseconds=1))
+        self.assertEqual(self.post().get_json()["errors"][0]["code"], "EX-10")
+
+    def test_late_handover_closes_and_blacklists_instead_of_marking_paid(self):
+        data = self.ready_order()
+        with patch("app.crud.order.datetime") as clock:
+            clock.now.return_value = self.now
+            self.assertEqual(self.delivery_post(data["id"], {"issue_type": "no_answer", "reason": "Khách vắng"}, "delivery-issue").status_code, 200)
+            clock.now.return_value = self.now + timedelta(minutes=30, microseconds=1)
+            response = self.delivery_post(data["id"], {"order_code_suffix": data["order_code_suffix"]})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["errors"][0]["code"], "EX-18")
+        with self.sessions() as db:
+            order = db.get(Order, data["id"])
+            self.assertEqual((order.status, order.payment_status, order.delivered_at), ("BO_DON_BLACKLIST", "chua_thanh_toan", None))
+            self.assertTrue(db.get(User, 1).is_blacklisted)
+
+    def test_refusal_blacklists_immediately_and_repeated_issue_is_rejected(self):
+        data = self.ready_order()
+        body = {"issue_type": "refuse_payment", "reason": "Khách không đủ tiền COD"}
+        with patch("app.crud.order.datetime") as clock:
+            clock.now.return_value = self.now
+            response = self.delivery_post(data["id"], body, "delivery-issue")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.delivery_post(data["id"], body, "delivery-issue").status_code, 400)
+        self.assertEqual(self.delivery_post(data["id"], {"order_code_suffix": data["order_code_suffix"]}).status_code, 400)
+        with self.sessions() as db:
+            self.assertEqual(db.get(Order, data["id"]).status, "BO_DON_BLACKLIST")
+            self.assertEqual(db.get(User, 1).blacklisted_at, self.now)
+            self.assertTrue(db.get(User, 1).is_active)
+
+    def test_delivery_actions_validate_schema_and_permissions(self):
+        data = self.ready_order()
+        for suffix in (1234, "123", "12345", "abcd", "１２３４"):
+            self.assertEqual(self.delivery_post(data["id"], {"order_code_suffix": suffix}).status_code, 422)
+        for body in ({"issue_type": "other", "reason": "test"}, {"issue_type": "no_answer"},
+                     {"issue_type": "no_answer", "reason": "  "}, []):
+            self.assertEqual(self.delivery_post(data["id"], body, "delivery-issue").status_code, 422)
+        for endpoint, body in [("handover", {"order_code_suffix": data["order_code_suffix"]}),
+                               ("delivery-issue", {"issue_type": "no_answer", "reason": "Không nghe máy"})]:
+            with self.app.test_client() as client:
+                self.assertEqual(client.post(f"/api/v1/orders/{data['id']}/{endpoint}", json=body).status_code, 401)
+            for user, role in [(1, "customer"), (5, "admin")]:
+                self.assertEqual(self.delivery_post(data["id"], body, endpoint, user, role).status_code, 403)
+            self.assertEqual(self.delivery_post("missing", body, endpoint).status_code, 404)
+        with self.sessions.begin() as db:
+            db.get(User, 3).is_active = False
+        self.assertEqual(self.delivery_post(data["id"], {"order_code_suffix": data["order_code_suffix"]}).status_code, 403)
+
+    def test_unready_orders_cannot_be_handed_over_or_blacklisted(self):
+        data = self.post().get_json()["data"]
+        for state in ("CHO_XAC_NHAN", "DANG_CHUAN_BI", "DA_HUY_KHACH", "TU_CHOI", "HOAN_THANH"):
+            with self.sessions.begin() as db:
+                db.get(Order, data["id"]).status = state
+            self.assertEqual(self.delivery_post(data["id"], {"order_code_suffix": data["order_code_suffix"]}).status_code, 400)
+            self.assertEqual(self.delivery_post(data["id"], {"issue_type": "refuse_payment", "reason": "Không trả tiền"}, "delivery-issue").status_code, 400)
+            with self.sessions() as db:
+                self.assertFalse(db.get(User, 1).is_blacklisted)
+
+    def test_timeout_does_not_apply_while_out_for_delivery(self):
+        data = self.ready_order()
+        response = self.delivery_post(data["id"], {"issue_type": "pickup_timeout", "reason": "Quá hạn"}, "delivery-issue")
+        self.assertEqual(response.status_code, 400)
+        with self.sessions() as db:
+            self.assertFalse(db.get(User, 1).is_blacklisted)
+
+    def test_blacklist_database_failure_rolls_back_order_and_user(self):
+        data = self.ready_order()
+        with self.engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD CONSTRAINT test_blacklist_failure CHECK (NOT is_blacklisted)"))
+        try:
+            with self.assertRaises(IntegrityError) as error:
+                self.delivery_post(data["id"], {"issue_type": "refuse_payment", "reason": "Không trả tiền"}, "delivery-issue")
+            self.assertIn("test_blacklist_failure", str(error.exception.orig))
+            with self.sessions() as db:
+                self.assertEqual(db.get(Order, data["id"]).status, "DANG_GIAO")
+                self.assertFalse(db.get(User, 1).is_blacklisted)
+        finally:
+            with self.engine.begin() as conn:
+                conn.execute(text("ALTER TABLE users DROP CONSTRAINT test_blacklist_failure"))
+
+    def test_concurrent_handovers_record_payment_only_once(self):
+        data = self.ready_order()
+        barrier = Barrier(2)
+
+        def concurrent_handover(*args, **kwargs):
+            barrier.wait(timeout=5)
+            return handover_order(*args, **kwargs)
+
+        with patch("app.routes.order.handover_order", side_effect=concurrent_handover):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                futures = [pool.submit(self.delivery_post, data["id"], {"order_code_suffix": data["order_code_suffix"]}) for _ in range(2)]
+                self.assertEqual(sorted(f.result(timeout=15).status_code for f in futures), [200, 400])
+        with self.sessions() as db:
+            self.assertEqual(db.get(Order, data["id"]).payment_status, "da_thanh_toan")
+            self.assertFalse(db.get(User, 1).is_blacklisted)
+
+    def test_handover_and_payment_refusal_cannot_both_succeed(self):
+        data = self.ready_order()
+        barrier = Barrier(2)
+
+        def concurrent_handover(*args, **kwargs):
+            barrier.wait(timeout=5)
+            return handover_order(*args, **kwargs)
+
+        def concurrent_issue(*args, **kwargs):
+            barrier.wait(timeout=5)
+            return report_delivery_issue(*args, **kwargs)
+
+        with patch("app.routes.order.handover_order", side_effect=concurrent_handover), \
+                patch("app.routes.order.report_delivery_issue", side_effect=concurrent_issue):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                success = pool.submit(self.delivery_post, data["id"], {"order_code_suffix": data["order_code_suffix"]})
+                failure = pool.submit(self.delivery_post, data["id"], {"issue_type": "refuse_payment", "reason": "Không đủ tiền"}, "delivery-issue")
+                handed, refused = success.result(timeout=15), failure.result(timeout=15)
+        self.assertEqual(sorted([handed.status_code, refused.status_code]), [200, 400])
+        with self.sessions() as db:
+            order, user = db.get(Order, data["id"]), db.get(User, 1)
+            if handed.status_code == 200:
+                self.assertEqual((order.status, order.payment_status, user.is_blacklisted), ("DA_GIAO", "da_thanh_toan", False))
+            else:
+                self.assertEqual((order.status, order.payment_status, user.is_blacklisted), ("BO_DON_BLACKLIST", "chua_thanh_toan", True))
 
 
 if __name__ == "__main__":
