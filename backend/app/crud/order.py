@@ -5,7 +5,7 @@ from datetime import datetime, time as clock_time, timedelta, timezone
 from decimal import Decimal
 from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
-from app.db.models import Order, OrderItem, Dish, CampusLocation, User
+from app.db.models import Order, OrderItem, Dish, CampusLocation, User, Complaint
 from app.crud.setting import get_setting_by_key, get_setting_int
 
 
@@ -198,16 +198,50 @@ def cancel_order(db: Session, order_id: str, user_id: int) -> Order:
 
 
 def sync_overdue_orders(db: Session, user_id: Optional[int] = None, order_id: Optional[str] = None):
-    """BR16: đồng bộ đơn chờ quá hạn khi truy cập, trong giao dịch của caller."""
+    """BR16/EX13: đồng bộ tự hủy và hoàn tất khi truy cập, trong giao dịch caller."""
     timeout = max(1, get_setting_int(db, "order_timeout_minutes", 10))
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=timeout)
-    query = db.query(Order).filter(Order.status == "CHO_XAC_NHAN", Order.created_at < cutoff)
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(minutes=timeout)
+    query = db.query(Order)
     if user_id is not None:
         query = query.filter(Order.user_id == user_id)
     if order_id is not None:
         query = query.filter(Order.id == order_id)
-    query.update({Order.status: "TU_DONG_HUY", Order.cancelled_reason: "Canteen không xác nhận đơn trong thời hạn"},
-                 synchronize_session="fetch")
+    query.filter(Order.status == "CHO_XAC_NHAN", Order.created_at < cutoff).update(
+        {Order.status: "TU_DONG_HUY", Order.cancelled_reason: "Canteen không xác nhận đơn trong thời hạn"},
+        synchronize_session="fetch",
+    )
+    candidates = query.filter(
+        Order.status.in_(("DA_GIAO", "DA_BAN_GIAO")), Order.payment_status == "da_thanh_toan",
+        Order.delivered_at.isnot(None), Order.auto_complete_at <= now, ~Order.complaint.has(),
+    ).order_by(Order.id).populate_existing().with_for_update(skip_locked=True).all()
+    for order in candidates:
+        # Kiểm tra lại sau khóa để thấy khiếu nại đã commit trong lúc chờ xử lý.
+        if not db.query(Complaint.id).filter(Complaint.order_id == order.id).first():
+            order.status = "HOAN_THANH"
+            order.completed_at = now
+    if candidates:
+        db.flush()
+
+
+def confirm_order_receipt(db: Session, order_id: str, user_id: int) -> Order:
+    user = db.query(User).filter(User.id == user_id).with_for_update(read=True).first()
+    if not user or not user.is_active or user.role != "customer":
+        raise OrderError("Tài khoản không có quyền xác nhận nhận hàng", "FORBIDDEN", 403)
+    order = db.query(Order).filter(
+        Order.id == order_id, Order.user_id == user_id,
+    ).populate_existing().with_for_update().first()
+    if not order:
+        raise OrderError("Không tìm thấy đơn hàng", "NOT_FOUND", 404)
+    if (order.status not in ("DA_GIAO", "DA_BAN_GIAO", "HOAN_THANH")
+            or order.payment_status != "da_thanh_toan" or order.delivered_at is None
+            or db.query(Complaint.id).filter(Complaint.order_id == order.id).first()):
+        raise OrderError("Chỉ được xác nhận đơn đã bàn giao, thanh toán và không có khiếu nại", "EX-13")
+    if order.status != "HOAN_THANH":
+        order.status = "HOAN_THANH"
+        order.completed_at = datetime.now(timezone.utc)
+        db.flush()
+    return order
 
 
 def get_order_by_id(db: Session, order_id: str) -> Optional[Order]:

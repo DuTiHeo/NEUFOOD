@@ -3,7 +3,7 @@ from pydantic import ValidationError
 from app.db.session import get_db
 from app.crud.order import (
     create_order, cancel_order, get_order_by_id, get_user_orders, get_all_orders, update_order_status, OrderError,
-    handover_order, report_delivery_issue,
+    handover_order, report_delivery_issue, confirm_order_receipt,
 )
 from app.core.security import jwt_required, role_required
 from app.schemas.order import (
@@ -120,6 +120,21 @@ def get_my_orders():
         orders = get_user_orders(db, user_id)
         data = [_serialize_order(o) for o in orders]
         return api_response(data=data)
+
+
+@order_bp.route("/<order_id>/confirm-receipt", methods=["POST"])
+@role_required("customer")
+def confirm_receipt(order_id: str):
+    try:
+        user_id = int(g.current_user["sub"])
+    except (KeyError, TypeError, ValueError):
+        return api_response(message="Phiên đăng nhập không hợp lệ", status_code=401, success=False)
+    try:
+        with get_db() as db:
+            order = confirm_order_receipt(db, order_id, user_id)
+            return api_response(data=_serialize_order(order), message="Xác nhận nhận hàng thành công")
+    except OrderError as e:
+        return api_response(message=str(e), errors=[{"code": e.code}], status_code=e.status_code, success=False)
 
 
 @order_bp.route("/<order_id>", methods=["GET"])

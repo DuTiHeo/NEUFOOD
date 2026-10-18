@@ -99,6 +99,7 @@ class OrderResponse(BaseModel):
     pickup_deadline: Optional[datetime] = None
     delivered_at: Optional[datetime] = None
     auto_complete_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     items: List[OrderItemResponse] = []
 

@@ -1167,7 +1167,7 @@ Kiểm thử tích hợp: `backend/tests/test_order_creation.py`. Dùng PostgreS
 > - Các đơn có `status == 'CHO_XAC_NHAN'` và `now() - created_at > 10 minutes` $\rightarrow$ Tự động chuyển sang `TU_DONG_HUY` (`BR-16`, `EX-16`).
 > - Các đơn có `status IN ('DA_GIAO', 'DA_BAN_GIAO')` và `auto_complete_at <= now()` $\rightarrow$ Tự động chuyển sang `HOAN_THANH` (`EX-13`).
 
-UC17–UC18 hiện thực đồng bộ đơn chờ quá hạn (dòng đầu); tự hoàn tất sau giao (dòng thứ hai) thuộc UC13, chưa triển khai. Đồng bộ diễn ra lúc đọc danh sách/chi tiết, tạo đơn, hủy, duyệt hoặc cập nhật tiến độ; chưa có tác vụ nền chạy khi không có truy cập.
+Đã hiện thực cả hai nhánh: UC17–UC18 đồng bộ đơn chờ quá hạn, UC13 tự hoàn tất đơn đã giao/bàn giao và không có khiếu nại. Đồng bộ diễn ra lúc đọc danh sách/chi tiết, tạo đơn, hủy, duyệt hoặc cập nhật tiến độ; chưa có tác vụ nền chạy khi không có truy cập.
 
 | Endpoint | Method | Role được phép | Chuyển trạng thái | Quy tắc / Ngoại lệ kiểm tra |
 | :--- | :---: | :---: | :--- | :--- |
@@ -1231,7 +1231,18 @@ Khi blacklist: đặt `user.is_blacklisted = true`, ghi `blacklist_reason` và `
 
 Thành công `200` trả chi tiết đơn trong envelope chuẩn, gồm `delivered_at`, `auto_complete_at`, `pickup_deadline`. Thiếu JWT `401`; sai quyền/tài khoản bị khóa `403`; không có đơn `404`; body sai, mã sai định dạng hoặc thiếu lý do `422`; bước không hợp lệ/đơn đã thu tiền trả `400 INVALID_TRANSITION`. Yêu cầu lặp hoặc đồng thời không được ghi nhận thanh toán hai lần, hay vừa ghi đã thu tiền vừa blacklist vì từ chối thanh toán. Lỗi database rollback cả đơn và user.
 
-Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn giao quá hạn; chưa có tác vụ nền tự quét để blacklist. Việc đã gọi/chờ 5–10 phút là xác nhận nghiệp vụ của nhân viên, chưa có dữ liệu theo dõi cuộc gọi/đến nơi để tự xác minh. UC19 chỉ ghi mốc `auto_complete_at`; chuyển `HOAN_THANH` tự động sẽ triển khai ở UC13. Test nằm trong `backend/tests/test_order_creation.py`, chạy trên PostgreSQL thử riêng theo mục 4.1.
+Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn giao quá hạn; chưa có tác vụ nền tự quét để blacklist. Việc đã gọi/chờ 5–10 phút là xác nhận nghiệp vụ của nhân viên, chưa có dữ liệu theo dõi cuộc gọi/đến nơi để tự xác minh. UC19 ghi mốc `auto_complete_at`; UC13 dùng mốc này để tự hoàn tất như mục 4.7. Test nằm trong `backend/tests/test_order_creation.py`, chạy trên PostgreSQL thử riêng theo mục 4.1.
+
+### 4.7. Khách Xác Nhận Nhận Hàng Và Tự Hoàn Tất (`UC13`, `EX-13`)
+
+- **Endpoint:** `POST /api/v1/orders/<id>/confirm-receipt`, JWT role `customer`; không cần request body hay schema đầu vào mới. Kiểm tra lại tài khoản hoạt động và role trong DB. Blacklist COD không chặn xác nhận nhận hàng cho đơn đã có.
+- **Điều kiện:** đơn thuộc khách đang đăng nhập, trạng thái `DA_GIAO` hoặc `DA_BAN_GIAO`, đã thu COD (`payment_status = "da_thanh_toan"`), có `delivered_at` và không có bản ghi khiếu nại. Khóa dòng khách rồi dòng đơn trong giao dịch; kiểm tra lại trạng thái sau khóa.
+- **Thành công `200`:** chuyển `HOAN_THANH`, ghi `completed_at = now()` có múi giờ UTC, trả chi tiết đơn với `message: "Xác nhận nhận hàng thành công"`. Giữ nguyên giá/món, thanh toán, nhân viên thu COD, `delivered_at` và `auto_complete_at`.
+- **Gửi lại:** nếu đơn đã `HOAN_THANH` và vẫn thỏa điều kiện thanh toán/không khiếu nại, trả `200` với dữ liệu hiện tại, không đổi `completed_at`. Hai xác nhận đồng thời giữ một thời điểm hoàn tất duy nhất.
+- **Lỗi:** chưa đăng nhập `401`; sai quyền/tài khoản bị khóa `403`; không tìm thấy hoặc đơn của người khác `404` và không trả dữ liệu; trạng thái/điều kiện không hợp lệ trả `400`, `errors: [{"code":"EX-13"}]`. Không dùng xác nhận nhận hàng để bỏ qua bàn giao/thu COD hoặc đóng khiếu nại.
+- **Tự hoàn tất:** `sync_overdue_orders()` xử lý đơn `DA_GIAO`/`DA_BAN_GIAO` đã thanh toán, có `delivered_at` và `auto_complete_at <= now()`. Thời hạn được chốt lúc bàn giao theo `auto_complete_minutes` (mặc định 30 phút); thay đổi cấu hình sau đó không sửa mốc đã lưu của đơn cũ. Đúng mốc hạn được xử lý, trước hạn không hoàn tất.
+- **Khiếu nại:** kiểm tra cả trạng thái và bảng `complaints`; không ghi đè `KHIEU_NAI`/`DA_GIAI_QUYET` hoặc đơn có bản ghi khiếu nại dù trạng thái chưa đồng bộ. Khóa dòng đơn khi xử lý và bỏ qua dòng đang bị giao dịch khác khóa. Bên xử lý khiếu nại cần dùng cùng khóa đơn khi chuyển trạng thái; UC13 không sửa phân hệ khiếu nại của Thành viên 4. Giữ `delivered_at` để phân hệ đó vẫn tính được thời hạn khiếu nại 24 giờ từ lúc giao, kể cả đơn đã hoàn tất.
+- **Phạm vi tự động:** đồng bộ khi có truy cập, không phải tác vụ nền. `completed_at` tự động là thời điểm hệ thống thực sự xử lý; không bị ghi lại ở những lần đọc/xác nhận sau. Kiểm thử tích hợp cùng bộ `backend/tests/test_order_creation.py` theo mục 4.1, gồm cả rollback nếu database ghi lỗi.
 
 ---
 

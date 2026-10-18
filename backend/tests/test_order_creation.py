@@ -21,9 +21,9 @@ from sqlalchemy.orm import sessionmaker
 from app.core.security import create_access_token
 from app.crud.order import (
     ACTIVE_ORDER_STATUSES, OrderError, cancel_order, create_order, update_order_status,
-    handover_order, report_delivery_issue,
+    handover_order, report_delivery_issue, confirm_order_receipt,
 )
-from app.db.models import CampusLocation, Dish, Order, OrderItem, SystemSetting, User
+from app.db.models import CampusLocation, Dish, Order, OrderItem, SystemSetting, User, Complaint
 from app.routes.order import order_bp
 
 
@@ -856,6 +856,206 @@ class OrderCreationTests(unittest.TestCase):
                 self.assertEqual((order.status, order.payment_status, user.is_blacklisted), ("DA_GIAO", "da_thanh_toan", False))
             else:
                 self.assertEqual((order.status, order.payment_status, user.is_blacklisted), ("BO_DON_BLACKLIST", "chua_thanh_toan", True))
+
+
+    def delivered_order(self, pickup=False):
+        data = self.ready_order(pickup=pickup)
+        response = self.delivery_post(data["id"], {"order_code_suffix": data["order_code_suffix"]})
+        self.assertEqual(response.status_code, 200, response.get_json())
+        return response.get_json()["data"]
+
+    def confirm(self, order_id, user=1, role="customer"):
+        token = create_access_token({"sub": str(user), "role": role})
+        with self.app.test_client() as client:
+            return client.post(f"/api/v1/orders/{order_id}/confirm-receipt",
+                               headers={"Authorization": f"Bearer {token}"})
+
+    def read_orders(self, path, user=1, role="customer"):
+        token = create_access_token({"sub": str(user), "role": role})
+        with self.app.test_client() as client:
+            return client.get(path, headers={"Authorization": f"Bearer {token}"})
+
+    def test_confirm_delivery_and_pickup_preserves_cod_and_is_repeatable(self):
+        for pickup in (False, True):
+            data = self.delivered_order(pickup=pickup)
+            now = datetime.fromisoformat(data["delivered_at"]) + timedelta(minutes=1)
+            with patch("app.crud.order.datetime") as clock:
+                clock.now.return_value = now
+                response = self.confirm(data["id"])
+                self.assertEqual(response.status_code, 200, response.get_json())
+                after = response.get_json()["data"]
+                self.assertEqual(after["status"], "HOAN_THANH")
+                self.assertEqual(datetime.fromisoformat(after["completed_at"]), now)
+                for field in ("payment_status", "payment_method", "total_amount", "items", "staff_id", "delivered_at", "auto_complete_at"):
+                    self.assertEqual(after[field], data[field])
+                clock.now.return_value = now + timedelta(minutes=2)
+                again = self.confirm(data["id"])
+            self.assertEqual(again.status_code, 200)
+            self.assertEqual(again.get_json()["data"]["completed_at"], after["completed_at"])
+
+    def test_confirm_requires_owner_customer_and_active_account(self):
+        data = self.delivered_order()
+        for target, user in [("missing", 1), (data["id"], 2)]:
+            response = self.confirm(target, user=user)
+            self.assertEqual(response.status_code, 404)
+            self.assertIsNone(response.get_json()["data"])
+        with self.app.test_client() as client:
+            self.assertEqual(client.post(f"/api/v1/orders/{data['id']}/confirm-receipt").status_code, 401)
+        for user, role in [(3, "staff"), (4, "manager"), (5, "admin")]:
+            self.assertEqual(self.confirm(data["id"], user=user, role=role).status_code, 403)
+        with self.sessions.begin() as db:
+            db.get(User, 1).is_active = False
+        self.assertEqual(self.confirm(data["id"]).status_code, 403)
+        with self.sessions.begin() as db:
+            user = db.get(User, 1)
+            user.is_active, user.role = True, "staff"
+        self.assertEqual(self.confirm(data["id"]).status_code, 403)
+        with self.sessions.begin() as db:
+            user = db.get(User, 1)
+            user.role, user.is_blacklisted = "customer", True
+        self.assertEqual(self.confirm(data["id"]).status_code, 200)
+
+    def test_confirm_rejects_non_delivered_states_and_unpaid_data(self):
+        data = self.delivered_order()
+        for state in ("CHO_XAC_NHAN", "DANG_CHUAN_BI", "DANG_GIAO", "SAN_SANG_LAY", "GIAO_THAT_BAI",
+                      "DA_HUY_KHACH", "TU_CHOI", "TU_DONG_HUY", "BO_DON_BLACKLIST", "KHIEU_NAI", "DA_GIAI_QUYET"):
+            with self.sessions.begin() as db:
+                db.get(Order, data["id"]).status = state
+            response = self.confirm(data["id"])
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.get_json()["errors"][0]["code"], "EX-13")
+            with self.sessions() as db:
+                order = db.get(Order, data["id"])
+                self.assertEqual(order.status, state)
+                self.assertIsNone(order.completed_at)
+        for field, value in [("payment_status", "chua_thanh_toan"), ("delivered_at", None)]:
+            with self.sessions.begin() as db:
+                order = db.get(Order, data["id"])
+                order.status, order.payment_status = "DA_GIAO", "da_thanh_toan"
+                order.delivered_at = datetime.fromisoformat(data["delivered_at"])
+                setattr(order, field, value)
+            self.assertEqual(self.confirm(data["id"]).status_code, 400)
+
+    def test_auto_completion_deadline_boundary_and_stable_timestamp(self):
+        data = self.delivered_order()
+        deadline = datetime.fromisoformat(data["auto_complete_at"])
+        with patch("app.crud.order.datetime") as clock:
+            clock.now.return_value = deadline - timedelta(microseconds=1)
+            response = self.read_orders(f"/api/v1/orders/{data['id']}")
+            self.assertEqual(response.get_json()["data"]["status"], "DA_GIAO")
+            clock.now.return_value = deadline
+            response = self.read_orders(f"/api/v1/orders/{data['id']}")
+            self.assertEqual(response.get_json()["data"]["status"], "HOAN_THANH")
+            self.assertEqual(datetime.fromisoformat(response.get_json()["data"]["completed_at"]), deadline)
+            clock.now.return_value = deadline + timedelta(minutes=5)
+            self.assertEqual(self.confirm(data["id"]).status_code, 200)
+        with self.sessions() as db:
+            order = db.get(Order, data["id"])
+            self.assertEqual(order.completed_at, deadline)
+            self.assertEqual(order.delivered_at, datetime.fromisoformat(data["delivered_at"]))
+
+    def test_complaint_record_blocks_manual_and_auto_completion(self):
+        data = self.delivered_order()
+        with self.sessions.begin() as db:
+            db.add(Complaint(order_id=data["id"], user_id=1, reason="Thiếu món", description="Đề nghị kiểm tra",
+                             proof_image_url="/uploads/test-proof.png"))
+        deadline = datetime.fromisoformat(data["auto_complete_at"])
+        with patch("app.crud.order.datetime") as clock:
+            clock.now.return_value = deadline + timedelta(minutes=1)
+            for state in ("DA_GIAO", "KHIEU_NAI", "DA_GIAI_QUYET"):
+                with self.sessions.begin() as db:
+                    db.get(Order, data["id"]).status = state
+                response = self.read_orders(f"/api/v1/orders/{data['id']}")
+                self.assertEqual(response.get_json()["data"]["status"], state)
+                self.assertEqual(self.confirm(data["id"]).status_code, 400)
+                with self.sessions() as db:
+                    self.assertIsNone(db.get(Order, data["id"]).completed_at)
+
+    def test_auto_completion_requires_payment_delivery_time_and_deadline(self):
+        data = self.delivered_order(pickup=True)
+        deadline = datetime.fromisoformat(data["auto_complete_at"])
+        for field, value in [("payment_status", "chua_thanh_toan"), ("delivered_at", None), ("auto_complete_at", None)]:
+            with self.sessions.begin() as db:
+                order = db.get(Order, data["id"])
+                order.payment_status = "da_thanh_toan"
+                order.delivered_at = datetime.fromisoformat(data["delivered_at"])
+                order.auto_complete_at = deadline
+                setattr(order, field, value)
+            with patch("app.crud.order.datetime") as clock:
+                clock.now.return_value = deadline
+                response = self.read_orders(f"/api/v1/orders/{data['id']}")
+            self.assertEqual(response.get_json()["data"]["status"], "DA_BAN_GIAO")
+
+    def test_auto_completion_from_customer_and_admin_lists(self):
+        first = self.delivered_order(pickup=True)
+        with patch("app.crud.order.datetime") as clock:
+            clock.now.return_value = datetime.fromisoformat(first["auto_complete_at"])
+            response = self.read_orders("/api/v1/orders")
+        self.assertEqual(response.get_json()["data"][0]["status"], "HOAN_THANH")
+        second = self.delivered_order()
+        with patch("app.crud.order.datetime") as clock:
+            clock.now.return_value = datetime.fromisoformat(second["auto_complete_at"])
+            response = self.read_orders("/api/v1/orders/admin/all", user=5, role="admin")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(all(order["status"] == "HOAN_THANH" for order in response.get_json()["data"]["items"]))
+
+    def test_simultaneous_confirmations_preserve_one_completion_time(self):
+        data = self.delivered_order()
+        barrier = Barrier(2)
+
+        def concurrent_confirm(*args, **kwargs):
+            barrier.wait(timeout=5)
+            return confirm_order_receipt(*args, **kwargs)
+
+        with patch("app.routes.order.confirm_order_receipt", side_effect=concurrent_confirm):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                futures = [pool.submit(self.confirm, data["id"]) for _ in range(2)]
+                responses = [future.result(timeout=15) for future in futures]
+        self.assertEqual([response.status_code for response in responses], [200, 200])
+        timestamps = [response.get_json()["data"]["completed_at"] for response in responses]
+        self.assertEqual(timestamps[0], timestamps[1])
+        with self.sessions() as db:
+            self.assertEqual(db.get(Order, data["id"]).completed_at, datetime.fromisoformat(timestamps[0]))
+
+    def test_completion_database_failure_rolls_back(self):
+        data = self.delivered_order()
+        with self.engine.begin() as conn:
+            conn.execute(text("ALTER TABLE orders ADD CONSTRAINT test_completion_failure CHECK (status <> 'HOAN_THANH')"))
+        try:
+            with self.assertRaises(IntegrityError):
+                self.confirm(data["id"])
+            deadline = datetime.fromisoformat(data["auto_complete_at"])
+            with patch("app.crud.order.datetime") as clock:
+                clock.now.return_value = deadline
+                with self.assertRaises(IntegrityError):
+                    self.read_orders(f"/api/v1/orders/{data['id']}")
+            with self.sessions() as db:
+                order = db.get(Order, data["id"])
+                self.assertEqual((order.status, order.payment_status), ("DA_GIAO", "da_thanh_toan"))
+                self.assertIsNone(order.completed_at)
+        finally:
+            with self.engine.begin() as conn:
+                conn.execute(text("ALTER TABLE orders DROP CONSTRAINT test_completion_failure"))
+
+    def test_auto_completion_skips_order_locked_for_complaint(self):
+        data = self.delivered_order()
+        deadline = datetime.fromisoformat(data["auto_complete_at"])
+        with self.sessions.begin() as db:
+            order = db.query(Order).filter(Order.id == data["id"]).with_for_update().one()
+            order.status = "KHIEU_NAI"
+            db.add(Complaint(order_id=data["id"], user_id=1, reason="Thiếu món", description="Đang kiểm tra",
+                             proof_image_url="/uploads/test-proof.png"))
+            with patch("app.crud.order.datetime") as clock:
+                clock.now.return_value = deadline
+                response = self.read_orders(f"/api/v1/orders/{data['id']}")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.get_json()["data"]["status"], "DA_GIAO")
+        with patch("app.crud.order.datetime") as clock:
+            clock.now.return_value = deadline
+            response = self.read_orders(f"/api/v1/orders/{data['id']}")
+        self.assertEqual(response.get_json()["data"]["status"], "KHIEU_NAI")
+        with self.sessions() as db:
+            self.assertIsNone(db.get(Order, data["id"]).completed_at)
 
 
 if __name__ == "__main__":
