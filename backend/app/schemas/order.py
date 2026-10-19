@@ -1,6 +1,6 @@
 from typing import List, Optional
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import AwareDatetime, BaseModel, Field, model_validator
 
 VALID_ORDER_STATUSES = (
     "^(CHO_XAC_NHAN|DANG_CHUAN_BI|DANG_GIAO|SAN_SANG_LAY|"
@@ -11,8 +11,8 @@ VALID_ORDER_STATUSES = (
 
 
 class OrderItemCreate(BaseModel):
-    dish_id: str
-    quantity: int = Field(..., gt=0, le=10)
+    dish_id: str = Field(..., min_length=1, max_length=100)
+    quantity: int = Field(..., strict=True, gt=0, le=10)
     note: Optional[str] = None
 
 
@@ -32,14 +32,14 @@ class OrderItemResponse(BaseModel):
 
 class OrderCreateRequest(BaseModel):
     order_type: str = Field(default="delivery", pattern="^(delivery|pickup)$")
-    recipient_name: str = Field(..., min_length=2)
-    recipient_phone: str = Field(..., min_length=10, max_length=20)
-    campus_location_id: Optional[int] = None
-    room_detail: Optional[str] = None
+    recipient_name: str = Field(..., min_length=2, max_length=150, pattern=r"\S")
+    recipient_phone: str = Field(..., pattern=r"^0[35789][0-9]{8}$")
+    campus_location_id: Optional[int] = Field(default=None, strict=True, gt=0)
+    room_detail: Optional[str] = Field(default=None, max_length=100)
     delivery_address: Optional[str] = None
     delivery_note: Optional[str] = None
-    is_preorder: bool = False
-    scheduled_at: Optional[datetime] = None
+    is_preorder: bool = Field(default=False, strict=True)
+    scheduled_at: Optional[AwareDatetime] = None
     payment_method: str = Field(default="cod_cash", pattern="^(cod_cash|cod_vietqr)$")
     items: List[OrderItemCreate] = Field(..., min_length=1)
 
@@ -47,6 +47,32 @@ class OrderCreateRequest(BaseModel):
 class OrderStatusUpdateRequest(BaseModel):
     status: str = Field(..., pattern=VALID_ORDER_STATUSES)
     cancelled_reason: Optional[str] = None
+
+    @model_validator(mode="after")
+    def require_rejection_reason(self):
+        if self.status == "TU_CHOI" and not (self.cancelled_reason or "").strip():
+            raise ValueError("Cần nhập lý do từ chối đơn")
+        return self
+
+
+class OrderProcessRequest(BaseModel):
+    action: str = Field(..., pattern="^(accept|reject)$")
+    reason: Optional[str] = None
+
+    @model_validator(mode="after")
+    def require_rejection_reason(self):
+        if self.action == "reject" and not (self.reason or "").strip():
+            raise ValueError("Cần nhập lý do từ chối đơn")
+        return self
+
+
+class OrderHandoverRequest(BaseModel):
+    order_code_suffix: str = Field(..., strict=True, pattern=r"^[0-9]{4}$")
+
+
+class OrderIssueRequest(BaseModel):
+    issue_type: str = Field(..., pattern="^(no_answer|refuse_payment|pickup_timeout)$")
+    reason: str = Field(..., min_length=1, pattern=r"\S")
 
 
 class OrderResponse(BaseModel):
@@ -70,6 +96,10 @@ class OrderResponse(BaseModel):
     payment_method: str
     payment_status: str
     eta: Optional[str] = None
+    pickup_deadline: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+    auto_complete_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     items: List[OrderItemResponse] = []
 
