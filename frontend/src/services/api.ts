@@ -25,9 +25,10 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
-      // Có thể chuyển hướng hoặc xóa token
+    if (error.response?.status === 401 && error.config?.url !== '/auth/login' && localStorage.getItem('neufood_token') &&
+        error.config?.headers?.Authorization === `Bearer ${localStorage.getItem('neufood_token')}`) {
       localStorage.removeItem('neufood_token');
+      window.dispatchEvent(new Event('neufood-auth-expired'));
     }
     return Promise.reject(error);
   }

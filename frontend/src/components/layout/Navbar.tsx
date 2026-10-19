@@ -13,6 +13,7 @@ import {
   UserPlus,
   Gamepad2,
 } from 'lucide-react'
+import { useAuth } from '../../contexts/AuthContext'
 import { useAdminAuth } from '../../contexts/AdminAuthContext'
 import { useCart } from '../../contexts/CartContext'
 import { useMenuSearch } from '../../contexts/MenuSearchContext'
@@ -29,25 +30,7 @@ export default function Navbar() {
   const [showAccountMenu, setShowAccountMenu] = useState(false)
   const accountMenuRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
-  const [userSession, setUserSession] = useState<any>(null)
-
-  const SESSION_KEY = 'neufood_session_v1'
-
-  const readSession = () => {
-    try {
-      const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY)
-      return raw ? JSON.parse(raw) : null
-    } catch {
-      return null
-    }
-  }
-
-  const clearSession = () => {
-    try {
-      localStorage.removeItem(SESSION_KEY)
-      sessionStorage.removeItem(SESSION_KEY)
-    } catch { }
-  }
+  const { user: userSession, logout } = useAuth()
 
   const toggleAccountMenu = () => {
     setShowAccountMenu(!showAccountMenu)
@@ -66,22 +49,14 @@ export default function Navbar() {
     }
   }, [])
 
-  useEffect(() => {
-    setUserSession(readSession())
-    const onStorage = () => setUserSession(readSession())
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
-  }, [])
-
   const handleLogout = () => {
-    clearSession()
-    setUserSession(null)
+    logout()
     setShowAccountMenu(false)
     navigate('/')
   }
 
   const displayName =
-    (userSession && typeof userSession === 'object' && String(userSession.name || '').trim()) ||
+    (userSession && typeof userSession === 'object' && String(userSession.full_name || '').trim()) ||
     (userSession && typeof userSession === 'object' && String(userSession.email || '').trim()) ||
     ''
 

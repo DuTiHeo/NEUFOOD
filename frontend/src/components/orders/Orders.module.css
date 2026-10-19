@@ -1,0 +1,16 @@
+.page { max-width: 1120px; margin: auto; padding: 8rem 1rem 4rem; color: var(--color-ink); }
+.panel { padding: 1.5rem; margin: 1rem 0; background: var(--color-panel); border: 1px solid var(--color-line-soft); border-radius: 16px; }
+.heading { font-size: 1.6rem; font-weight: 700; margin-bottom: 1rem; }
+.row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between; margin: .75rem 0; }
+.actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1rem; }
+.button { display: inline-block; padding: .7rem 1rem; border-radius: 8px; background: var(--color-brand, #003f87); color: white; border: 0; cursor: pointer; text-decoration: none; }
+.button:disabled { opacity: .5; cursor: wait; }
+.field { display: grid; gap: .4rem; margin: 1rem 0; }
+.input { padding: .7rem; border: 1px solid #999; border-radius: 8px; color: inherit; background: var(--color-page, white); width: 100%; }
+.error { color: var(--color-danger); margin: 1rem 0; overflow-wrap: anywhere; }
+.muted { color: var(--color-muted, #666); margin: .5rem 0; }
+.status { font-weight: 700; color: var(--color-brand, #003f87); }
+.tableWrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+.table th, .table td { padding: .75rem .5rem; border-bottom: 1px solid #ddd; text-align: left; }
+.code { font-size: 1.8rem; letter-spacing: .4rem; font-weight: 700; }

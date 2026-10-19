@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAdminAuth } from '../../contexts/AdminAuthContext'
 import styles from './AdminLoginPage.module.css'
+import { orderError } from '../../utils/orders'
 
 export default function AdminLoginPage() {
   const { isAdmin, login } = useAdminAuth()
@@ -10,37 +11,43 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
 
   if (isAdmin) {
-    return <Navigate to="/quan-ly" replace />
+    return <Navigate to="/quan-ly/don" replace />
   }
 
-  function onSubmit(e) {
+  async function onSubmit(e) {
     e.preventDefault()
+    if (busy) return
     setErr('')
-    if (login(email, password)) {
-      const to = state?.from && state.from.startsWith('/quan-ly') ? state.from : '/quan-ly'
-      navigate(to, { replace: true })
-    } else {
-      setErr('Email hoặc mật khẩu không đúng.')
-    }
+    setBusy(true)
+    try {
+      if (await login(email, password)) {
+        const to = state?.from && state.from.startsWith('/quan-ly/') && state.from !== '/quan-ly/dang-nhap' ? state.from : '/quan-ly/don'
+        navigate(to, { replace: true })
+      } else {
+        setErr('Tài khoản không có quyền truy cập khu vực quản lý.')
+      }
+    } catch (error) { setErr(orderError(error)) }
+    finally { setBusy(false) }
   }
 
   return (
-    <main class={styles.page}>
-      <div class={styles.card}>
+    <main className={styles.page}>
+      <div className={styles.card}>
         <div>
-          <h1 class={styles.title}>Đăng nhập quản trị</h1>
-          <p class={styles.hint}>Chỉ tài khoản quản lý được phép vào khu vực này.</p>
+          <h1 className={styles.title}>Đăng nhập quản trị</h1>
+          <p className={styles.hint}>Dành cho nhân viên, quản lý và quản trị viên.</p>
         </div>
-        <form class={styles.form} onSubmit={onSubmit}>
-          <div class={styles.field}>
-            <label class={styles.lbl} htmlFor="adm-email">
+        <form className={styles.form} onSubmit={onSubmit}>
+          <div className={styles.field}>
+            <label className={styles.lbl} htmlFor="adm-email">
               Email
             </label>
             <input
               id="adm-email"
-              class={styles.inp}
+              className={styles.inp}
               type="email"
               autoComplete="username"
               value={email}
@@ -48,13 +55,13 @@ export default function AdminLoginPage() {
               required
             />
           </div>
-          <div class={styles.field}>
-            <label class={styles.lbl} htmlFor="adm-pass">
+          <div className={styles.field}>
+            <label className={styles.lbl} htmlFor="adm-pass">
               Mật khẩu
             </label>
             <input
               id="adm-pass"
-              class={styles.inp}
+              className={styles.inp}
               type="password"
               autoComplete="current-password"
               value={password}
@@ -62,12 +69,12 @@ export default function AdminLoginPage() {
               required
             />
           </div>
-          {err ? <p class={styles.err}>{err}</p> : null}
-          <button type="submit" class={styles.btn}>
-            Đăng nhập
+          {err ? <p className={styles.err}>{err}</p> : null}
+          <button type="submit" className={styles.btn} disabled={busy}>
+            {busy ? 'Đang đăng nhập…' : 'Đăng nhập'}
           </button>
         </form>
-        <Link class={styles.back} to="/">
+        <Link className={styles.back} to="/">
           ← Về trang chủ
         </Link>
       </div>

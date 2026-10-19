@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Star, Minus, Plus, ShoppingBag, SlidersHorizontal, ChevronDown } from 'lucide-react'
-import { dishes, MENU_CATEGORIES } from '../../data/dishes'
+import { MENU_CATEGORIES } from '../../data/dishes'
 import { useCart } from '../../contexts/CartContext'
 import { useMenuSearch } from '../../contexts/MenuSearchContext'
 import { formatVnd } from '../../utils/money'
@@ -78,7 +78,7 @@ function DishCard({ dish }) {
   const [draft, setDraft] = useState(1)
 
   function bump(delta) {
-    setDraft((d) => Math.min(99, Math.max(1, d + delta)))
+    setDraft((d) => Math.min(10, Math.max(1, d + delta)))
   }
 
   function addToCart() {
@@ -130,11 +130,11 @@ function DishCard({ dish }) {
               <Minus size={18} strokeWidth={2} />
             </button>
             <span className={styles.qtyStepVal}>{draft}</span>
-            <button type="button" className={styles.qtyStepBtn} onClick={() => bump(1)} aria-label="Tăng số lượng">
+            <button type="button" className={styles.qtyStepBtn} disabled={draft >= 10} onClick={() => bump(1)} aria-label="Tăng số lượng">
               <Plus size={18} strokeWidth={2} />
             </button>
           </div>
-          <button type="button" className={styles.addToCartBtn} onClick={addToCart}>
+          <button type="button" className={styles.addToCartBtn} disabled={!dish.is_available} onClick={addToCart}>
             Thêm vào giỏ
           </button>
         </div>
@@ -207,7 +207,7 @@ const DOCK_FULL_TOP_PX = 72
 const SCROLL_DELTA_PX = 8
 
 export default function MenuPage() {
-  const { add, lines, totalCount } = useCart()
+  const { add, lines, totalCount, catalog: dishes, catalogLoading, catalogError, cartError } = useCart()
   const { menuSearch: search } = useMenuSearch()
 
   const lastScrollY = useRef(
@@ -256,7 +256,7 @@ export default function MenuPage() {
     }
 
     return list
-  }, [selectedCategoryIds, search, sort, priceFilter, ratingFilter])
+  }, [dishes, selectedCategoryIds, search, sort, priceFilter, ratingFilter])
 
   const filterKey = useMemo(
     () =>
@@ -320,6 +320,8 @@ export default function MenuPage() {
   return (
     <main className={styles.menu}>
       <div className={styles.wrapOuter}>
+        {catalogLoading && <p role="status">Đang tải thực đơn…</p>}
+        {(catalogError || cartError) && <p role="alert">{catalogError || cartError} <Link to="/dang-nhap">Đăng nhập</Link></p>}
         <div className={stickyDockClass}>
           <div className={`wrap ${styles.stickyDockInner}`}>
             <header className={styles.pageHead}>
@@ -546,7 +548,7 @@ export default function MenuPage() {
                   >
                     Xem giỏ & thanh toán
                   </Link>
-                  <p className={styles.cartHint}>Phí giao hàng và giảm giá được tính ở bước tiếp theo.</p>
+                  <p className={styles.cartHint}>Phí giao hàng được tính theo hình thức nhận món ở bước tiếp theo.</p>
                 </div>
               </div>
             </aside>

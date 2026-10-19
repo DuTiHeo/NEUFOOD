@@ -5,17 +5,18 @@ import { formatVnd } from '../../utils/money'
 import styles from './GioHangPage.module.css'
 
 export default function GioHangPage() {
-  const { lines, add, setQuantity, totalCount, subtotal } = useCart()
+  const { lines, add, setQuantity, totalCount, subtotal, catalogLoading, catalogError, cartError } = useCart()
 
-  const shipping = totalCount > 0 ? 10000 : 0
-  const discount = totalCount > 0 ? 5000 : 0
-  const total = Math.max(0, subtotal + shipping - discount)
+  const shipping = totalCount > 0 ? 5000 : 0
+  const total = Math.max(0, subtotal + shipping)
 
   const visibleItems = useMemo(() => lines.map((l) => ({ ...l.dish, qty: l.qty, key: l.dish.id })), [lines])
 
   return (
     <main className={styles.cart}>
       <div className={`wrap ${styles.cartWrap}`}>
+        {catalogLoading && <p role="status">Đang tải giỏ hàng…</p>}
+        {(catalogError || cartError) && <p role="alert">{catalogError || cartError}</p>}
         <header className={styles.cartHead}>
           <h1 className={styles.cartTitle}>Giỏ hàng của bạn</h1>
           <p className={styles.cartSub}>
@@ -33,6 +34,7 @@ export default function GioHangPage() {
                 </div>
                 <div className={styles.lineMain}>
                   <h3 className={styles.lineName}>{item.name}</h3>
+                  {!item.is_available && <p role="alert">Món đã hết, vui lòng xóa khỏi giỏ.</p>}
                   <p className={styles.linePrice}>{formatVnd(item.price)}</p>
                   <div className={styles.lineQty}>
                     <div className={styles.stepper}>
@@ -40,7 +42,7 @@ export default function GioHangPage() {
                         <span className={`material-symbols-outlined ${styles.stepperIcon}`}>remove</span>
                       </button>
                       <span className={styles.stepperN}>{item.qty}</span>
-                      <button type="button" className={styles.stepperBtn} onClick={() => add(item.id, 1)} aria-label="Tăng">
+                      <button type="button" className={styles.stepperBtn} disabled={item.qty >= 10 || !item.is_available} onClick={() => add(item.id, 1)} aria-label="Tăng">
                         <span className={`material-symbols-outlined ${styles.stepperIcon}`}>add</span>
                       </button>
                     </div>
@@ -68,13 +70,10 @@ export default function GioHangPage() {
                   <span>{formatVnd(subtotal)}</span>
                 </div>
                 <div className={styles.sumRow}>
-                  <span>Phí vận chuyển</span>
+                  <span>Phí giao dự kiến</span>
                   <span className={styles.sumRowAccent}>{formatVnd(shipping)}</span>
                 </div>
-                <div className={styles.sumRow}>
-                  <span>Giảm giá Campus</span>
-                  <span className={styles.sumRowBrand}>-{formatVnd(discount)}</span>
-                </div>
+
               </div>
               <div className={styles.sumTotal}>
                 <span className={styles.sumTotalLabel}>Tổng cộng</span>
@@ -94,7 +93,7 @@ export default function GioHangPage() {
               </div>
               <p className={styles.sumNote}>
                 <span className={`material-symbols-outlined ${styles.sumNoteIcon}`}>verified_user</span>
-                Thanh toán an toàn qua VNPAY hoặc Tiền mặt
+                Thanh toán COD khi nhận hàng. Nhận tại quầy miễn phí giao.
               </p>
             </div>
           </aside>
