@@ -1249,8 +1249,9 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
 ## 5. Phân Hệ Thành Viên 4: Đánh Giá, Khiếu Nại, Chốt Ca COD & Báo Cáo (`/reviews`, `/complaints`, `/shifts`)
 
 ### 5.1. Đánh Giá Món Ăn (`UC14`)
-- `GET /api/v1/reviews/dish/<dish_id>` (Public): Danh sách đánh giá của món ăn.
+- `GET /api/v1/reviews/dish/<dish_id>` (Public): Danh sách đánh giá của món ăn, sắp xếp mới nhất lên đầu.
 - `POST /api/v1/reviews` (Role: `customer`):
+  - **Headers**: `Authorization: Bearer <access_token>`
   - **Request Body**:
 ```json
 {
@@ -1260,81 +1261,363 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
   "comment": "Cơm gà nóng hổi, da giòn rụm!"
 }
 ```
-  - **Quy tắc**: Đơn hàng phải thuộc về user đang đăng nhập và có trạng thái `DA_GIAO`, `DA_BAN_GIAO` hoặc `HOAN_THANH`. Chặn đánh giá trùng lặp nếu cặp `(order_id, dish_id)` đã được user đánh giá trước đó (`400 Bad Request`). Sau khi lưu review, tính lại `dish.rating` trung bình và tăng `dish.review_count += 1`.
+  - **Ràng buộc Schema (`schemas/review.py` - `ReviewCreateRequest`)**:
+    - `order_id`: Chuỗi từ 2 đến 50 ký tự (`min_length=2, max_length=50`).
+    - `dish_id`: Chuỗi từ 2 đến 100 ký tự (`min_length=2, max_length=100`).
+    - `rating`: Số nguyên nghiêm ngặt từ 1 đến 5 (`strict=True, ge=1, le=5`). Không chấp nhận chuỗi `"5"`, số thập phân `4.5` hay boolean `True`.
+    - `comment`: Tùy chọn, tối đa 1000 ký tự (`max_length=1000`).
+  - **Quy tắc nghiệp vụ & Xử lý đồng thời (`crud/review.py`)**:
+    - Kiểm tra người dùng: Role trong DB phải là `customer` và `is_active == True` (trả về `403 Forbidden` nếu không thỏa mãn).
+    - Đơn hàng phải thuộc về user đang đăng nhập (`Order.user_id == user_id`). Nếu không tìm thấy trả về `404 Not Found` (`code: NOT_FOUND`) để bảo mật thông tin đơn của người khác.
+    - Trạng thái đơn phải thuộc nhóm cho phép đánh giá: `DA_GIAO`, `DA_BAN_GIAO` hoặc `HOAN_THANH`. Nếu không thỏa mãn trả về `400 Bad Request` (`code: ORDER_NOT_REVIEWABLE`).
+    - Món ăn phải nằm trong danh sách món của đơn hàng (`order_items`). Nếu không có trả về `400 Bad Request` (`code: DISH_NOT_IN_ORDER`).
+    - **Khóa dòng món ăn (`with_for_update`)**: Khóa dòng `Dish` tương ứng trong DB trước khi kiểm tra trùng và cập nhật, đảm bảo các request review đồng thời được xếp hàng tuần tự.
+    - Chặn trùng lặp: Nếu cặp `(order_id, dish_id)` đã tồn tại trong bảng `reviews` $\rightarrow$ Trả về `400 Bad Request` (`code: REVIEW_DUPLICATE`).
+    - **Công thức cập nhật Rating (Quyết định D1)**:
+      - Tính trung bình tăng dần để bảo toàn số liệu khởi tạo của `sample_data.sql`:
+        - Nếu `dish.review_count == 0`: `dish.rating = Decimal(rating)`
+        - Nếu `dish.review_count > 0`: `new_avg = (dish.rating * dish.review_count + rating) / (dish.review_count + 1)`
+      - Làm tròn 2 chữ số thập phân theo quy tắc `ROUND_HALF_UP`.
+      - Tăng số lượt đánh giá: `dish.review_count += 1`.
+  - **Response thành công (`201 Created`)**:
+```json
+{
+  "success": true,
+  "message": "Đánh giá món ăn thành công",
+  "data": {
+    "id": 1,
+    "order_id": "NF2610148833",
+    "dish_id": "combo-com-ga-tra-dao",
+    "user_id": 10,
+    "user_name": "Nguyễn Văn A",
+    "rating": 5,
+    "comment": "Cơm gà nóng hổi, da giòn rụm!",
+    "created_at": "2026-10-19T10:00:00+00:00"
+  }
+}
+```
+  - **Mã lỗi thường gặp**:
+    - `401 Unauthorized`: Chưa gửi kèm Bearer token hoặc token không hợp lệ.
+    - `403 Forbidden`: Token không phải role `customer`, hoặc tài khoản bị vô hiệu hóa trong DB.
+    - `404 Not Found`: Đơn hàng không tồn tại/không thuộc về bạn, hoặc mã món ăn không tồn tại.
+    - `400 Bad Request`: `ORDER_NOT_REVIEWABLE`, `DISH_NOT_IN_ORDER`, hoặc `REVIEW_DUPLICATE`.
+    - `422 Unprocessable Entity`: Body thiếu trường bắt buộc hoặc sai định dạng schema.
+
 
 ### 5.2. Gửi & Phân Xử Khiếu Nại (`UC15`, `UC25`, `BR-23`, `BR-24`, `EX-14`, `EX-15`)
-- `POST /api/v1/complaints` (Role: `customer` - `UC15`):
-  - **Request Body**:
+
+#### 5.2.1. Khách Hàng Gửi Ticket Khiếu Nại (`UC15`, `BR-23`, `EX-14`, `EX-15`)
+- **Endpoint**: `POST /api/v1/complaints`
+- **Quyền hạn**: Độc quyền Khách hàng (`@role_required("customer")`)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: application/json`
+- **Request Body**:
 ```json
 {
   "order_id": "NF2610155566",
   "reason": "Giao nhầm món ăn",
   "description": "Em đặt Phở Trộn nhưng nhận được Bún Riêu.",
-  "proof_image_url": "https://..."
+  "proof_image_url": "https://storage.neufood.vn/complaints/proof_123.jpg"
 }
 ```
-  - **Quy tắc**:
-    - Đơn hàng phải đã giao (`DA_GIAO` / `DA_BAN_GIAO` / `HOAN_THANH`) và trong vòng **24 giờ** kể từ `delivered_at` (`BR-23`, `EX-14`).
-    - Mỗi đơn chỉ được tạo tối đa 01 ticket khiếu nại và bắt buộc có `proof_image_url` (`EX-15`).
-    - Khi tạo thành công, đổi `order.status = "KHIEU_NAI"`.
-- `GET /api/v1/complaints`: Khách xem khiếu nại của mình; `admin` xem toàn bộ khiếu nại hệ thống.
-- `PATCH /api/v1/complaints/<complaint_id>/resolve` (**Độc quyền Role: `admin`** - `UC25`, `BR-24`):
-  - **Request Body**:
+- **Ràng buộc Schema (`schemas/complaint.py` - `ComplaintCreateRequest`)**:
+  - `order_id`: Chuỗi từ 2 đến 50 ký tự (`min_length=2, max_length=50`).
+  - `reason`: Chuỗi từ 3 đến 255 ký tự (`min_length=3, max_length=255`).
+  - `description`: Chuỗi từ 5 đến 2000 ký tự (`min_length=5, max_length=2000`).
+  - `proof_image_url`: Bắt buộc cung cấp ảnh chụp bằng chứng theo định dạng URL hợp lệ (`http://` hoặc `https://`) hoặc đường dẫn upload nội bộ (`/uploads/...`), chuỗi từ 5 đến 1000 ký tự (`pattern=r"^(https?://\S+|/[a-zA-Z0-9_\-\./]+)$"`, vi phạm ném lỗi `422`).
+- **Quy tắc nghiệp vụ & Giao dịch (`crud/complaint.py`)**:
+  - Kiểm tra tài khoản khách hàng: Role trong DB phải là `customer` và `is_active == True` (`403 Forbidden`).
+  - Kiểm tra đơn hàng: Đơn phải thuộc quyền sở hữu của khách hàng (`Order.user_id == user_id`). Nếu không tìm thấy trả về `404 Not Found` (`code: NOT_FOUND`). Khóa dòng đơn (`with_for_update`) trong giao dịch.
+  - **Trạng thái đơn hàng (Quyết định D4)**: Đơn hàng bắt buộc phải thuộc nhóm trạng thái đã giao: `DA_GIAO`, `DA_BAN_GIAO` hoặc `HOAN_THANH`. Nếu đơn chưa giao (ví dụ `CHO_XAC_NHAN`, `DANG_CHUAN_BI`) $\rightarrow$ Từ chối và trả về `400 Bad Request` (`code: EX-14`).
+  - **Thời hạn khiếu nại (Quyết định D3)**: Đọc tham số `complaint_window_hours` từ bảng `system_settings` (mặc định 24 giờ). Tính khoảng cách từ `order.delivered_at` đến thời điểm hiện tại `now()`. Nếu quá hạn hoặc đơn chưa có `delivered_at` $\rightarrow$ Trả về `400 Bad Request` (`code: EX-14`).
+  - **Giới hạn số lượng (Quy tắc EX-15)**: Mỗi đơn hàng chỉ được tạo tối đa **01 ticket khiếu nại duy nhất**. Nếu đã có bản ghi khiếu nại cho đơn hàng này $\rightarrow$ Trả về `400 Bad Request` (`code: EX-15`).
+  - Khi tạo ticket thành công: Cập nhật trạng thái đơn hàng sang `order.status = "KHIEU_NAI"`.
+- **Response thành công (`201 Created`)**:
+```json
+{
+  "success": true,
+  "message": "Gửi khiếu nại thành công",
+  "data": {
+    "id": 1,
+    "order_id": "NF2610155566",
+    "user_id": 10,
+    "user_name": "Nguyễn Văn A",
+    "reason": "Giao nhầm món ăn",
+    "description": "Em đặt Phở Trộn nhưng nhận được Bún Riêu.",
+    "proof_image_url": "https://storage.neufood.vn/complaints/proof_123.jpg",
+    "status": "DANG_XU_LY",
+    "admin_response": null,
+    "resolved_by": null,
+    "resolved_at": null,
+    "created_at": "2026-10-19T10:30:00+00:00",
+    "updated_at": "2026-10-19T10:30:00+00:00"
+  }
+}
+```
+
+#### 5.2.2. Xem Danh Sách & Chi Tiết Khiếu Nại
+- `GET /api/v1/complaints` (`@jwt_required`):
+  - Nếu `role == "admin"`: Trả về toàn bộ danh sách khiếu nại trên hệ thống, sắp xếp giảm dần theo thời gian tạo (`created_at.desc()`).
+  - Nếu `role != "admin"`: Chỉ trả về danh sách các khiếu nại do chính người dùng hiện tại gửi.
+- `GET /api/v1/complaints/<int:complaint_id>` (`@jwt_required`): Xem chi tiết một khiếu nại theo ID (chặn tràn số nguyên bằng giới hạn `max=2147483647`). Khách hàng chỉ xem được của mình (trả về `404 Not Found` nếu xem của người khác hoặc ID không tồn tại để ngăn chặn dò quét ID), Admin xem được tất cả.
+
+#### 5.2.3. Admin Phân Xử Khiếu Nại (`UC25`, `BR-24`)
+- **Endpoint**: `PATCH /api/v1/complaints/<int:complaint_id>/resolve`
+- **Quyền hạn**: Độc quyền Quản trị viên (`@role_required("admin")`)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: application/json`
+- **Request Body**:
 ```json
 {
   "status": "CHAP_NHAN",
   "admin_response": "Đã xác minh hình ảnh và nhắc nhở Canteen A2 hoàn lại phần chênh lệch."
 }
 ```
-  - **Quy tắc**: Cập nhật `status` (`CHAP_NHAN` hoặc `TU_CHOI`), `admin_response`, `resolved_by = admin.id`, `resolved_at = now()`, và đổi `order.status = "DA_GIAI_QUYET"`.
-
-### 5.3. Chốt Ca & Đối Soát Tiền COD Cuối Ca (`UC20`, `BR-25`, `EX-20`)
-- `GET /api/v1/shifts/my-current-shift` (Role: `staff`, `manager`):
-  - Tính tổng số đơn nhân viên hiện tại đã bàn giao (`payment_status == 'da_thanh_toan'`) trong ngày hôm nay (`CURRENT_DATE`), tách rõ:
-    - `expected_cash`: Tổng `total_amount` của các đơn `payment_method == 'cod_cash'`.
-    - `expected_qr`: Tổng `total_amount` của các đơn `payment_method == 'cod_vietqr'`.
-- `POST /api/v1/shifts/submit` (Role: `staff`):
-  - **Request Body**:
-```json
-{
-  "actual_cash": 270000,
-  "actual_qr": 125000,
-  "discrepancy_note": "Khớp 100% tiền mặt và sao kê QR"
-}
-```
-  - **Quy tắc (`BR-25`, `EX-20`)**: Tính `discrepancy_amount = (actual_cash + actual_qr) - (expected_cash + expected_qr)`. Nếu `discrepancy_amount != 0`, bắt buộc phải có `discrepancy_note` giải trình và đặt `status = "CAN_GIAI_TRINH"`, ngược lại đặt `status = "CHO_DUYET"`.
-- `PATCH /api/v1/shifts/<shift_id>/close` (Role: `manager`, `admin`):
-  - **Request Body**: `{"status": "DA_CHOT", "discrepancy_note": "Đã nhận đủ tiền bàn giao ca"}`
-
-### 5.4. Báo Cáo & Thống Kê Doanh Thu (`UC22`, `BR-03`)
-- **Endpoint**: `GET /api/v1/shifts/reports/summary?from_date=2026-10-01&to_date=2026-10-16`
-- **Quyền hạn**: Role `manager`, `admin`
-- **Công thức tính toán doanh thu chuẩn (Tính trên các đơn đã thu tiền `payment_status == 'da_thanh_toan'`):**
-  - `gross_revenue` = $\sum \text{orders.total\_amount}$
-  - `ship_fee_total` = $\sum \text{orders.ship\_fee}$
-  - `canteen_net_revenue` = $\sum (\text{order\_items.base\_price} \times \text{order\_items.quantity})$
-  - `system_fee_total` = $\sum ((\text{order\_items.unit\_price} - \text{order\_items.base\_price}) \times \text{order\_items.quantity})$
-- **Response (`200 OK`)**:
+- **Ràng buộc Schema (`schemas/complaint.py` - `ComplaintResolveRequest`)**:
+  - `status`: Bắt buộc là `"CHAP_NHAN"` hoặc `"TU_CHOI"` (Regex `^(CHAP_NHAN|TU_CHOI)$`).
+  - `admin_response`: Chuỗi từ 3 đến 2000 ký tự ghi rõ lý do và hướng giải quyết.
+- **Quy tắc nghiệp vụ & Giao dịch (`crud/complaint.py`)**:
+  - Kiểm tra tài khoản Admin trong DB đang hoạt động (`is_active == True`).
+  - Khóa dòng ticket khiếu nại (`with_for_update`). Nếu không tìm thấy $\rightarrow$ Trả về `404 Not Found`.
+  - **Chỉ xử lý đơn đang chờ (Quyết định D5)**: Bắt buộc `complaint.status == "DANG_XU_LY"`. Nếu khiếu nại đã được phân xử trước đó $\rightarrow$ Trả về `400 Bad Request` (`code: COMPLAINT_ALREADY_RESOLVED`).
+  - Khóa dòng đơn hàng `Order` tương ứng và cập nhật trạng thái đơn sang `order.status = "DA_GIAI_QUYET"`.
+  - Cập nhật ticket: `status`, `admin_response`, `resolved_by = admin_id`, `resolved_at = now()`, `updated_at = now()`.
+- **Response thành công (`200 OK`)**:
 ```json
 {
   "success": true,
+  "message": "Xử lý khiếu nại thành công",
   "data": {
+    "id": 1,
+    "order_id": "NF2610155566",
+    "user_id": 10,
+    "user_name": "Nguyễn Văn A",
+    "reason": "Giao nhầm món ăn",
+    "description": "Em đặt Phở Trộn nhưng nhận được Bún Riêu.",
+    "proof_image_url": "https://storage.neufood.vn/complaints/proof_123.jpg",
+    "status": "CHAP_NHAN",
+    "admin_response": "Đã xác minh hình ảnh và nhắc nhở Canteen A2 hoàn lại phần chênh lệch.",
+    "resolved_by": 5,
+    "resolved_at": "2026-10-19T11:00:00+00:00",
+    "created_at": "2026-10-19T10:30:00+00:00",
+    "updated_at": "2026-10-19T11:00:00+00:00"
+  }
+}
+```
+- **Mã lỗi thường gặp**:
+  - `401 Unauthorized`: Chưa đăng nhập hoặc token hết hạn.
+  - `403 Forbidden`: Người gọi không có quyền truy cập / không phải role `admin`.
+  - `404 Not Found`: Đơn hàng hoặc khiếu nại không tồn tại.
+  - `400 Bad Request`: `EX-14` (quá hạn hoặc đơn chưa giao), `EX-15` (đã có khiếu nại), `COMPLAINT_ALREADY_RESOLVED` (đã giải quyết trước đó).
+  - `422 Unprocessable Entity`: Body sai định dạng schema.
+
+
+### 5.3. Chốt Ca & Đối Soát Tiền COD Cuối Ca (`UC20`, `BR-25`, `EX-20`)
+
+#### 5.3.1. Xem Thông Số Ca Hiện Tại (`UC20`)
+- **Endpoint**: `GET /api/v1/shifts/my-current-shift`
+- **Quyền hạn**: Nhân viên, Quản lý Canteen (`@role_required("staff", "manager")`)
+- **Headers**: `Authorization: Bearer <access_token>`
+- **Quy tắc nghiệp vụ (`crud/shift.py`)**:
+  - Tính toán theo thời gian thực các đơn hàng do nhân viên hiện tại (`staff_id`) đã bàn giao COD (`Order.payment_status == 'da_thanh_toan'`) trong ngày hôm nay theo giờ Việt Nam (`Asia/Saigon` - UTC+7):
+    - `total_orders_handled`: Tổng số đơn hàng đã bàn giao thành công.
+    - `expected_cash`: Tổng số tiền mặt COD dự kiến phải thu ($\sum \text{total\_amount}$ của các đơn có `payment_method == 'cod_cash'`).
+    - `expected_qr`: Tổng số tiền VietQR dự kiến phải thu ($\sum \text{total\_amount}$ của các đơn có `payment_method == 'cod_vietqr'`).
+  - Nếu nhân viên đã nộp số liệu chốt ca trong ngày hôm nay, trả về kèm các trường kiểm đếm thực tế `actual_cash`, `actual_qr`, độ lệch `discrepancy_amount`, `discrepancy_note`, và `status` hiện tại của ca.
+- **Response thành công (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Thành công",
+  "data": {
+    "staff_id": 3,
+    "staff_name": "Trần Nhân Viên",
+    "shift_date": "2026-10-19",
+    "total_orders_handled": 12,
+    "expected_cash": 450000.0,
+    "expected_qr": 230000.0,
+    "actual_cash": 0.0,
+    "actual_qr": 0.0,
+    "discrepancy_amount": 0.0,
+    "discrepancy_note": null,
+    "status": null,
+    "shift_id": null
+  }
+}
+```
+
+#### 5.3.2. Nhân Viên Nộp Số Liệu Chốt Ca (`UC20`, `BR-25`, `EX-20`)
+- **Endpoint**: `POST /api/v1/shifts/submit`
+- **Quyền hạn**: Độc quyền Nhân viên (`@role_required("staff")`)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: application/json`
+- **Request Body**:
+```json
+{
+  "actual_cash": 450000.0,
+  "actual_qr": 230000.0,
+  "discrepancy_note": "Khớp 100% tiền mặt và sao kê QR"
+}
+```
+- **Ràng buộc Schema (`schemas/shift.py` - `ShiftSubmitRequest`)**:
+  - `actual_cash`: Số tiền mặt kiểm đếm thực tế, kiểu số không âm và tối đa 9,999,999,999.99 (`ge=0, le=9999999999.99, allow_inf_nan=False`).
+  - `actual_qr`: Số tiền QR sao kê thực tế, kiểu số không âm và tối đa 9,999,999,999.99 (`ge=0, le=9999999999.99, allow_inf_nan=False`).
+  - `discrepancy_note`: Ghi chú giải trình (tối đa 1000 ký tự).
+- **Quy tắc nghiệp vụ & Xử lý chênh lệch (Quyết định D6, `BR-25`, `EX-20`)**:
+  - Mỗi nhân viên chỉ có **tối đa 01 ca làm việc mỗi ngày** (tính theo ngày Việt Nam `Asia/Saigon`).
+  - Nếu ca của ngày hôm nay đã ở trạng thái `DA_CHOT` $\rightarrow$ Từ chối thao tác và trả về `400 Bad Request` (`code: SHIFT_ALREADY_CLOSED`, `"Ca làm việc hôm nay đã được chốt đóng, không thể nộp lại"`).
+  - Nếu đã có bản ghi ca hôm nay nhưng chưa đóng (`CHO_DUYET` hoặc `CAN_GIAI_TRINH`) $\rightarrow$ Cho phép cập nhật lại số liệu.
+  - **Công thức tính độ lệch tiền COD**:
+    $$\text{discrepancy\_amount} = (\text{actual\_cash} + \text{actual\_qr}) - (\text{expected\_cash} + \text{expected\_qr})$$
+  - **Quy tắc giải trình (`EX-20`)**:
+    - Nếu $\text{discrepancy\_amount} \neq 0$ (thừa hoặc thiếu tiền COD so với hệ thống): **Bắt buộc phải có `discrepancy_note` không để trống**. Nếu không có giải trình $\rightarrow$ Báo lỗi `400 Bad Request` (`code: EX-20`, `"Lệch tiền COD bắt buộc phải có giải trình (EX-20)"`). Ca được gán trạng thái `status = "CAN_GIAI_TRINH"`.
+    - Nếu $\text{discrepancy\_amount} == 0$ (khớp hoàn toàn): Ca được gán trạng thái `status = "CHO_DUYET"`.
+- **Response thành công**: Trả về `201 Created` nếu nộp chốt ca lần đầu tạo mới bản ghi `StaffShift`; trả về `200 OK` nếu nộp lại cập nhật số liệu ca hiện tại.
+```json
+{
+  "success": true,
+  "message": "Nộp số liệu chốt ca thành công",
+  "data": {
+    "id": 1,
+    "staff_id": 3,
+    "staff_name": "Trần Nhân Viên",
+    "shift_date": "2026-10-19",
+    "total_orders_handled": 12,
+    "expected_cash": 450000.0,
+    "expected_qr": 230000.0,
+    "actual_cash": 450000.0,
+    "actual_qr": 230000.0,
+    "discrepancy_amount": 0.0,
+    "discrepancy_note": "Khớp 100% tiền mặt và sao kê QR",
+    "status": "CHO_DUYET",
+    "closed_by": null,
+    "closed_at": null,
+    "created_at": "2026-10-19T14:30:00+00:00",
+    "updated_at": "2026-10-19T14:30:00+00:00"
+  }
+}
+```
+
+#### 5.3.3. Quản Lý / Admin Duyệt Chốt Ca (`UC20`, `BR-25`)
+- **Endpoint**: `PATCH /api/v1/shifts/<int:shift_id>/close`
+- **Quyền hạn**: Quản lý Canteen hoặc Admin (`@role_required("manager", "admin")`)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: application/json`
+- **Request Body**:
+```json
+{
+  "status": "DA_CHOT",
+  "discrepancy_note": "Đã kiểm đếm đủ tiền bàn giao ca"
+}
+```
+- **Ràng buộc Schema (`schemas/shift.py` - `ShiftCloseRequest`)**:
+  - `status`: Bắt buộc là `"DA_CHOT"` hoặc `"CAN_GIAI_TRINH"` (Regex `^(DA_CHOT|CAN_GIAI_TRINH)$`).
+  - `discrepancy_note`: Ghi chú xác nhận / yêu cầu bổ sung của Quản lý.
+- **Quy tắc nghiệp vụ (Quyết định D7)**:
+  - Khóa dòng `StaffShift` trong DB bằng `with_for_update()`. Nếu không tìm thấy $\rightarrow$ `404 Not Found`.
+  - Nếu ca đã ở trạng thái `DA_CHOT` $\rightarrow$ Từ chối chốt lại và trả về `400 Bad Request` (`code: SHIFT_ALREADY_CLOSED`).
+  - Khi duyệt `DA_CHOT`: Nếu ca có chênh lệch tiền ($\text{discrepancy\_amount} \neq 0$), bắt buộc ca phải có giải trình từ nhân viên hoặc ghi chú xác nhận từ Quản lý.
+  - Cập nhật: `shift.status = status`, `shift.closed_by = closer_id`, `shift.closed_at = now()`, `shift.updated_at = now()`.
+- **Response thành công (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Duyệt chốt ca thành công",
+  "data": {
+    "id": 1,
+    "staff_id": 3,
+    "staff_name": "Trần Nhân Viên",
+    "shift_date": "2026-10-19",
+    "total_orders_handled": 12,
+    "expected_cash": 450000.0,
+    "expected_qr": 230000.0,
+    "actual_cash": 450000.0,
+    "actual_qr": 230000.0,
+    "discrepancy_amount": 0.0,
+    "discrepancy_note": "Đã kiểm đếm đủ tiền bàn giao ca",
+    "status": "DA_CHOT",
+    "closed_by": 4,
+    "closed_at": "2026-10-19T15:00:00+00:00",
+    "created_at": "2026-10-19T14:30:00+00:00",
+    "updated_at": "2026-10-19T15:00:00+00:00"
+  }
+}
+```
+
+#### 5.3.4. Xem Danh Sách Ca Làm Việc
+- `GET /api/v1/shifts` (`@role_required("staff", "manager", "admin")`):
+  - Nhân viên chỉ xem danh sách các ca của chính mình.
+  - Quản lý và Admin xem được danh sách ca của toàn bộ nhân viên, sắp xếp giảm dần theo ngày ca và ID.
+- `GET /api/v1/shifts/<int:shift_id>` (`@role_required("staff", "manager", "admin")`): Xem chi tiết một ca theo ID (chặn tràn số nguyên bằng giới hạn `max=2147483647`). Nhân viên chỉ xem được ca của mình (trả về `404 Not Found` nếu xem của người khác hoặc ID không tồn tại để ngăn chặn dò quét ID).
+
+
+### 5.4. Báo Cáo & Thống Kê Doanh Thu Canteen (`UC22`, `BR-03`, Quyết định D8)
+- **Endpoint**: `GET /api/v1/shifts/reports/summary`
+- **Quyền hạn**: Quản lý Canteen hoặc Quản trị viên (`@role_required("manager", "admin")`)
+- **Headers**: `Authorization: Bearer <access_token>`
+- **Query Parameters**:
+  - `from_date` (Tùy chọn, kiểu chuỗi `YYYY-MM-DD`): Ngày bắt đầu lọc theo giờ Việt Nam. Mặc định là ngày hôm nay (`CURRENT_DATE` theo `Asia/Saigon`).
+  - `to_date` (Tùy chọn, kiểu chuỗi `YYYY-MM-DD`): Ngày kết thúc lọc theo giờ Việt Nam. Mặc định là ngày hôm nay.
+- **Quy tắc nghiệp vụ & Kiểm tra tham số (Quyết định D8)**:
+  - Định dạng ngày bắt buộc phải theo chuẩn nghiêm ngặt `YYYY-MM-DD` (năm từ 2000 đến 2100). Nếu sai định dạng hoặc số năm nằm ngoài khoảng $\rightarrow$ Trả về `422 Unprocessable Entity` (`code: INVALID_DATE_FORMAT`).
+  - Nếu `from_date > to_date` $\rightarrow$ Trả về `400 Bad Request` (`code: INVALID_DATE_RANGE`, `"from_date không được lớn hơn to_date"`).
+  - Khoảng cách giữa `from_date` và `to_date` không được vượt quá 366 ngày $\rightarrow$ Nếu vượt quá trả về `400 Bad Request` (`code: DATE_RANGE_TOO_LONG`, `"Khoảng thời gian báo cáo không được vượt quá 366 ngày"`).
+  - Khoảng thời gian lọc được tính theo khoảng nửa mở `[start_utc, end_utc)` từ `from_date 00:00:00` đến `(to_date + 1 ngày) 00:00:00` theo giờ Việt Nam (`Asia/Saigon` - UTC+7), lọc trên cột thời điểm tạo đơn `orders.created_at`.
+  - **4 Bộ đếm trạng thái đơn hàng**:
+    1. `total_orders`: Tổng tất cả đơn hàng phát sinh trong khoảng thời gian.
+    2. `completed_orders`: Tổng các đơn hàng đã thanh toán (`payment_status == 'da_thanh_toan'`) và có trạng thái kết thúc giao nhận: `('DA_GIAO', 'DA_BAN_GIAO', 'HOAN_THANH', 'KHIEU_NAI', 'DA_GIAI_QUYET')`.
+    3. `cancelled_or_rejected_orders`: Tổng các đơn hàng bị hủy hoặc từ chối: `('DA_HUY_KHACH', 'TU_CHOI', 'TU_DONG_HUY')`.
+    4. `blacklisted_orders`: Tổng các đơn hàng bị đánh dấu boom hàng: `('BO_DON_BLACKLIST')`.
+  - **Công thức tính toán doanh thu chuẩn (CHỈ tính trên các đơn đã thu tiền `payment_status == 'da_thanh_toan'`)**:
+    - `gross_revenue` (Tổng doanh thu gộp): $\sum \text{orders.total\_amount}$
+    - `ship_fee_total` (Tổng phí ship): $\sum \text{orders.ship\_fee}$
+    - `canteen_net_revenue` (Doanh thu thực nhận của Canteen A2): $\sum (\text{order\_items.base\_price} \times \text{order\_items.quantity})$
+    - `system_fee_total` (Tổng phụ phí nền tảng hệ thống NEUFOOD): $\sum ((\text{order\_items.unit\_price} - \text{order\_items.base\_price}) \times \text{order\_items.quantity})$
+    - Đảm bảo công thức cân đối tài chính:
+      $$\text{gross\_revenue} = \text{canteen\_net\_revenue} + \text{system\_fee\_total} + \text{ship\_fee\_total}$$
+  - **Top 5 món bán chạy nhất (`top_dishes`)**:
+    - Tính trên các dòng `order_items` của những đơn hàng đã thanh toán trong kỳ.
+    - Sắp xếp ưu tiên: `total_quantity` giảm dần, nếu bằng nhau sắp xếp theo `total_revenue` giảm dần, nếu vẫn bằng sắp xếp theo `dish_id` giảm dần làm tie-breaker. Lấy tối đa 5 món dẫn đầu.
+- **Response thành công (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Lấy báo cáo doanh thu thành công",
+  "data": {
+    "from_date": "2026-10-01",
+    "to_date": "2026-10-19",
     "total_orders": 6,
-    "completed_orders": 2,
-    "cancelled_or_rejected_orders": 0,
+    "completed_orders": 4,
+    "cancelled_or_rejected_orders": 1,
     "blacklisted_orders": 1,
-    "gross_revenue": 150000,
-    "canteen_net_revenue": 130000,
-    "system_fee_total": 15000,
-    "ship_fee_total": 5000,
+    "gross_revenue": 210000.0,
+    "canteen_net_revenue": 170000.0,
+    "system_fee_total": 25000.0,
+    "ship_fee_total": 15000.0,
     "top_dishes": [
       {
-        "dish_id": "combo-com-ga-tra-dao",
-        "dish_name": "Combo Bữa Trưa Năng Động (Cơm Gà + Trà Đào)",
+        "dish_id": "bun-bo-hue",
+        "dish_name": "Bún bò Huế",
+        "total_quantity": 4,
+        "total_revenue": 160000.0
+      },
+      {
+        "dish_id": "com-tam",
+        "dish_name": "Cơm tấm sườn",
         "total_quantity": 1,
-        "total_revenue": 65000
+        "total_revenue": 35000.0
       }
     ]
   }
 }
 ```
+- **Mã lỗi thường gặp**:
+  - `401 Unauthorized`: Chưa đăng nhập hoặc token không hợp lệ.
+  - `403 Forbidden`: Người dùng không có vai trò `manager` hoặc `admin`.
+  - `400 Bad Request`: `INVALID_DATE_RANGE` (`from_date` lớn hơn `to_date`).
+  - `422 Unprocessable Entity`: Định dạng tham số ngày sai chuẩn `YYYY-MM-DD`.
+
