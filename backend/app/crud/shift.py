@@ -5,6 +5,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
 
 from app.db.models import StaffShift, Order, User, OrderItem
+from app.crud.order import sync_overdue_orders
 
 VN_TZ = timezone(timedelta(hours=7))
 
@@ -254,6 +255,8 @@ def get_revenue_report(db: Session, from_date: date, to_date: date) -> dict:
     """
     UC22: Báo cáo tổng hợp doanh thu và đơn hàng theo khoảng ngày (giờ VN) (Quyết định D8).
     """
+    # F7: Đồng bộ trạng thái các đơn quá hạn SLA trước khi thống kê
+    sync_overdue_orders(db)
     if from_date > to_date:
         raise ShiftError("from_date không được lớn hơn to_date", "INVALID_DATE_RANGE", 400)
 
