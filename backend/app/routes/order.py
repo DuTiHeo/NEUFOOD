@@ -140,9 +140,13 @@ def confirm_receipt(order_id: str):
 @order_bp.route("/<order_id>", methods=["GET"])
 @jwt_required
 def get_order_details(order_id: str):
+    user_id = int(g.current_user["sub"])
+    role = g.current_user.get("role")
     with get_db() as db:
         order = get_order_by_id(db, order_id)
         if not order:
+            return api_response(message="Không tìm thấy đơn hàng", status_code=404, success=False)
+        if role == "customer" and order.user_id != user_id:
             return api_response(message="Không tìm thấy đơn hàng", status_code=404, success=False)
         return api_response(data=_serialize_order(order))
 
