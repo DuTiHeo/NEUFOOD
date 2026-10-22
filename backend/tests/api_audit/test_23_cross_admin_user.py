@@ -20,7 +20,7 @@ class Test23CrossAdminUser(ApiTestCase):
             json={"is_active": False}
         )
         self.assertEqual(resp_lock.status_code, 400)
-        self.assertIn("EX-22", str(resp_lock.get_json()))
+        self.assertIn("Không thể khóa tài khoản đang có đơn hàng chưa hoàn tất", str(resp_lock.get_json()))
 
         # Sau khi hoàn thành toàn bộ đơn dở -> Khóa thành công
         self.execute_sql("UPDATE orders SET status = 'HOAN_THANH' WHERE user_id = 4")

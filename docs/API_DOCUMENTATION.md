@@ -120,7 +120,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 ```json
 {
   "success": false,
-  "message": "Email đã tồn tại trên hệ thống (EX-01)",
+  "message": "Email đã tồn tại trên hệ thống",
   "data": null
 }
 ```
@@ -128,7 +128,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 ```json
 {
   "success": false,
-  "message": "Số điện thoại không hợp lệ, phải gồm đúng 10 chữ số và bắt đầu bằng số 0 (BR-01)",
+  "message": "Số điện thoại không hợp lệ, phải gồm đúng 10 chữ số và bắt đầu bằng số 0",
   "data": null,
   "errors": [
     {
@@ -157,11 +157,11 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 - **Quy tắc nghiệp vụ & Cơ chế bảo mật (`BR-02`, `EX-02`)**:
   - **Kiểm tra trạng thái tài khoản trước khi xác thực mật khẩu**:
     - Nếu tài khoản có `is_active == false` $\rightarrow$ Trả lỗi `403 Forbidden` (`"Tài khoản này đã bị khóa"`).
-    - Nếu tài khoản đang trong thời gian khóa tạm thời 15 phút (`locked_until > now()`) $\rightarrow$ Trả lỗi `403 Forbidden` (`"Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần (EX-02)"`).
+    - Nếu tài khoản đang trong thời gian khóa tạm thời 15 phút (`locked_until > now()`) $\rightarrow$ Trả lỗi `403 Forbidden` (`"Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần"`).
   - **Xác thực mật khẩu**:
     - Nếu sai mật khẩu: Tăng `failed_login_attempts += 1`.
       - Khi `failed_login_attempts < 5` $\rightarrow$ Trả lỗi `401 Unauthorized` (`"Email hoặc mật khẩu không chính xác"`).
-      - Khi chạm mốc `failed_login_attempts >= 5` lần liên tiếp $\rightarrow$ Thiết lập `locked_until = now() + 15 minutes` và trả ngay `403 Forbidden` (`"Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần (EX-02)"`).
+      - Khi chạm mốc `failed_login_attempts >= 5` lần liên tiếp $\rightarrow$ Thiết lập `locked_until = now() + 15 minutes` và trả ngay `403 Forbidden` (`"Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần"`).
     - Nếu đúng mật khẩu:
       - Reset `failed_login_attempts = 0` và xóa mốc khóa `locked_until = null`.
       - Cấp cặp JWT Token: Access Token (hiệu lực 15 phút, `expires_in: 900` giây) và Refresh Token (hiệu lực 7 ngày).
@@ -201,7 +201,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 ```json
 {
   "success": false,
-  "message": "Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần (EX-02)",
+  "message": "Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần",
   "data": null
 }
 ```
@@ -498,7 +498,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 ```json
 {
   "success": false,
-  "message": "Bạn đã vượt quá giới hạn gửi mã OTP tối đa 3 lần/ngày. Vui lòng thử lại vào ngày mai (EX-04)",
+  "message": "Bạn đã vượt quá giới hạn gửi mã OTP tối đa 3 lần/ngày. Vui lòng thử lại vào ngày mai",
   "data": null
 }
 ```
@@ -529,9 +529,9 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
   - `new_password`: Bắt buộc, mật khẩu mới có độ dài từ 6 đến 128 ký tự (`min_length=6, max_length=128`).
 - **Quy tắc nghiệp vụ & Kịch bản ngoại lệ (`BR-02`, `EX-04`)**:
   - **Kiểm tra OTP (`EX-04`)**:
-    - Nếu không tìm thấy OTP trong bộ nhớ hoặc OTP đã bị hủy trước đó $\rightarrow$ Trả về `400 Bad Request` (`"Mã xác nhận OTP không hợp lệ hoặc đã hết hiệu lực (EX-04)"`).
-    - Nếu thời điểm xác thực vượt quá hạn 5 phút (`now > expires_at`) $\rightarrow$ Trả về `400 Bad Request` (`"Mã xác nhận OTP đã hết hiệu lực (quá 5 phút). Vui lòng yêu cầu gửi lại mã OTP (EX-04)"`).
-    - Nếu mã OTP gửi lên không khớp với mã đã sinh $\rightarrow$ Trả về `400 Bad Request` (`"Mã xác nhận OTP không chính xác (EX-04)"`).
+    - Nếu không tìm thấy OTP trong bộ nhớ hoặc OTP đã bị hủy trước đó $\rightarrow$ Trả về `400 Bad Request` (`"Mã xác nhận OTP không hợp lệ hoặc đã hết hiệu lực"`).
+    - Nếu thời điểm xác thực vượt quá hạn 5 phút (`now > expires_at`) $\rightarrow$ Trả về `400 Bad Request` (`"Mã xác nhận OTP đã hết hiệu lực (quá 5 phút). Vui lòng yêu cầu gửi lại mã OTP"`).
+    - Nếu mã OTP gửi lên không khớp với mã đã sinh $\rightarrow$ Trả về `400 Bad Request` (`"Mã xác nhận OTP không chính xác"`).
   - **Mở khóa tài khoản & Đặt lại mật khẩu (`BR-02`)**:
     - Cập nhật mật khẩu mới cho người dùng.
     - Tự động xóa mốc khóa tạm thời (`locked_until = None`) và reset bộ đếm đăng nhập sai `failed_login_attempts = 0` ngay lập tức, cho phép người dùng đăng nhập lại ngay mà không phải chờ hết 15 phút.
@@ -548,7 +548,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 ```json
 {
   "success": false,
-  "message": "Mã xác nhận OTP đã hết hiệu lực (quá 5 phút). Vui lòng yêu cầu gửi lại mã OTP (EX-04)",
+  "message": "Mã xác nhận OTP đã hết hiệu lực (quá 5 phút). Vui lòng yêu cầu gửi lại mã OTP",
   "data": null
 }
 ```
@@ -556,7 +556,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 ```json
 {
   "success": false,
-  "message": "Mã xác nhận OTP không chính xác (EX-04)",
+  "message": "Mã xác nhận OTP không chính xác",
   "data": null
 }
 ```
@@ -564,7 +564,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 ```json
 {
   "success": false,
-  "message": "Mã xác nhận OTP không hợp lệ hoặc đã hết hiệu lực (EX-04)",
+  "message": "Mã xác nhận OTP không hợp lệ hoặc đã hết hiệu lực",
   "data": null
 }
 ```
@@ -656,7 +656,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 ```json
 {
   "success": false,
-  "message": "Số điện thoại đã được sử dụng bởi tài khoản khác (EX-03)",
+  "message": "Số điện thoại đã được sử dụng bởi tài khoản khác",
   "data": null
 }
 ```
@@ -664,7 +664,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 ```json
 {
   "success": false,
-  "message": "Mã sinh viên đã tồn tại trên hệ thống (EX-01)",
+  "message": "Mã sinh viên đã tồn tại trên hệ thống",
   "data": null
 }
 ```
@@ -672,7 +672,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 ```json
 {
   "success": false,
-  "message": "Số điện thoại không hợp lệ, phải gồm đúng 10 chữ số và bắt đầu bằng số 0 (BR-01, EX-03)",
+  "message": "Số điện thoại không hợp lệ, phải gồm đúng 10 chữ số và bắt đầu bằng số 0",
   "data": null,
   "errors": [
     {
@@ -795,7 +795,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 ```json
 {
   "success": false,
-  "message": "Không thể khóa tài khoản đang có đơn hàng chưa hoàn tất. Vui lòng hoàn tất hoặc hủy các đơn hàng trước (EX-22)",
+  "message": "Không thể khóa tài khoản đang có đơn hàng chưa hoàn tất. Vui lòng hoàn tất hoặc hủy các đơn hàng trước",
   "data": null
 }
 ```
@@ -845,9 +845,9 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
   - **Cơ chế tự bảo vệ tài khoản Admin**: Nếu `target_user.id == admin_id` và `is_blacklisted == true` $\rightarrow$ Chặn thao tác và trả về `400 Bad Request` (`"Quản trị viên không thể tự đưa tài khoản của chính mình vào danh sách đen"`).
   - **Đưa tài khoản vào Blacklist COD (`is_blacklisted == true` - `BR-22`)**:
     - Thiết lập `is_blacklisted = true`.
-    - Ghi nhận `blacklist_reason` theo nội dung Admin truyền lên; nếu bỏ trống hoặc `null` thì tự động gán lý do mặc định `"Vi phạm chính sách nhận hàng/thanh toán COD (BR-22)"`.
+    - Ghi nhận `blacklist_reason` theo nội dung Admin truyền lên; nếu bỏ trống hoặc `null` thì tự động gán lý do mặc định `"Vi phạm chính sách nhận hàng/thanh toán COD"`.
     - Ghi nhận thời điểm đưa vào danh sách đen `blacklisted_at = now() (UTC)`.
-    - Phản hồi `200 OK` với thông điệp `"Đã đưa tài khoản vào danh sách đen COD (BR-22)"`.
+    - Phản hồi `200 OK` với thông điệp `"Đã đưa tài khoản vào danh sách đen COD"`.
   - **Gỡ tài khoản khỏi Blacklist COD (`is_blacklisted == false` - `BR-22`)**:
     - Thiết lập `is_blacklisted = false`, đồng thời xóa sạch `blacklist_reason = null` và `blacklisted_at = null`.
     - Phản hồi `200 OK` với thông điệp `"Đã gỡ tài khoản khỏi danh sách đen COD"`.
@@ -855,7 +855,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 ```json
 {
   "success": true,
-  "message": "Đã đưa tài khoản vào danh sách đen COD (BR-22)",
+  "message": "Đã đưa tài khoản vào danh sách đen COD",
   "data": {
     "id": 2,
     "email": "sinhvien@neu.edu.vn",

@@ -337,7 +337,7 @@ def remove_dish(dish_id: str):
         if was_soft_deleted:
             return api_response(
                 data={"id": dish_id, "soft_deleted": True},
-                message="Món đã có lịch sử đơn hàng; hệ thống đã ẩn và ngừng kinh doanh món (BR-04, EX-21)",
+                message="Món đã có lịch sử đơn hàng; hệ thống đã ẩn và ngừng kinh doanh món",
             )
         return api_response(
             data={"id": dish_id, "soft_deleted": False},

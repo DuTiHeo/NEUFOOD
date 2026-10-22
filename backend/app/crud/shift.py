@@ -163,7 +163,7 @@ def submit_shift(
     clean_note = discrepancy_note.strip() if discrepancy_note else None
     if discrepancy != Decimal("0.00"):
         if not clean_note:
-            raise ShiftError("Lệch tiền COD bắt buộc phải có giải trình (EX-20)", "EX-20", 400)
+            raise ShiftError("Lệch tiền COD bắt buộc phải có giải trình", "EX-20", 400)
         status = "CAN_GIAI_TRINH"
     else:
         status = "CHO_DUYET"

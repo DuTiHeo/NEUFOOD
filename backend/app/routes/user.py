@@ -120,7 +120,7 @@ def update_profile():
         has_phone_error = any("phone_number" in err.get("loc", ()) for err in errors)
         if has_phone_error:
             return api_response(
-                message="Số điện thoại không hợp lệ, phải gồm đúng 10 chữ số và bắt đầu bằng số 0 (BR-01, EX-03)",
+                message="Số điện thoại không hợp lệ, phải gồm đúng 10 chữ số và bắt đầu bằng số 0",
                 errors=errors,
                 status_code=422,
                 success=False,
@@ -137,7 +137,7 @@ def update_profile():
     # EX-03: Chặn trường hợp client gửi tường minh {"phone_number": null}
     if "phone_number" in update_data and update_data["phone_number"] is None:
         return api_response(
-            message="Số điện thoại không hợp lệ, phải gồm đúng 10 chữ số và bắt đầu bằng số 0 (BR-01, EX-03)",
+            message="Số điện thoại không hợp lệ, phải gồm đúng 10 chữ số và bắt đầu bằng số 0",
             status_code=422,
             success=False,
         )
@@ -171,7 +171,7 @@ def update_profile():
             existing_phone_user = get_user_by_phone(db, update_data["phone_number"])
             if existing_phone_user and existing_phone_user.id != user.id:
                 return api_response(
-                    message="Số điện thoại đã được sử dụng bởi tài khoản khác (EX-03)",
+                    message="Số điện thoại đã được sử dụng bởi tài khoản khác",
                     status_code=400,
                     success=False,
                 )
@@ -181,7 +181,7 @@ def update_profile():
             existing_student_user = get_user_by_student_id(db, update_data["student_id"])
             if existing_student_user and existing_student_user.id != user.id:
                 return api_response(
-                    message="Mã sinh viên đã tồn tại trên hệ thống (EX-01)",
+                    message="Mã sinh viên đã tồn tại trên hệ thống",
                     status_code=400,
                     success=False,
                 )
@@ -330,7 +330,7 @@ def admin_change_user_status(user_id: int):
         # EX-22: Chặn khóa tài khoản đang có đơn hàng chưa hoàn tất (BR-08)
         if data.is_active is False and has_active_orders(db, target_user.id):
             return api_response(
-                message="Không thể khóa tài khoản đang có đơn hàng chưa hoàn tất. Vui lòng hoàn tất hoặc hủy các đơn hàng trước (EX-22)",
+                message="Không thể khóa tài khoản đang có đơn hàng chưa hoàn tất. Vui lòng hoàn tất hoặc hủy các đơn hàng trước",
                 status_code=400,
                 success=False,
             )
@@ -412,7 +412,7 @@ def admin_change_user_blacklist(user_id: int):
             blacklist_reason=data.blacklist_reason,
         )
         msg = (
-            "Đã đưa tài khoản vào danh sách đen COD (BR-22)"
+            "Đã đưa tài khoản vào danh sách đen COD"
             if data.is_blacklisted
             else "Đã gỡ tài khoản khỏi danh sách đen COD"
         )

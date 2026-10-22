@@ -215,7 +215,7 @@ def admin_update_user_blacklist(
         user.blacklist_reason = (
             blacklist_reason.strip()
             if blacklist_reason and blacklist_reason.strip()
-            else "Vi phạm chính sách nhận hàng/thanh toán COD (BR-22)"
+            else "Vi phạm chính sách nhận hàng/thanh toán COD"
         )
         user.blacklisted_at = datetime.now(timezone.utc)
     else:
