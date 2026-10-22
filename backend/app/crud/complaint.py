@@ -2,10 +2,10 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
 
-from app.db.models import Complaint, Order, User, COMPLAINABLE_ORDER_STATUSES, COMPLAINT_STATUSES
+from app.db.models import (
+    Complaint, Order, User, COMPLAINABLE_ORDER_STATUSES, COMPLAINT_STATUSES
+)
 from app.crud.setting import get_setting_int
-
-COMPLAINABLE_ORDER_STATUSES = ("DA_GIAO", "DA_BAN_GIAO", "HOAN_THANH")
 
 
 class ComplaintError(ValueError):
@@ -105,10 +105,10 @@ def resolve_complaint(
     admin_response: str,
 ) -> Complaint:
     """
-    UC25: Admin độc quyền phân xử khiếu nại (BR-24).
+    UC25: Admin độc quyền phân xử khiếu nại (BR-24, EX-15).
     Caller quản lý commit/rollback.
     """
-    if status not in ("CHAP_NHAN", "TU_CHOI"):
+    if status not in ("CHAP_NHAN", "TU_CHOI", "YEU_CAU_BO_SUNG"):
         raise ComplaintError("Trạng thái xử lý không hợp lệ", "INVALID_STATUS", 400)
 
     clean_response = admin_response.strip() if admin_response else ""
@@ -123,7 +123,8 @@ def resolve_complaint(
     if not complaint:
         raise ComplaintError("Không tìm thấy khiếu nại", "NOT_FOUND", 404)
 
-    if complaint.status != "DANG_XU_LY":
+    # Nếu khiếu nại đã được chốt phân xử dứt điểm (CHAP_NHAN hoặc TU_CHOI) thì không cho sửa lại
+    if complaint.status in ("CHAP_NHAN", "TU_CHOI"):
         raise ComplaintError("Khiếu nại đã được xử lý trước đó", "COMPLAINT_ALREADY_RESOLVED", 400)
 
     order = db.query(Order).filter(Order.id == complaint.order_id).with_for_update().first()
@@ -132,14 +133,23 @@ def resolve_complaint(
     if order.status != "KHIEU_NAI":
         raise ComplaintError("Đơn hàng không ở trạng thái khiếu nại", "INVALID_ORDER_STATUS", 400)
 
-    order.status = "DA_GIAI_QUYET"
-
     now = datetime.now(timezone.utc)
-    complaint.status = status
-    complaint.admin_response = clean_response
-    complaint.resolved_by = admin_id
-    complaint.resolved_at = now
-    complaint.updated_at = now
+    if status in ("CHAP_NHAN", "TU_CHOI"):
+        order.status = "DA_GIAI_QUYET"
+        complaint.status = status
+        complaint.admin_response = clean_response
+        complaint.resolved_by = admin_id
+        complaint.resolved_at = now
+        complaint.updated_at = now
+    else:  # status == "YEU_CAU_BO_SUNG" (EX-15)
+        # Giữ nguyên order.status = "KHIEU_NAI" để khách có 12h bổ sung bằng chứng
+        complaint.status = "YEU_CAU_BO_SUNG"
+        complaint.admin_response = clean_response
+        complaint.resolved_by = admin_id
+        complaint.resolved_at = None
+        complaint.updated_at = now
 
     db.flush()
     return complaint
+
+

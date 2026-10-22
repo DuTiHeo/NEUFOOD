@@ -190,7 +190,7 @@ CREATE TABLE IF NOT EXISTS complaints (
     description TEXT NOT NULL,
     proof_image_url TEXT NOT NULL,
     status VARCHAR(30) NOT NULL DEFAULT 'DANG_XU_LY' 
-        CHECK (status IN ('DANG_XU_LY', 'CHAP_NHAN', 'TU_CHOI')),
+        CHECK (status IN ('DANG_XU_LY', 'CHAP_NHAN', 'TU_CHOI', 'YEU_CAU_BO_SUNG')),
     admin_response TEXT,
     resolved_by INT REFERENCES users(id) ON DELETE SET NULL,
     resolved_at TIMESTAMP WITH TIME ZONE,
