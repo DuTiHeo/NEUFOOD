@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
 
-from app.db.models import Complaint, Order, User
+from app.db.models import Complaint, Order, User, COMPLAINABLE_ORDER_STATUSES, COMPLAINT_STATUSES
 from app.crud.setting import get_setting_int
 
 COMPLAINABLE_ORDER_STATUSES = ("DA_GIAO", "DA_BAN_GIAO", "HOAN_THANH")
@@ -143,5 +143,3 @@ def resolve_complaint(
 
     db.flush()
     return complaint
-
-

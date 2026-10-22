@@ -5,13 +5,10 @@ from datetime import datetime, time as clock_time, timedelta, timezone
 from decimal import Decimal
 from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
-from app.db.models import Order, OrderItem, Dish, CampusLocation, User, Complaint
-from app.crud.setting import get_setting_by_key, get_setting_int
-
-
-ACTIVE_ORDER_STATUSES = (
-    "CHO_XAC_NHAN", "DANG_CHUAN_BI", "DANG_GIAO", "SAN_SANG_LAY", "GIAO_THAT_BAI",
+from app.db.models import (
+    Order, OrderItem, Dish, CampusLocation, User, Complaint, ACTIVE_ORDER_STATUSES
 )
+from app.crud.setting import get_setting_by_key, get_setting_int
 
 
 class OrderError(ValueError):

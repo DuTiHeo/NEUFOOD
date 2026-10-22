@@ -2,17 +2,7 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from app.db.models import CampusLocation, Order
-
-
-TERMINAL_ORDER_STATUSES = {
-    "HOAN_THANH",
-    "DA_HUY_KHACH",
-    "TU_CHOI",
-    "TU_DONG_HUY",
-    "BO_DON_BLACKLIST",
-    "DA_GIAI_QUYET",
-}
+from app.db.models import CampusLocation, Order, TERMINAL_ORDER_STATUSES
 
 
 def get_locations(db: Session, active_only: bool = True) -> List[CampusLocation]:

@@ -3,7 +3,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
 from app.db.models import Review, Order, OrderItem, Dish, User
 
-REVIEWABLE_ORDER_STATUSES = ("DA_GIAO", "DA_BAN_GIAO", "HOAN_THANH")
+from app.db.models import REVIEWABLE_ORDER_STATUSES
 
 
 class ReviewError(ValueError):
@@ -75,4 +75,3 @@ def create_review(
 
     db.flush()
     return review
-
