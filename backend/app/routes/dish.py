@@ -159,7 +159,7 @@ def validate_cart():
 
 
 @dish_bp.route("/upload-image", methods=["POST"])
-@role_required("manager", "admin")
+@role_required("manager")
 def upload_dish_image():
     image = request.files.get("file")
     if image is None or not image.filename:
@@ -185,7 +185,7 @@ def upload_dish_image():
 
 
 @dish_bp.route("/<dish_id>/availability", methods=["PATCH"])
-@role_required("staff", "manager", "admin")
+@role_required("staff", "manager")
 def update_dish_availability(dish_id: str):
     payload, error_response = _json_object_or_error()
     if error_response:
@@ -231,7 +231,7 @@ def get_dish(dish_id: str):
 
 
 @dish_bp.route("", methods=["POST"])
-@role_required("manager", "admin")
+@role_required("manager")
 def add_dish():
     payload, error_response = _json_object_or_error()
     if error_response:
@@ -277,7 +277,7 @@ def add_dish():
 
 
 @dish_bp.route("/<dish_id>", methods=["PUT"])
-@role_required("manager", "admin")
+@role_required("manager")
 def edit_dish(dish_id: str):
     payload, error_response = _json_object_or_error()
     if error_response:
@@ -323,7 +323,7 @@ def edit_dish(dish_id: str):
 
 
 @dish_bp.route("/<dish_id>", methods=["DELETE"])
-@role_required("manager", "admin")
+@role_required("manager")
 def remove_dish(dish_id: str):
     with get_db() as db:
         dish = get_dish_by_id(db, dish_id)
