@@ -121,7 +121,7 @@ def login():
         now = datetime.now(timezone.utc)
         if _is_locked(user.locked_until, now):
             return api_response(
-                message="Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần (EX-02)",
+                message="Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần",
                 status_code=403,
                 success=False,
             )
@@ -131,7 +131,7 @@ def login():
             user = record_failed_login(db, user)
             if user.failed_login_attempts >= 5:
                 return api_response(
-                    message="Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần (EX-02)",
+                    message="Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần",
                     status_code=403,
                     success=False,
                 )
@@ -193,7 +193,7 @@ def register():
         for err in errors:
             if "phone_number" in err.get("loc", ()):
                 return api_response(
-                    message="Số điện thoại không hợp lệ, phải gồm đúng 10 chữ số và bắt đầu bằng số 0 (BR-01)",
+                    message="Số điện thoại không hợp lệ, phải gồm đúng 10 chữ số và bắt đầu bằng số 0",
                     errors=errors,
                     status_code=422,
                     success=False,
@@ -209,7 +209,7 @@ def register():
         # EX-01: Kiểm tra trùng lặp Email
         if get_user_by_email(db, data.email):
             return api_response(
-                message="Email đã tồn tại trên hệ thống (EX-01)",
+                message="Email đã tồn tại trên hệ thống",
                 status_code=400,
                 success=False,
             )
@@ -217,7 +217,7 @@ def register():
         # EX-01: Kiểm tra trùng lặp Mã sinh viên (nếu có cung cấp)
         if data.student_id and get_user_by_student_id(db, data.student_id):
             return api_response(
-                message="Mã sinh viên đã tồn tại trên hệ thống (EX-01)",
+                message="Mã sinh viên đã tồn tại trên hệ thống",
                 status_code=400,
                 success=False,
             )
@@ -557,7 +557,7 @@ def forgot_password():
 
     if daily_count >= 3:
         return api_response(
-            message="Bạn đã vượt quá giới hạn gửi mã OTP tối đa 3 lần/ngày. Vui lòng thử lại vào ngày mai (EX-04)",
+            message="Bạn đã vượt quá giới hạn gửi mã OTP tối đa 3 lần/ngày. Vui lòng thử lại vào ngày mai",
             status_code=400,
             success=False,
         )
@@ -616,7 +616,7 @@ def reset_password():
     entry = OTP_STORE.get(email_key)
     if not entry or not entry.get("otp"):
         return api_response(
-            message="Mã xác nhận OTP không hợp lệ hoặc đã hết hiệu lực (EX-04)",
+            message="Mã xác nhận OTP không hợp lệ hoặc đã hết hiệu lực",
             status_code=400,
             success=False,
         )
@@ -627,14 +627,14 @@ def reset_password():
 
     if expires_at is None or now > expires_at:
         return api_response(
-            message="Mã xác nhận OTP đã hết hiệu lực (quá 5 phút). Vui lòng yêu cầu gửi lại mã OTP (EX-04)",
+            message="Mã xác nhận OTP đã hết hiệu lực (quá 5 phút). Vui lòng yêu cầu gửi lại mã OTP",
             status_code=400,
             success=False,
         )
 
     if str(entry.get("otp")) != otp_input:
         return api_response(
-            message="Mã xác nhận OTP không chính xác (EX-04)",
+            message="Mã xác nhận OTP không chính xác",
             status_code=400,
             success=False,
         )

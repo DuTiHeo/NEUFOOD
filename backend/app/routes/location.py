@@ -192,7 +192,7 @@ def remove_location(location_id: int):
         if deactivated:
             return api_response(
                 data={"id": location_id, "is_active": False, "deactivated": True},
-                message="Địa điểm đang được đơn chưa kết thúc sử dụng; hệ thống đã tạm ngưng phục vụ thay vì xóa cứng (BR-10, EX-23)",
+                message="Địa điểm đang được đơn chưa kết thúc sử dụng; hệ thống đã tạm ngưng phục vụ thay vì xóa cứng",
             )
         return api_response(
             data={"id": location_id, "deleted": True, "location": location_data},

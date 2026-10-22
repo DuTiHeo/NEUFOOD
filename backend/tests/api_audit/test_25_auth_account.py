@@ -21,7 +21,7 @@ class Test25AuthAccount(ApiTestCase):
             }
         )
         self.assertEqual(resp_email.status_code, 400)
-        self.assertIn("EX-01", str(resp_email.get_json()))
+        self.assertIn("Email đã tồn tại", str(resp_email.get_json()))
 
         # Trùng mã sinh viên của User 4 (11215432)
         resp_student = self.request(
@@ -36,7 +36,7 @@ class Test25AuthAccount(ApiTestCase):
             }
         )
         self.assertEqual(resp_student.status_code, 400)
-        self.assertIn("EX-01", str(resp_student.get_json()))
+        self.assertIn("Mã sinh viên đã tồn tại", str(resp_student.get_json()))
 
     def test_br01_invalid_phone_number_format(self):
         """Số điện thoại không đúng 10 chữ số di động VN -> Bị từ chối (BR-01)."""
@@ -67,7 +67,7 @@ class Test25AuthAccount(ApiTestCase):
         # Lần thứ 5 nhập sai -> Chạm mốc khóa tài khoản 15 phút -> Trả về 403 (EX-02)
         resp_5th = self.request("POST", "/api/v1/auth/login", json={"email": target_email, "password": "WrongPassword"})
         self.assertEqual(resp_5th.status_code, 403)
-        self.assertIn("EX-02", str(resp_5th.get_json()))
+        self.assertIn("Tài khoản bị khóa tạm thời 15 phút", str(resp_5th.get_json()))
 
         # Khi đang bị khóa: nhập ĐÚNG mật khẩu vẫn bị chặn 403
         resp_correct_during_lock = self.request(
