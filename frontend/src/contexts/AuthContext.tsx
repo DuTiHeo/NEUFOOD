@@ -7,8 +7,8 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (token: string, user: User) => void;
-  logout: () => void;
+  login: (token: string, user: User, refreshToken?: string) => void;
+  logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -26,15 +26,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const logout = useCallback(() => {
-    authService.logout();
-    localStorage.removeItem('neufood_user');
+  const logout = useCallback(async () => {
+    await authService.logout();
     setToken(null);
     setUser(null);
   }, []);
 
-  const login = useCallback((newToken: string, newUser: User) => {
+  const login = useCallback((newToken: string, newUser: User, newRefreshToken?: string) => {
     localStorage.setItem('neufood_token', newToken);
+    if (newRefreshToken) {
+      localStorage.setItem('neufood_refresh_token', newRefreshToken);
+    }
     localStorage.setItem('neufood_user', JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);

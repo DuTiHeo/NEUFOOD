@@ -13,7 +13,8 @@ class Settings(BaseSettings):
     # Security & JWT
     SECRET_KEY: str = "neufood_super_secret_jwt_key_please_change_in_production"
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440 # 24 hours
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # 15 phút cho Access Token ngắn hạn
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7     # 7 ngày cho Refresh Token dài hạn
 
     # Database
     DATABASE_URL: str = "postgresql://neufood_user:neufood_password@localhost:5432/neufood_db"

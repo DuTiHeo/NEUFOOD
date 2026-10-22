@@ -241,7 +241,18 @@ CREATE TRIGGER set_timestamp_system_settings
 BEFORE UPDATE ON system_settings
 FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
 
--- 15. INDEXES
+-- 15. BẢNG REVOKED_TOKENS (Danh sách đen token JWT bị thu hồi)
+CREATE TABLE IF NOT EXISTS revoked_tokens (
+    id SERIAL PRIMARY KEY,
+    jti VARCHAR(64) NOT NULL UNIQUE,
+    token_type VARCHAR(20) NOT NULL CHECK (token_type IN ('access', 'refresh')),
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    revoked_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    reason VARCHAR(255)
+);
+
+-- 16. INDEXES
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_blacklisted ON users(is_blacklisted);
@@ -265,3 +276,6 @@ CREATE INDEX IF NOT EXISTS idx_reviews_dish_id ON reviews(dish_id);
 CREATE INDEX IF NOT EXISTS idx_complaints_order_id ON complaints(order_id);
 CREATE INDEX IF NOT EXISTS idx_complaints_status ON complaints(status);
 CREATE INDEX IF NOT EXISTS idx_staff_shifts_staff_date ON staff_shifts(staff_id, shift_date);
+
+CREATE INDEX IF NOT EXISTS idx_revoked_tokens_jti ON revoked_tokens(jti);
+CREATE INDEX IF NOT EXISTS idx_revoked_tokens_expires_at ON revoked_tokens(expires_at);

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 from flask import Blueprint, request, g
 from pydantic import ValidationError
+from app.core.config import settings
 from app.db.models import User
 from app.db.session import get_db
 from app.crud.user import (
@@ -13,14 +14,24 @@ from app.crud.user import (
     record_failed_login,
     reset_login_attempts,
     update_user_password,
+    revoke_token,
+    is_token_revoked,
 )
-from app.core.security import verify_password, create_access_token, jwt_required
+from app.core.security import (
+    verify_password,
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    jwt_required,
+)
 from app.schemas.auth import (
     LoginRequest,
     RegisterRequest,
     ChangePasswordRequest,
     ForgotPasswordRequest,
     ResetPasswordRequest,
+    RefreshTokenRequest,
+    LogoutRequest,
 )
 from app.utils.helpers import api_response
 
@@ -134,17 +145,24 @@ def login():
         if (user.failed_login_attempts or 0) > 0 or user.locked_until is not None:
             user = reset_login_attempts(db, user)
 
-        token = create_access_token({
+        access_token = create_access_token({
             "sub": str(user.id),
             "email": user.email,
             "role": user.role,
             "name": user.full_name,
         })
+        refresh_token = create_refresh_token({
+            "sub": str(user.id),
+            "email": user.email,
+            "role": user.role,
+        })
 
         return api_response(
             data={
-                "access_token": token,
+                "access_token": access_token,
+                "refresh_token": refresh_token,
                 "token_type": "Bearer",
+                "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
                 "user": _serialize_user(user),
             },
             message="Đăng nhập thành công",
@@ -215,7 +233,109 @@ def register():
             role="customer",
         )
 
-        token = create_access_token({
+        access_token = create_access_token({
+            "sub": str(user.id),
+            "email": user.email,
+            "role": user.role,
+            "name": user.full_name,
+        })
+        refresh_token = create_refresh_token({
+            "sub": str(user.id),
+            "email": user.email,
+            "role": user.role,
+        })
+
+        return api_response(
+            data={
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "token_type": "Bearer",
+                "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+                "user": _serialize_user(user),
+            },
+            message="Đăng ký tài khoản thành công",
+            status_code=201,
+        )
+
+
+@auth_bp.route("/refresh", methods=["POST"])
+def refresh_token():
+    """
+    Làm mới Access Token bằng Refresh Token còn hiệu lực.
+    - Kiểm tra định dạng JSON payload.
+    - Giải mã JWT, xác minh claim type == 'refresh'.
+    - Kiểm tra token chưa nằm trong danh sách đen (revoked_tokens).
+    - Kiểm tra tài khoản người dùng tồn tại và đang hoạt động (User.is_active).
+    - Cấp Access Token mới (15 phút) và giữ nguyên Refresh Token (hoặc cấp mới).
+    """
+    raw_data = _parse_json_body()
+    if raw_data is None:
+        return api_response(
+            message="Dữ liệu đầu vào phải là JSON object hợp lệ",
+            status_code=400,
+            success=False,
+        )
+
+    try:
+        data = RefreshTokenRequest(**raw_data)
+    except ValidationError as e:
+        return api_response(
+            message="Dữ liệu làm mới token không hợp lệ",
+            errors=e.errors(include_url=False, include_context=False),
+            status_code=422,
+            success=False,
+        )
+
+    payload = decode_token(data.refresh_token)
+    if not payload:
+        return api_response(
+            message="Token làm mới không hợp lệ hoặc đã hết hạn",
+            status_code=401,
+            success=False,
+        )
+
+    if payload.get("type") != "refresh":
+        return api_response(
+            message="Loại token không hợp lệ (yêu cầu refresh token)",
+            status_code=401,
+            success=False,
+        )
+
+    jti = payload.get("jti")
+    user_id_raw = payload.get("sub")
+    try:
+        user_id = int(user_id_raw)
+    except (ValueError, TypeError):
+        return api_response(
+            message="Phiên đăng nhập không hợp lệ hoặc đã hết hạn",
+            status_code=401,
+            success=False,
+        )
+
+    with get_db() as db:
+        if jti and is_token_revoked(db, jti):
+            return api_response(
+                message="Phiên đăng nhập đã bị thu hồi hoặc đăng xuất",
+                status_code=401,
+                success=False,
+            )
+
+        user = get_user_by_id(db, user_id)
+        if not user:
+            return api_response(
+                message="Không tìm thấy người dùng",
+                status_code=404,
+                success=False,
+            )
+
+        if not user.is_active:
+            return api_response(
+                message="Tài khoản này đã bị khóa",
+                status_code=403,
+                success=False,
+            )
+
+        new_access_token = create_access_token({
             "sub": str(user.id),
             "email": user.email,
             "role": user.role,
@@ -224,19 +344,58 @@ def register():
 
         return api_response(
             data={
-                "access_token": token,
+                "access_token": new_access_token,
+                "refresh_token": data.refresh_token,
                 "token_type": "Bearer",
+                "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
                 "user": _serialize_user(user),
             },
-            message="Đăng ký tài khoản thành công",
-            status_code=201,
+            message="Làm mới token thành công",
+            status_code=200,
         )
 
 
 @auth_bp.route("/logout", methods=["POST"])
 @jwt_required
 def logout():
-    """Đăng xuất hệ thống (UC03)."""
+    """
+    Đăng xuất hệ thống (UC03):
+    Thu hồi Access Token hiện tại và Refresh Token gửi kèm vào danh sách đen.
+    """
+    raw_data = _parse_json_body() or {}
+    refresh_token_input = raw_data.get("refresh_token")
+
+    user_id = int(g.current_user["sub"])
+    access_jti = g.current_user.get("jti")
+    access_exp = g.current_user.get("exp")
+
+    with get_db() as db:
+        # 1. Thu hồi Access Token hiện tại
+        if access_jti and access_exp:
+            expires_at = datetime.fromtimestamp(access_exp, tz=timezone.utc)
+            revoke_token(
+                db=db,
+                jti=access_jti,
+                token_type="access",
+                expires_at=expires_at,
+                user_id=user_id,
+                reason="logout",
+            )
+
+        # 2. Thu hồi Refresh Token nếu client cung cấp
+        if refresh_token_input:
+            r_payload = decode_token(refresh_token_input)
+            if r_payload and r_payload.get("jti") and r_payload.get("exp"):
+                r_exp = datetime.fromtimestamp(r_payload["exp"], tz=timezone.utc)
+                revoke_token(
+                    db=db,
+                    jti=r_payload["jti"],
+                    token_type="refresh",
+                    expires_at=r_exp,
+                    user_id=user_id,
+                    reason="logout",
+                )
+
     return api_response(data=None, message="Đăng xuất thành công", status_code=200)
 
 
@@ -322,6 +481,21 @@ def change_password():
             )
 
         update_user_password(db, user, data.new_password)
+
+        # Thu hồi Access Token hiện tại để bắt buộc đăng nhập lại hoặc làm mới
+        access_jti = g.current_user.get("jti")
+        access_exp = g.current_user.get("exp")
+        if access_jti and access_exp:
+            expires_at = datetime.fromtimestamp(access_exp, tz=timezone.utc)
+            revoke_token(
+                db=db,
+                jti=access_jti,
+                token_type="access",
+                expires_at=expires_at,
+                user_id=user.id,
+                reason="change_password",
+            )
+
         return api_response(
             data=None,
             message="Đổi mật khẩu thành công",

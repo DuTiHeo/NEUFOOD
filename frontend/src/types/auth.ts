@@ -15,9 +15,18 @@ export interface RegisterPayload {
 
 export interface AuthResponse {
   access_token: string;
+  refresh_token?: string;
   token_type: string;
   expires_in: number;
   user: User;
+}
+
+export interface RefreshTokenRequest {
+  refresh_token: string;
+}
+
+export interface LogoutRequest {
+  refresh_token?: string;
 }
 
 export interface ApiResponse<T = any> {

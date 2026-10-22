@@ -306,3 +306,19 @@ class SystemSetting(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+
+
+class RevokedToken(Base):
+    """15. Bảng REVOKED_TOKENS - Quản lý danh sách đen các token đã bị thu hồi (đăng xuất, đổi mật khẩu)."""
+    __tablename__ = "revoked_tokens"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    jti = Column(String(64), unique=True, nullable=False, index=True)
+    token_type = Column(String(20), nullable=False)  # 'access' | 'refresh'
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    revoked_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    reason = Column(String(255), nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id])
+

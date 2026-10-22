@@ -26,7 +26,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       const data = await authService.register(formData);
-      login(data.access_token, data.user);
+      login(data.access_token, data.user, data.refresh_token);
       navigate('/');
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Đăng ký thất bại, vui lòng kiểm tra lại thông tin');

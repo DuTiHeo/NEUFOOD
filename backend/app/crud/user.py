@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
-from app.db.models import User, Order, ACTIVE_ORDER_STATUSES
+from app.db.models import User, Order, ACTIVE_ORDER_STATUSES, RevokedToken
 from app.core.security import hash_password
 
 # Các trường hồ sơ cho phép gán giá trị None khi người dùng xóa thông tin tùy chọn (UC04)
@@ -225,5 +225,59 @@ def admin_update_user_blacklist(
     db.commit()
     db.refresh(user)
     return user
+
+
+def revoke_token(
+    db: Session,
+    jti: str,
+    token_type: str,
+    expires_at: datetime,
+    user_id: Optional[int] = None,
+    reason: Optional[str] = None,
+) -> RevokedToken:
+    """
+    Lưu trữ mã định danh JTI vào danh sách đen token bị thu hồi.
+    Tránh lỗi duplicate key nếu token đã được thu hồi trước đó.
+    """
+    existing = db.query(RevokedToken).filter(RevokedToken.jti == jti).first()
+    if existing:
+        return existing
+
+    # Chuẩn hóa timezone UTC cho expires_at
+    normalized_expires_at = (
+        expires_at.replace(tzinfo=timezone.utc)
+        if expires_at.tzinfo is None
+        else expires_at
+    )
+
+    revoked = RevokedToken(
+        jti=jti,
+        token_type=token_type,
+        user_id=user_id,
+        expires_at=normalized_expires_at,
+        reason=reason,
+        revoked_at=datetime.now(timezone.utc),
+    )
+    db.add(revoked)
+    db.commit()
+    db.refresh(revoked)
+    return revoked
+
+
+def is_token_revoked(db: Session, jti: str) -> bool:
+    """Kiểm tra xem token có nằm trong danh sách đen bị thu hồi hay không."""
+    if not jti:
+        return False
+    found = db.query(RevokedToken.id).filter(RevokedToken.jti == jti).first()
+    return found is not None
+
+
+def cleanup_expired_revoked_tokens(db: Session) -> int:
+    """Xóa các token trong danh sách đen đã quá hạn tự nhiên để giảm tải dung lượng DB."""
+    now = datetime.now(timezone.utc)
+    deleted_count = db.query(RevokedToken).filter(RevokedToken.expires_at < now).delete()
+    db.commit()
+    return deleted_count
+
 
 
