@@ -10,6 +10,19 @@ from app.db.models import Category, Dish, DishBadge, OrderItem
 SYSTEM_FEE = Decimal("5000")
 
 
+def get_system_maintenance_fee(db: Session) -> Decimal:
+    """
+    Đọc phụ phí bảo trì hệ thống (system_maintenance_fee) từ bảng system_settings
+    theo BR-12; fallback về Decimal('5000') nếu chưa được cấu hình hoặc lỗi parse.
+    """
+    try:
+        from app.crud.setting import get_setting_by_key
+        fee_str = get_setting_by_key(db, "system_maintenance_fee", "5000")
+        return Decimal(str(fee_str))
+    except Exception:
+        return Decimal("5000")
+
+
 class UnknownCategoryIds(ValueError):
     def __init__(self, category_ids: List[str]):
         self.category_ids = category_ids
@@ -88,16 +101,17 @@ def validate_category_ids(db: Session, category_ids: List[str]) -> None:
 
 
 def create_dish(db: Session, data: dict) -> Dish:
-    """Create a dish using the fixed BR-12 system fee and calculated listing price."""
+    """Create a dish using the dynamic BR-12 system fee and calculated listing price."""
     values = data.copy()
     category_ids = values.pop("category_ids", [])
     badges = values.pop("badges", [])
     validate_category_ids(db, category_ids)
 
+    system_fee = get_system_maintenance_fee(db)
     base_price = Decimal(str(values.pop("base_price")))
     values["base_price"] = base_price
-    values["system_fee"] = SYSTEM_FEE
-    values["price"] = base_price + SYSTEM_FEE
+    values["system_fee"] = system_fee
+    values["price"] = base_price + system_fee
 
     dish = Dish(**values)
     if category_ids:
@@ -133,8 +147,9 @@ def update_dish(db: Session, dish: Dish, update_data: dict) -> Dish:
 
     if "base_price" in values:
         dish.base_price = Decimal(str(dish.base_price))
-        dish.system_fee = SYSTEM_FEE
-        dish.price = dish.base_price + SYSTEM_FEE
+        system_fee = get_system_maintenance_fee(db)
+        dish.system_fee = system_fee
+        dish.price = dish.base_price + system_fee
 
     if badges is not None:
         dish.badges = [DishBadge(badge=badge) for badge in dict.fromkeys(badges)]
