@@ -10,6 +10,10 @@ def create_app() -> Flask:
     """Hàm Factory khởi tạo và cấu hình ứng dụng Flask."""
     app = Flask(__name__)
 
+    # Đồng bộ cấu hình cốt lõi từ settings (.env) vào Flask app.config
+    app.config["SECRET_KEY"] = settings.SECRET_KEY
+    app.config["MAX_CONTENT_LENGTH"] = settings.MAX_CONTENT_LENGTH
+
     # Cấu hình CORS
     CORS(
         app,

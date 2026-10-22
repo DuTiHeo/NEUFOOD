@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session, declarative_base
 from app.core.config import settings
 
-# Khởi tạo SQLAlchemy Engine
+# Khởi tạo SQLAlchemy Engine từ DATABASE_URL và FLASK_ENV trong file .env
 db_url = settings.DATABASE_URL
 if db_url.startswith("postgresql://") and not db_url.startswith("postgresql+"):
     try:
