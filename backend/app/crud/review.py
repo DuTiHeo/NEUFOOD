@@ -1,9 +1,7 @@
 from decimal import Decimal, ROUND_HALF_UP
 from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
-from app.db.models import Review, Order, OrderItem, Dish, User
-
-from app.db.models import REVIEWABLE_ORDER_STATUSES
+from app.db.models import Review, Order, OrderItem, Dish, User, REVIEWABLE_ORDER_STATUSES
 
 
 class ReviewError(ValueError):
@@ -75,3 +73,4 @@ def create_review(
 
     db.flush()
     return review
+
