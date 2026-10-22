@@ -3,8 +3,9 @@ from functools import wraps
 from typing import Optional, Dict, Any
 import bcrypt
 import jwt
-from flask import request, jsonify, g
+from flask import request, g
 from .config import settings
+from app.utils.helpers import api_response
 
 def hash_password(password: str) -> str:
     """Bcrypt password hashing."""
@@ -42,13 +43,47 @@ def jwt_required(f):
     def decorated_function(*args, **kwargs):
         auth_header = request.headers.get("Authorization", "")
         if not auth_header or not auth_header.startswith("Bearer "):
-            return jsonify({"success": False, "message": "Yêu cầu đăng nhập để truy cập tài nguyên này"}), 401
+            return api_response(
+                data=None,
+                message="Yêu cầu đăng nhập để truy cập tài nguyên này",
+                status_code=401,
+                success=False,
+            )
         
         token = auth_header.split(" ")[1]
         payload = decode_access_token(token)
         if not payload:
-            return jsonify({"success": False, "message": "Phiên đăng nhập không hợp lệ hoặc đã hết hạn"}), 401
+            return api_response(
+                data=None,
+                message="Phiên đăng nhập không hợp lệ hoặc đã hết hạn",
+                status_code=401,
+                success=False,
+            )
         
+        user_id_raw = payload.get("sub")
+        try:
+            user_id = int(user_id_raw)
+        except (ValueError, TypeError):
+            return api_response(
+                data=None,
+                message="Phiên đăng nhập không hợp lệ hoặc đã hết hạn",
+                status_code=401,
+                success=False,
+            )
+
+        from app.db.session import get_db
+        from app.db.models import User
+
+        with get_db() as db:
+            db_user = db.query(User.id, User.is_active).filter(User.id == user_id).first()
+            if db_user and not db_user.is_active:
+                return api_response(
+                    data=None,
+                    message="Tài khoản này đã bị khóa",
+                    status_code=403,
+                    success=False,
+                )
+
         g.current_user = payload
         return f(*args, **kwargs)
     return decorated_function
@@ -61,7 +96,12 @@ def role_required(*allowed_roles: str):
         def decorated_function(*args, **kwargs):
             user = getattr(g, "current_user", None)
             if not user or user.get("role") not in allowed_roles:
-                return jsonify({"success": False, "message": "Bạn không có quyền thực hiện hành động này"}), 403
+                return api_response(
+                    data=None,
+                    message="Bạn không có quyền thực hiện hành động này",
+                    status_code=403,
+                    success=False,
+                )
             return f(*args, **kwargs)
         return decorated_function
     return decorator

@@ -2,17 +2,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
-from app.db.models import User, Order
+from app.db.models import User, Order, ACTIVE_ORDER_STATUSES
 from app.core.security import hash_password
-
-# BR-08, EX-22: Các trạng thái đơn hàng đang hoạt động (chưa kết thúc)
-ACTIVE_ORDER_STATUSES = (
-    "CHO_XAC_NHAN",
-    "DANG_CHUAN_BI",
-    "DANG_GIAO",
-    "SAN_SANG_LAY",
-    "GIAO_THAT_BAI",
-)
 
 # Các trường hồ sơ cho phép gán giá trị None khi người dùng xóa thông tin tùy chọn (UC04)
 NULLABLE_PROFILE_FIELDS = {"student_id", "avatar_url"}

@@ -119,9 +119,9 @@ def submit_complaint():
 @role_required("admin")
 def resolve_complaint_endpoint(complaint_id: int):
     """
-    Admin phân xử khiếu nại (UC25, BR-24).
-    Chấp nhận (CHAP_NHAN) hoặc Từ chối (TU_CHOI) khiếu nại.
-    Đổi trạng thái đơn hàng sang DA_GIAI_QUYET.
+    Admin phân xử khiếu nại (UC25, BR-24, EX-15).
+    - Chấp nhận (CHAP_NHAN) hoặc Từ chối (TU_CHOI): Đổi trạng thái đơn sang DA_GIAI_QUYET.
+    - Yêu cầu bổ sung (YEU_CAU_BO_SUNG): Giữ trạng thái đơn là KHIEU_NAI (12h chờ bổ sung).
     """
     try:
         admin_id = int(g.current_user["sub"])

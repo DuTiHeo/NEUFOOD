@@ -5,13 +5,10 @@ from datetime import datetime, time as clock_time, timedelta, timezone
 from decimal import Decimal
 from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
-from app.db.models import Order, OrderItem, Dish, CampusLocation, User, Complaint
-from app.crud.setting import get_setting_by_key, get_setting_int
-
-
-ACTIVE_ORDER_STATUSES = (
-    "CHO_XAC_NHAN", "DANG_CHUAN_BI", "DANG_GIAO", "SAN_SANG_LAY", "GIAO_THAT_BAI",
+from app.db.models import (
+    Order, OrderItem, Dish, CampusLocation, User, Complaint, ACTIVE_ORDER_STATUSES
 )
+from app.crud.setting import get_setting_by_key, get_setting_int
 
 
 class OrderError(ValueError):
@@ -21,8 +18,16 @@ class OrderError(ValueError):
         self.status_code = status_code
 
 
-def generate_order_id() -> str:
-    return f"NF{time.time_ns()}{secrets.randbelow(10000):04d}"
+def generate_order_id(db: Optional[Session] = None) -> str:
+    """
+    Sinh mã đơn hàng theo BR-18: NF + YYMMDD + 4 chữ số ngẫu nhiên (Ví dụ: NF2610153456, 12 ký tự).
+    """
+    yymmdd = datetime.now().strftime("%y%m%d")
+    for _ in range(10):
+        candidate = f"NF{yymmdd}{secrets.randbelow(10000):04d}"
+        if db is None or not db.query(Order.id).filter(Order.id == candidate).first():
+            return candidate
+    return f"NF{yymmdd}{secrets.randbelow(10000):04d}"
 
 
 def create_order(
@@ -126,7 +131,7 @@ def create_order(
             f"Đơn hàng COD không được vượt quá {max_cod:,.0f} VNĐ. Vui lòng giảm số lượng món", "EX-11",
         )
 
-    order_id = generate_order_id()
+    order_id = generate_order_id(db)
     order_code_suffix = order_id[-4:]
 
     order = Order(

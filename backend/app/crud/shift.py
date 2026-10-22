@@ -4,7 +4,15 @@ from decimal import Decimal
 from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
 
-from app.db.models import StaffShift, Order, User, OrderItem
+from app.db.models import (
+    StaffShift,
+    Order,
+    User,
+    OrderItem,
+    COMPLETED_ORDER_STATUSES,
+    CANCELLED_OR_REJECTED_ORDER_STATUSES,
+    BLACKLISTED_ORDER_STATUSES,
+)
 
 VN_TZ = timezone(timedelta(hours=7))
 
@@ -239,20 +247,10 @@ def close_shift(
     return shift
 
 
-COMPLETED_ORDER_STATUSES = (
-    "DA_GIAO", "DA_BAN_GIAO", "HOAN_THANH", "KHIEU_NAI", "DA_GIAI_QUYET"
-)
-CANCELLED_OR_REJECTED_ORDER_STATUSES = (
-    "DA_HUY_KHACH", "TU_CHOI", "TU_DONG_HUY"
-)
-BLACKLISTED_ORDER_STATUSES = (
-    "BO_DON_BLACKLIST",
-)
-
-
 def get_revenue_report(db: Session, from_date: date, to_date: date) -> dict:
     """
     UC22: Báo cáo tổng hợp doanh thu và đơn hàng theo khoảng ngày (giờ VN) (Quyết định D8).
+    Đồng bộ mốc thời gian lọc đơn đã thanh toán theo delivered_at khớp với calculate_staff_shift_orders.
     """
     if from_date > to_date:
         raise ShiftError("from_date không được lớn hơn to_date", "INVALID_DATE_RANGE", 400)
@@ -260,27 +258,41 @@ def get_revenue_report(db: Session, from_date: date, to_date: date) -> dict:
     if (to_date - from_date).days > 365:
         raise ShiftError("Khoảng thời gian báo cáo không được vượt quá 366 ngày", "DATE_RANGE_TOO_LONG", 400)
 
+    # F7: Quét và cập nhật đơn quá hạn SLA trước khi tổng hợp số liệu
+    from app.crud.order import sync_overdue_orders
+    sync_overdue_orders(db)
+
     start_utc, end_utc = get_vn_date_interval(from_date, to_date)
 
-    # Lọc tất cả đơn hàng được tạo trong khoảng ngày này [start_utc, end_utc)
-    all_orders = db.query(Order).filter(
+    # F8: Lọc các đơn đã thanh toán theo thời điểm bàn giao & thu tiền thực tế (delivered_at)
+    paid_orders = db.query(Order).filter(
+        Order.payment_status == "da_thanh_toan",
+        Order.delivered_at.isnot(None),
+        Order.delivered_at >= start_utc,
+        Order.delivered_at < end_utc,
+    ).all()
+
+    # F8: Lọc các đơn chưa thanh toán / bị hủy / từ chối / boom theo thời điểm tạo đơn (created_at)
+    unpaid_orders = db.query(Order).filter(
+        Order.payment_status != "da_thanh_toan",
         Order.created_at >= start_utc,
         Order.created_at < end_utc,
     ).all()
 
+    all_orders = paid_orders + unpaid_orders
     total_orders = len(all_orders)
+
     completed_orders = sum(
-        1 for o in all_orders if o.payment_status == "da_thanh_toan" and o.status in COMPLETED_ORDER_STATUSES
+        1 for o in paid_orders if o.status in COMPLETED_ORDER_STATUSES
     )
     cancelled_or_rejected_orders = sum(
-        1 for o in all_orders if o.status in CANCELLED_OR_REJECTED_ORDER_STATUSES
+        1 for o in unpaid_orders if o.status in CANCELLED_OR_REJECTED_ORDER_STATUSES
     )
     blacklisted_orders = sum(
-        1 for o in all_orders if o.status in BLACKLISTED_ORDER_STATUSES
+        1 for o in unpaid_orders if o.status in BLACKLISTED_ORDER_STATUSES
     )
 
     # Tính toán tài chính CHỈ trên các đơn đã thu tiền (payment_status == 'da_thanh_toan')
-    paid_orders = [o for o in all_orders if o.payment_status == "da_thanh_toan"]
     paid_order_ids = [o.id for o in paid_orders]
 
     gross_revenue = sum((Decimal(str(o.total_amount)) for o in paid_orders), Decimal("0.00"))

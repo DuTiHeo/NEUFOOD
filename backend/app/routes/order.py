@@ -140,9 +140,13 @@ def confirm_receipt(order_id: str):
 @order_bp.route("/<order_id>", methods=["GET"])
 @jwt_required
 def get_order_details(order_id: str):
+    user_id = int(g.current_user["sub"])
+    role = g.current_user.get("role")
     with get_db() as db:
         order = get_order_by_id(db, order_id)
         if not order:
+            return api_response(message="Không tìm thấy đơn hàng", status_code=404, success=False)
+        if role == "customer" and order.user_id != user_id:
             return api_response(message="Không tìm thấy đơn hàng", status_code=404, success=False)
         return api_response(data=_serialize_order(order))
 
@@ -151,8 +155,27 @@ def get_order_details(order_id: str):
 @role_required("staff", "manager", "admin")
 def get_all_orders_admin():
     status = request.args.get("status")
-    page = int(request.args.get("page", 1))
-    limit = int(request.args.get("limit", 20))
+    page_raw = request.args.get("page", 1)
+    limit_raw = request.args.get("limit", 20)
+
+    try:
+        page = int(page_raw)
+        limit = int(limit_raw)
+    except (ValueError, TypeError):
+        return api_response(
+            message="Tham số phân trang page và limit phải lớn hơn hoặc bằng 1",
+            status_code=400,
+            success=False,
+        )
+
+    if page < 1 or limit < 1:
+        return api_response(
+            message="Tham số phân trang page và limit phải lớn hơn hoặc bằng 1",
+            status_code=400,
+            success=False,
+        )
+
+    limit = min(limit, 100)
 
     with get_db() as db:
         orders, total = get_all_orders(db, status=status, page=page, limit=limit)

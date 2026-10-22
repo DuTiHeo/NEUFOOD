@@ -5,6 +5,43 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from .session import Base
 
+# --- TẬP TRUNG HẰNG SỐ TRẠNG THÁI HỆ THỐNG (STATE MACHINE CONSTANTS) ---
+# BR-08, EX-22: Các trạng thái đơn hàng đang hoạt động (chưa kết thúc)
+ACTIVE_ORDER_STATUSES = (
+    "CHO_XAC_NHAN", "DANG_CHUAN_BI", "DANG_GIAO", "SAN_SANG_LAY", "GIAO_THAT_BAI"
+)
+
+# BR-10, EX-23: Các trạng thái đơn hàng đã kết thúc
+TERMINAL_ORDER_STATUSES = {
+    "HOAN_THANH", "DA_HUY_KHACH", "TU_CHOI", "TU_DONG_HUY", "BO_DON_BLACKLIST", "DA_GIAI_QUYET"
+}
+
+# UC22: Phân loại trạng thái phục vụ Báo cáo Doanh thu Canteen
+COMPLETED_ORDER_STATUSES = (
+    "DA_GIAO", "DA_BAN_GIAO", "HOAN_THANH", "KHIEU_NAI", "DA_GIAI_QUYET"
+)
+CANCELLED_OR_REJECTED_ORDER_STATUSES = (
+    "DA_HUY_KHACH", "TU_CHOI", "TU_DONG_HUY"
+)
+BLACKLISTED_ORDER_STATUSES = (
+    "BO_DON_BLACKLIST",
+)
+
+# UC14: Trạng thái đơn cho phép đánh giá món ăn (gồm cả đơn đã giải quyết khiếu nại)
+REVIEWABLE_ORDER_STATUSES = (
+    "DA_GIAO", "DA_BAN_GIAO", "HOAN_THANH", "DA_GIAI_QUYET"
+)
+
+# UC15, BR-23: Trạng thái đơn cho phép gửi khiếu nại ban đầu
+COMPLAINABLE_ORDER_STATUSES = (
+    "DA_GIAO", "DA_BAN_GIAO", "HOAN_THANH"
+)
+
+# UC25, EX-15: Danh mục trạng thái của ticket khiếu nại
+COMPLAINT_STATUSES = (
+    "DANG_XU_LY", "CHAP_NHAN", "TU_CHOI", "YEU_CAU_BO_SUNG"
+)
+
 # 7. Bảng liên kết N:N giữa Dish và Category
 dish_categories = Table(
     "dish_categories",
@@ -213,7 +250,7 @@ class Complaint(Base):
     reason = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
     proof_image_url = Column(Text, nullable=False)
-    status = Column(String(30), nullable=False, default="DANG_XU_LY", index=True)  # 'DANG_XU_LY' | 'CHAP_NHAN' | 'TU_CHOI'
+    status = Column(String(30), nullable=False, default="DANG_XU_LY", index=True)  # 'DANG_XU_LY' | 'CHAP_NHAN' | 'TU_CHOI' | 'YEU_CAU_BO_SUNG'
     admin_response = Column(Text, nullable=True)
     resolved_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     resolved_at = Column(DateTime(timezone=True), nullable=True)

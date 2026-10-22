@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Literal
 from datetime import datetime
 from pydantic import BaseModel, Field
 
@@ -18,8 +18,11 @@ class ComplaintCreateRequest(BaseModel):
 
 
 class ComplaintResolveRequest(BaseModel):
-    """Schema xác thực dữ liệu Admin phân xử khiếu nại (UC25)."""
-    status: str = Field(..., pattern="^(CHAP_NHAN|TU_CHOI)$", description="Kết quả phân xử: CHAP_NHAN hoặc TU_CHOI")
+    """Schema xác thực dữ liệu Admin phân xử khiếu nại (UC25, EX-15)."""
+    status: Literal["CHAP_NHAN", "TU_CHOI", "YEU_CAU_BO_SUNG"] = Field(
+        ...,
+        description="Kết quả phân xử: CHAP_NHAN, TU_CHOI hoặc YEU_CAU_BO_SUNG (UC25, EX-15)",
+    )
     admin_response: str = Field(..., min_length=3, max_length=2000, pattern=r"\S", description="Phản hồi và kết luận phân xử của Admin")
 
 

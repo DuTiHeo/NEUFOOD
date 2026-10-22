@@ -12,7 +12,12 @@ Tài liệu đặc tả chi tiết toàn bộ các giao diện lập trình ứn
 
 ## 1. Định Dạng Phản Hồi Chuẩn (Standard Response Format)
 
-Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, message, status_code, success, errors)` trong `backend/app/utils/helpers.py`:
+Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, message, status_code, success, errors)` trong `backend/app/utils/helpers.py`.
+
+> [!IMPORTANT]
+> **Cam Kết Đồng Nhất 100% Response Envelope:**
+> Toàn bộ các phản hồi API trên toàn hệ thống — bao gồm cả các ngoại lệ xác thực JWT (`401 Unauthorized` do thiếu token, token không hợp lệ hoặc hết hạn từ `@jwt_required`), lỗi phân quyền RBAC (`403 Forbidden` do sai vai trò từ `@role_required` hoặc tài khoản bị vô hiệu hóa), lỗi cấu trúc dữ liệu đầu vào (`422 Unprocessable Entity`), và các ngoại lệ nghiệp vụ (`400 Bad Request`, `404 Not Found`) — đều **BẮT BUỘC tuân thủ 100% cấu trúc Envelope qua `api_response`**.
+> Đặc biệt, trong mọi phản hồi thất bại/lỗi (`success: false`), trường `"data"` **luôn luôn hiện diện và mang giá trị `null`** (`"data": null`), bảo đảm phía Frontend Deserialize an toàn và đồng nhất tuyệt đối.
 
 **Thành công (`200 OK`, `201 Created`):**
 ```json
@@ -27,9 +32,27 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 ```json
 {
   "success": false,
-  "message": "Nội dung lỗi chi tiết theo kịch bản EX-01 -> EX-23",
+  "message": "Nội dung lỗi chi tiết theo kịch bản EX-01 -> EX-23 hoặc lỗi xác thực / phân quyền",
   "data": null,
   "errors": [ ... ]
+}
+```
+
+**Mẫu phản hồi lỗi xác thực (`401 Unauthorized`):**
+```json
+{
+  "success": false,
+  "message": "Yêu cầu đăng nhập để truy cập tài nguyên này",
+  "data": null
+}
+```
+
+**Mẫu phản hồi lỗi phân quyền (`403 Forbidden`):**
+```json
+{
+  "success": false,
+  "message": "Bạn không có quyền thực hiện hành động này",
+  "data": null
 }
 ```
 
@@ -1064,12 +1087,12 @@ Phân hệ cấu hình tham số vận hành hệ thống lưu trữ tập trung
 
 ### 3.2. Bật / Tắt Nhanh Trạng Thái Còn / Hết Món (`UC16`, `BR-06`)
 - **Endpoint**: `PATCH /api/v1/dishes/<dish_id>/availability`
-- **Quyền hạn**: Role `staff`, `manager`, `admin`
+- **Quyền hạn**: Role `staff`, `manager` (theo [`Quy_Trinh_Nghiep_Vu.md`](./Quy_Trinh_Nghiep_Vu.md) §2.2, quyền bật/tắt món nhanh thuộc về nhân viên quầy và quản lý Canteen; loại bỏ vai trò `admin`).
 - **Request Body**: `{"is_available": false}`
 
 ### 3.3. Quản Lý Thực Đơn CRUD & Soft Delete (`UC21`, `BR-04`, `BR-12`, `EX-21`)
-- **Quyền hạn**: Role `manager`, `admin`
-- `POST /api/v1/dishes`:
+- **Quyền hạn chung**: Role `manager` (theo [`Quy_Trinh_Nghiep_Vu.md`](./Quy_Trinh_Nghiep_Vu.md) §2.2, toàn bộ nghiệp vụ thêm/sửa/xóa món và upload ảnh thực đơn do Quản lý Canteen phụ trách; loại bỏ vai trò `admin`).
+- `POST /api/v1/dishes` (Role: `manager`):
   - **Request Body**:
 ```json
 {
@@ -1085,11 +1108,12 @@ Phân hệ cấu hình tham số vận hành hệ thống lưu trữ tập trung
 }
 ```
   - **Quy tắc (`BR-12`)**: Hệ thống tự động lấy `system_fee = 5000` và tính `price = base_price + 5000` (ví dụ `40000 + 5000 = 45000`).
-- `PUT /api/v1/dishes/<dish_id>`: Cập nhật thông tin món; nếu sửa `base_price` thì tự động cập nhật lại `price = base_price + system_fee`.
-- `DELETE /api/v1/dishes/<dish_id>` (`BR-04`, `EX-21`):
+- `PUT /api/v1/dishes/<dish_id>` (Role: `manager`): Cập nhật thông tin món; nếu sửa `base_price` thì tự động cập nhật lại `price = base_price + system_fee`.
+- `DELETE /api/v1/dishes/<dish_id>` (Role: `manager` - `BR-04`, `EX-21`):
   - Kiểm tra bảng `order_items`: Nếu món đã từng phát sinh đơn hàng $\rightarrow$ Không xóa vật lý khỏi DB mà chuyển `is_deleted = true, is_active = false, is_available = false` và trả thông báo đã ẩn món theo `EX-21`.
-- `POST /api/v1/dishes/upload-image` (`multipart/form-data`, field `file`):
-  - **Response (`201 Created`)**: `{"success": true, "data": {"filename": "a1b2c3.jpg", "image_url": "/uploads/a1b2c3.jpg"}}`.
+- `POST /api/v1/dishes/upload-image` (Role: `manager` - `multipart/form-data`, field `file`):
+  - Tải lên ảnh món ăn (chỉ nhận định dạng PNG, JPG, JPEG, WEBP, GIF).
+  - **Response (`201 Created`)**: `{"success": true, "message": "Tải ảnh món ăn thành công", "data": {"filename": "a1b2c3.jpg", "image_url": "/uploads/a1b2c3.jpg"}}`.
 
 ### 3.4. Quản Lý Địa Điểm Nội Khu NEU (`UC09`, `UC24`, `BR-09`, `BR-10`, `EX-07`, `EX-23`)
 - `GET /api/v1/locations`: Trả về danh sách tòa nhà (`A1`, `A2`, `B`, `C`, `D`, `KTX`, `THU_VIEN`, `NHA_VAN_HOA`) đang mở phục vụ (`is_active == true`). Truyền `?all=true` nếu là Admin muốn xem cả địa điểm tạm ngưng.
@@ -1142,7 +1166,55 @@ Phân hệ cấu hình tham số vận hành hệ thống lưu trữ tập trung
   4. `BR-09` / `EX-07` & `BR-13`: Nếu `order_type == "delivery"`, bắt buộc `campus_location_id` tồn tại và `is_active == true`, tự động gán `ship_fee = 5000`. Nếu `order_type == "pickup"`, `campus_location_id` và `room_detail` là `Optional` (`null`), tự động gán `ship_fee = 0` và `delivery_address = "Quầy trả món Canteen A2"`.
   5. `BR-11` / `EX-08`: Nếu `is_preorder == true`, `scheduled_at` phải lớn hơn thời điểm hiện tại ít nhất 30 phút.
   6. `BR-05` & `BR-14` / `EX-11`: Chốt `unit_price = dish.price`, `base_price = dish.base_price` vào `order_items`. Tính `subtotal_amount` và `total_amount = subtotal_amount + ship_fee`. Nếu `total_amount > 500000` $\rightarrow$ Chặn tạo đơn (`400 Bad Request` - `EX-11`).
-  7. `BR-18`: Sinh mã đơn `NF...` (ví dụ `NF2610161234`), lưu 4 số cuối `"1234"` vào cột `order_code_suffix`, trạng thái khởi tạo `status = "CHO_XAC_NHAN"`, `payment_status = "chua_thanh_toan"`.
+  7. `BR-18`: Sinh mã đơn có định dạng chuẩn: `NF` + `YYMMDD` + 4 chữ số ngẫu nhiên (ví dụ: `NF2610211234`, độ dài cố định đúng 12 ký tự). Hệ thống tự động cắt và lưu 4 chữ số cuối (ví dụ `"1234"`) vào cột `order_code_suffix` để phục vụ đối chiếu mã khi bàn giao nhận món COD (`BR-15`, `BR-18`). Trạng thái khởi tạo: `status = "CHO_XAC_NHAN"`, `payment_status = "chua_thanh_toan"`.
+
+- **Response (`201 Created`)**:
+```json
+{
+  "success": true,
+  "message": "Đặt hàng thành công",
+  "data": {
+    "id": "NF2610211234",
+    "order_code_suffix": "1234",
+    "user_id": 2,
+    "staff_id": null,
+    "order_type": "delivery",
+    "status": "CHO_XAC_NHAN",
+    "recipient_name": "Nguyễn Sinh Viên",
+    "recipient_phone": "0977112233",
+    "campus_location_id": 1,
+    "room_detail": "Phòng 502 Tầng 5",
+    "delivery_address": "Tòa Nhà A1 - Phòng 502 Tầng 5",
+    "delivery_note": "Gọi trước khi lên phòng giúp em",
+    "is_preorder": false,
+    "scheduled_at": null,
+    "payment_method": "cod_cash",
+    "payment_status": "chua_thanh_toan",
+    "subtotal_amount": 100000.0,
+    "ship_fee": 5000.0,
+    "total_amount": 105000.0,
+    "eta": null,
+    "cancelled_reason": null,
+    "delivered_at": null,
+    "completed_at": null,
+    "pickup_deadline": null,
+    "auto_complete_at": null,
+    "created_at": "2026-10-21T18:00:00+07:00",
+    "items": [
+      {
+        "id": 101,
+        "dish_id": "pho-bo-tai-lan",
+        "dish_name": "Phở Bò Tái Lăn",
+        "unit_price": 50000.0,
+        "base_price": 45000.0,
+        "quantity": 2,
+        "note": "Nhiều hành",
+        "subtotal": 100000.0
+      }
+    ]
+  }
+}
+```
 
 **Chi tiết xử lý UC08–UC10:**
 - Chỉ JWT có role `customer` được tạo đơn; backend kiểm tra lại tài khoản còn tồn tại, đang hoạt động và role trong DB. Blacklist chặn đặt hàng, không thay đổi quyền đăng nhập.
@@ -1151,14 +1223,67 @@ Phân hệ cấu hình tham số vận hành hệ thống lưu trữ tập trung
 - Giá, phí và tổng tiền được tính phía server bằng số thập phân chính xác; giá/tổng do client gửi không được dùng để tính tiền. Địa chỉ giao được dựng từ địa điểm NEU hợp lệ và `room_detail`; `delivery_address` tự nhập không thay thế địa điểm trong danh mục. Pickup luôn dùng địa chỉ quầy, lưu `campus_location_id`/`room_detail` là `null`.
 - `scheduled_at` cần múi giờ, ví dụ `2026-10-20T12:00:00+07:00`, chỉ gửi khi `is_preorder == true`. Giờ hẹn phải nằm trong giờ mở cửa theo giờ Việt Nam (mặc định từ **06:30**, trước **19:30**).
 - Đọc cấu hình `delivery_fee`, `max_cod_amount`, `max_dish_quantity_per_order`, `min_preorder_lead_minutes`, `canteen_open_time`, `canteen_close_time`. Mặc định tương ứng 5.000đ, 500.000đ, 10 phần, 30 phút, 06:30, 19:30. Trần cứng của schema hiện hành vẫn là 500.000đ/10 phần; thời gian hẹn không thấp hơn 30 phút. Tăng hai trần tiền/số lượng cần phối hợp thay đổi schema trước.
-- Khóa dòng tài khoản trong cùng giao dịch từ lúc kiểm tra đơn hoạt động đến lúc lưu đơn và chi tiết: hai request tạo đơn đồng thời không vượt giới hạn một đơn. Lỗi ghi bất kỳ chi tiết nào rollback toàn bộ đơn. Mã đơn có tiền tố `NF`, suffix luôn là chuỗi 4 chữ số, giữ cả số 0 đầu.
+- Khóa dòng tài khoản trong cùng giao dịch từ lúc kiểm tra đơn hoạt động đến lúc lưu đơn và chi tiết: hai request tạo đơn đồng thời không vượt giới hạn một đơn. Lỗi ghi bất kỳ chi tiết nào rollback toàn bộ đơn. Mã đơn luôn có định dạng `NF` + `YYMMDD` + 4 chữ số ngẫu nhiên (độ dài đúng 12 ký tự), suffix luôn là chuỗi 4 chữ số, giữ cả số 0 đầu.
 
 Kiểm thử tích hợp: `backend/tests/test_order_creation.py`. Dùng PostgreSQL riêng có tên kết thúc `_orders_test`, khởi tạo bằng `database/init_db.sql`, đặt `TEST_DATABASE_URL` trỏ đến database thử, rồi chạy từ thư mục `backend`: `python -m unittest discover -s tests -p test_order_creation.py -v`. Test xóa dữ liệu trong database thử; không dùng database ứng dụng.
 
 ### 4.2. Xem Đơn Hàng (`UC11`)
-- `GET /api/v1/orders` (`@jwt_required`): Lịch sử đơn hàng của khách hàng hiện tại.
-- `GET /api/v1/orders/<order_id>` (`@jwt_required`): Xem chi tiết đơn hàng (gồm `order_code_suffix` 4 số cuối, trạng thái, danh sách món).
-- `GET /api/v1/orders/admin/all?status=CHO_XAC_NHAN&order_type=delivery&page=1&limit=20` (Role: `staff`, `manager`, `admin`): Danh sách đơn hàng cho Canteen và Admin.
+
+#### 4.2.1. Lịch Sử Đơn Hàng Của Khách Hàng (`UC11`)
+- **Endpoint**: `GET /api/v1/orders`
+- **Quyền hạn**: `@jwt_required`
+- **Mô tả**: Trả về danh sách toàn bộ các đơn hàng do khách hàng hiện tại khởi tạo, kèm thông tin chi tiết từng món và trạng thái.
+
+#### 4.2.2. Xem Chi Tiết Đơn Hàng & Phòng Chống IDOR (`UC11`, `BR-18`)
+- **Endpoint**: `GET /api/v1/orders/<order_id>`
+- **Quyền hạn**: `@jwt_required` (Mọi Role: `customer`, `staff`, `manager`, `admin`)
+- **Cơ chế phân quyền & Phòng chống tấn công IDOR (Insecure Direct Object References)**:
+  - Khách hàng (Role: `customer`) **chỉ được phép xem đơn hàng do chính mình tạo** (`order.user_id == current_user.id`).
+  - **Chống dò quét ID (Anti-ID Enumeration)**: Nếu khách hàng cố tình truy cập vào `order_id` thuộc khách hàng khác $\rightarrow$ Hệ thống lập tức trả về `404 Not Found` (`"Không tìm thấy đơn hàng"`), thay vì `403 Forbidden`. Quy tắc này ngăn chặn kẻ xấu dò quét tập hợp ID đơn hàng, đồng thời bảo vệ bí mật 4 chữ số cuối `order_code_suffix` dùng để nhận món COD tại quầy hoặc từ shipper.
+  - Các vai trò vận hành (`staff`, `manager`, `admin`): Được phép xem toàn bộ chi tiết mọi đơn hàng trong hệ thống để phục vụ điều phối chế biến, bàn giao và giám sát Canteen.
+- **Response (`200 OK`)**: Trả về chi tiết đơn hàng (gồm `order_code_suffix`, trạng thái, danh sách món, thanh toán).
+- **Response lỗi (`404 Not Found` - Không tồn tại đơn hoặc xem đơn người khác)**:
+```json
+{
+  "success": false,
+  "message": "Không tìm thấy đơn hàng",
+  "data": null
+}
+```
+
+#### 4.2.3. Danh Sách Đơn Hàng Quản Trị & Phân Trang An Toàn (`UC10`, `UC11`, `UC17`)
+- **Endpoint**: `GET /api/v1/orders/admin/all`
+- **Quyền hạn**: Role `staff`, `manager`, `admin` (`@role_required("staff", "manager", "admin")`)
+- **Query Parameters**:
+  - `status`: Lọc theo trạng thái đơn hàng (`CHO_XAC_NHAN`, `DANG_CHUAN_BI`, `DANG_GIAO`, ...) (Optional).
+  - `order_type`: Lọc theo hình thức nhận món (`delivery` / `pickup`) (Optional).
+  - `page`: Số trang, số nguyên $\ge 1$ (mặc định: `1`).
+  - `limit`: Số lượng bản ghi trên một trang, số nguyên $\ge 1$ (mặc định: `20`, tự động giới hạn trần tối đa `limit <= 100` để chống cạn kiệt tài nguyên / DoS).
+- **Quy tắc phân trang an toàn (Input Sanitization & Safe Pagination)**:
+  - Nếu `page` hoặc `limit` truyền vào không phải số nguyên hợp lệ (ví dụ: chuỗi ký tự, chữ cái, boolean) $\rightarrow$ Trả về `400 Bad Request`.
+  - Nếu `page < 1` hoặc `limit < 1` (ví dụ: `page=0`, `limit=-5`) $\rightarrow$ Trả về `400 Bad Request`.
+  - Thông báo lỗi thống nhất: `"Tham số phân trang page và limit phải lớn hơn hoặc bằng 1"`.
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Thực hiện thành công",
+  "data": {
+    "items": [ ... ],
+    "total": 42,
+    "page": 1,
+    "limit": 20
+  }
+}
+```
+- **Response lỗi (`400 Bad Request` - Tham số phân trang không hợp lệ)**:
+```json
+{
+  "success": false,
+  "message": "Tham số phân trang page và limit phải lớn hơn hoặc bằng 1",
+  "data": null
+}
+```
 
 ### 4.3. Các API Chuyển Trạng Thái Trong State Machine (14 Trạng Thái)
 
@@ -1269,7 +1394,7 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
   - **Quy tắc nghiệp vụ & Xử lý đồng thời (`crud/review.py`)**:
     - Kiểm tra người dùng: Role trong DB phải là `customer` và `is_active == True` (trả về `403 Forbidden` nếu không thỏa mãn).
     - Đơn hàng phải thuộc về user đang đăng nhập (`Order.user_id == user_id`). Nếu không tìm thấy trả về `404 Not Found` (`code: NOT_FOUND`) để bảo mật thông tin đơn của người khác.
-    - Trạng thái đơn phải thuộc nhóm cho phép đánh giá: `DA_GIAO`, `DA_BAN_GIAO` hoặc `HOAN_THANH`. Nếu không thỏa mãn trả về `400 Bad Request` (`code: ORDER_NOT_REVIEWABLE`).
+    - Trạng thái đơn phải thuộc nhóm cho phép đánh giá: `DA_GIAO`, `DA_BAN_GIAO`, `HOAN_THANH` hoặc `DA_GIAI_QUYET` (sau khi Admin giải quyết xong khiếu nại - `REVIEWABLE_ORDER_STATUSES`). Nếu không thỏa mãn trả về `400 Bad Request` (`code: ORDER_NOT_REVIEWABLE`).
     - Món ăn phải nằm trong danh sách món của đơn hàng (`order_items`). Nếu không có trả về `400 Bad Request` (`code: DISH_NOT_IN_ORDER`).
     - **Khóa dòng món ăn (`with_for_update`)**: Khóa dòng `Dish` tương ứng trong DB trước khi kiểm tra trùng và cập nhật, đảm bảo các request review đồng thời được xếp hàng tuần tự.
     - Chặn trùng lặp: Nếu cặp `(order_id, dish_id)` đã tồn tại trong bảng `reviews` $\rightarrow$ Trả về `400 Bad Request` (`code: REVIEW_DUPLICATE`).
@@ -1362,7 +1487,7 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
   - Nếu `role != "admin"`: Chỉ trả về danh sách các khiếu nại do chính người dùng hiện tại gửi.
 - `GET /api/v1/complaints/<int:complaint_id>` (`@jwt_required`): Xem chi tiết một khiếu nại theo ID (chặn tràn số nguyên bằng giới hạn `max=2147483647`). Khách hàng chỉ xem được của mình (trả về `404 Not Found` nếu xem của người khác hoặc ID không tồn tại để ngăn chặn dò quét ID), Admin xem được tất cả.
 
-#### 5.2.3. Admin Phân Xử Khiếu Nại (`UC25`, `BR-24`)
+#### 5.2.3. Admin Phân Xử Khiếu Nại (`UC25`, `BR-24`, `EX-15`)
 - **Endpoint**: `PATCH /api/v1/complaints/<int:complaint_id>/resolve`
 - **Quyền hạn**: Độc quyền Quản trị viên (`@role_required("admin")`)
 - **Headers**:
@@ -1376,15 +1501,23 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
 }
 ```
 - **Ràng buộc Schema (`schemas/complaint.py` - `ComplaintResolveRequest`)**:
-  - `status`: Bắt buộc là `"CHAP_NHAN"` hoặc `"TU_CHOI"` (Regex `^(CHAP_NHAN|TU_CHOI)$`).
-  - `admin_response`: Chuỗi từ 3 đến 2000 ký tự ghi rõ lý do và hướng giải quyết.
+  - `status`: Chấp nhận 1 trong 3 giá trị: `"CHAP_NHAN"`, `"TU_CHOI"`, `"YEU_CAU_BO_SUNG"` (`Literal["CHAP_NHAN", "TU_CHOI", "YEU_CAU_BO_SUNG"]`).
+  - `admin_response`: Chuỗi từ 3 đến 2000 ký tự ghi rõ lý do, kết luận phân xử hoặc hướng dẫn khách hàng bổ sung chứng từ/bằng chứng.
 - **Quy tắc nghiệp vụ & Giao dịch (`crud/complaint.py`)**:
   - Kiểm tra tài khoản Admin trong DB đang hoạt động (`is_active == True`).
   - Khóa dòng ticket khiếu nại (`with_for_update`). Nếu không tìm thấy $\rightarrow$ Trả về `404 Not Found`.
-  - **Chỉ xử lý đơn đang chờ (Quyết định D5)**: Bắt buộc `complaint.status == "DANG_XU_LY"`. Nếu khiếu nại đã được phân xử trước đó $\rightarrow$ Trả về `400 Bad Request` (`code: COMPLAINT_ALREADY_RESOLVED`).
-  - Khóa dòng đơn hàng `Order` tương ứng và cập nhật trạng thái đơn sang `order.status = "DA_GIAI_QUYET"`.
-  - Cập nhật ticket: `status`, `admin_response`, `resolved_by = admin_id`, `resolved_at = now()`, `updated_at = now()`.
+  - **Trạng thái cho phép phân xử**: Chỉ cho phép phân xử nếu ticket chưa bị chốt dứt điểm (`complaint.status` không nằm trong `("CHAP_NHAN", "TU_CHOI")`). Nếu khiếu nại đã được phân xử trước đó (`CHAP_NHAN` hoặc `TU_CHOI`) $\rightarrow$ Trả về `400 Bad Request` (`code: COMPLAINT_ALREADY_RESOLVED`). Ticket đang ở trạng thái `DANG_XU_LY` hoặc `YEU_CAU_BO_SUNG` đều được phép phân xử.
+  - Khóa dòng đơn hàng `Order` tương ứng (bắt buộc `order.status == "KHIEU_NAI"`, nếu không ném `400 Bad Request` - `code: INVALID_ORDER_STATUS`).
+  - **Phân nhánh xử lý theo trạng thái (`EX-15`)**:
+    - **Khi chọn `"CHAP_NHAN"` hoặc `"TU_CHOI"`**:
+      - Cập nhật trạng thái đơn hàng sang `order.status = "DA_GIAI_QUYET"`.
+      - Cập nhật ticket: `complaint.status = status`, `complaint.admin_response = admin_response`, `complaint.resolved_by = admin_id`, `complaint.resolved_at = now()`, `complaint.updated_at = now()`.
+    - **Khi chọn `"YEU_CAU_BO_SUNG"` (`EX-15`)**:
+      - Đơn hàng vẫn giữ nguyên trạng thái `order.status = "KHIEU_NAI"` (chờ khách hàng bổ sung bằng chứng trong 12 giờ).
+      - Cập nhật ticket: `complaint.status = "YEU_CAU_BO_SUNG"`, `complaint.admin_response = admin_response`, `complaint.resolved_by = admin_id`, `complaint.resolved_at = null`, `complaint.updated_at = now()`.
+      - Quản trị viên (Admin) được phép tiếp tục xem xét và phân xử ticket này sang `"CHAP_NHAN"` hoặc `"TU_CHOI"` sau khi nhận bổ sung.
 - **Response thành công (`200 OK`)**:
+  - *Trường hợp chấp nhận hoặc từ chối:*
 ```json
 {
   "success": true,
@@ -1406,12 +1539,34 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
   }
 }
 ```
+  - *Trường hợp yêu cầu bổ sung bằng chứng (`resolved_at = null`):*
+```json
+{
+  "success": true,
+  "message": "Xử lý khiếu nại thành công",
+  "data": {
+    "id": 1,
+    "order_id": "NF2610155566",
+    "user_id": 10,
+    "user_name": "Nguyễn Văn A",
+    "reason": "Giao nhầm món ăn",
+    "description": "Em đặt Phở Trộn nhưng nhận được Bún Riêu.",
+    "proof_image_url": "https://storage.neufood.vn/complaints/proof_123.jpg",
+    "status": "YEU_CAU_BO_SUNG",
+    "admin_response": "Vui lòng chụp ảnh hóa đơn đính kèm trên hộp xốp để Canteen đối soát lại.",
+    "resolved_by": 5,
+    "resolved_at": null,
+    "created_at": "2026-10-19T10:30:00+00:00",
+    "updated_at": "2026-10-19T11:00:00+00:00"
+  }
+}
+```
 - **Mã lỗi thường gặp**:
   - `401 Unauthorized`: Chưa đăng nhập hoặc token hết hạn.
   - `403 Forbidden`: Người gọi không có quyền truy cập / không phải role `admin`.
   - `404 Not Found`: Đơn hàng hoặc khiếu nại không tồn tại.
-  - `400 Bad Request`: `EX-14` (quá hạn hoặc đơn chưa giao), `EX-15` (đã có khiếu nại), `COMPLAINT_ALREADY_RESOLVED` (đã giải quyết trước đó).
-  - `422 Unprocessable Entity`: Body sai định dạng schema.
+  - `400 Bad Request`: `EX-14` (quá hạn hoặc đơn chưa giao), `EX-15` (đã có khiếu nại), `COMPLAINT_ALREADY_RESOLVED` (đã giải quyết trước đó với `CHAP_NHAN`/`TU_CHOI`), `INVALID_ORDER_STATUS` (đơn không ở trạng thái khiếu nại).
+  - `422 Unprocessable Entity`: Body sai định dạng schema (status không thuộc `CHAP_NHAN`, `TU_CHOI`, `YEU_CAU_BO_SUNG`).
 
 
 ### 5.3. Chốt Ca & Đối Soát Tiền COD Cuối Ca (`UC20`, `BR-25`, `EX-20`)
@@ -1562,16 +1717,20 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
 - **Query Parameters**:
   - `from_date` (Tùy chọn, kiểu chuỗi `YYYY-MM-DD`): Ngày bắt đầu lọc theo giờ Việt Nam. Mặc định là ngày hôm nay (`CURRENT_DATE` theo `Asia/Saigon`).
   - `to_date` (Tùy chọn, kiểu chuỗi `YYYY-MM-DD`): Ngày kết thúc lọc theo giờ Việt Nam. Mặc định là ngày hôm nay.
-- **Quy tắc nghiệp vụ & Kiểm tra tham số (Quyết định D8)**:
+- **Quy tắc nghiệp vụ & Kiểm tra tham số (Quyết định D8, F7, F8)**:
+  - **Tự động quét đơn quá hạn SLA (F7)**: Hệ thống tự động kích hoạt hàm `sync_overdue_orders(db)` ngay khi gọi báo cáo để quét và chuyển các đơn quá hạn SLA (đơn quá 10 phút Canteen chưa nhận sang `TU_DONG_HUY`, đơn đã giao quá hạn sang `HOAN_THANH`) trước khi thực hiện tổng hợp số liệu.
   - Định dạng ngày bắt buộc phải theo chuẩn nghiêm ngặt `YYYY-MM-DD` (năm từ 2000 đến 2100). Nếu sai định dạng hoặc số năm nằm ngoài khoảng $\rightarrow$ Trả về `422 Unprocessable Entity` (`code: INVALID_DATE_FORMAT`).
   - Nếu `from_date > to_date` $\rightarrow$ Trả về `400 Bad Request` (`code: INVALID_DATE_RANGE`, `"from_date không được lớn hơn to_date"`).
   - Khoảng cách giữa `from_date` và `to_date` không được vượt quá 366 ngày $\rightarrow$ Nếu vượt quá trả về `400 Bad Request` (`code: DATE_RANGE_TOO_LONG`, `"Khoảng thời gian báo cáo không được vượt quá 366 ngày"`).
-  - Khoảng thời gian lọc được tính theo khoảng nửa mở `[start_utc, end_utc)` từ `from_date 00:00:00` đến `(to_date + 1 ngày) 00:00:00` theo giờ Việt Nam (`Asia/Saigon` - UTC+7), lọc trên cột thời điểm tạo đơn `orders.created_at`.
+  - **Quy tắc lọc khoảng thời gian theo giờ Việt Nam (UTC+7) (F8)**:
+    - Khoảng thời gian lọc được tính theo khoảng nửa mở `[start_utc, end_utc)` từ `from_date 00:00:00` đến `(to_date + 1 ngày) 00:00:00` theo giờ Việt Nam (`Asia/Saigon` - UTC+7).
+    - **Đơn đã thanh toán (`payment_status == 'da_thanh_toan'`)**: Lọc theo thời điểm bàn giao thực tế `orders.delivered_at` (`delivered_at >= start_utc` và `delivered_at < end_utc`) để khớp 100% với số liệu đối soát ca trực nhân viên (`calculate_staff_shift_orders`).
+    - **Đơn chưa thanh toán / bị hủy / từ chối / boom (`payment_status != 'da_thanh_toan'`)**: Lọc theo thời điểm tạo đơn `orders.created_at` (`created_at >= start_utc` và `created_at < end_utc`).
   - **4 Bộ đếm trạng thái đơn hàng**:
-    1. `total_orders`: Tổng tất cả đơn hàng phát sinh trong khoảng thời gian.
+    1. `total_orders`: Tổng tất cả đơn hàng phát sinh trong khoảng thời gian (`len(paid_orders + unpaid_orders)`).
     2. `completed_orders`: Tổng các đơn hàng đã thanh toán (`payment_status == 'da_thanh_toan'`) và có trạng thái kết thúc giao nhận: `('DA_GIAO', 'DA_BAN_GIAO', 'HOAN_THANH', 'KHIEU_NAI', 'DA_GIAI_QUYET')`.
-    3. `cancelled_or_rejected_orders`: Tổng các đơn hàng bị hủy hoặc từ chối: `('DA_HUY_KHACH', 'TU_CHOI', 'TU_DONG_HUY')`.
-    4. `blacklisted_orders`: Tổng các đơn hàng bị đánh dấu boom hàng: `('BO_DON_BLACKLIST')`.
+    3. `cancelled_or_rejected_orders`: Tổng các đơn hàng chưa thanh toán bị hủy hoặc từ chối: `('DA_HUY_KHACH', 'TU_CHOI', 'TU_DONG_HUY')`.
+    4. `blacklisted_orders`: Tổng các đơn hàng chưa thanh toán bị đánh dấu boom hàng: `('BO_DON_BLACKLIST')`.
   - **Công thức tính toán doanh thu chuẩn (CHỈ tính trên các đơn đã thu tiền `payment_status == 'da_thanh_toan'`)**:
     - `gross_revenue` (Tổng doanh thu gộp): $\sum \text{orders.total\_amount}$
     - `ship_fee_total` (Tổng phí ship): $\sum \text{orders.ship\_fee}$
