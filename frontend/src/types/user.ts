@@ -4,7 +4,9 @@ export interface User {
   full_name: string;
   phone_number?: string;
   student_id?: string;
-  role: 'user' | 'admin';
+  role: 'customer' | 'staff' | 'manager' | 'admin';
+  is_blacklisted?: boolean;
+  blacklist_reason?: string | null;
   avatar_url?: string;
   is_active?: boolean;
   created_at?: string;

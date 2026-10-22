@@ -1,320 +1,106 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../contexts/AuthContext'
 import { useCart } from '../../contexts/CartContext'
 import { useOrderHistory } from '../../contexts/OrderHistoryContext'
-import styles from './ThanhToanPage.module.css'
-
-function formatPrice(vnd) {
-  return `${vnd.toLocaleString('vi-VN')}đ`
-}
+import { orderService } from '../../services/orderService'
+import { activeOrderStatuses, orderError } from '../../utils/orders'
+import { formatVnd } from '../../utils/money'
+import type { CampusLocation, Order } from '../../types/order'
+import styles from '../../components/orders/Orders.module.css'
 
 export default function ThanhToanPage() {
   const navigate = useNavigate()
-  const { addOrder } = useOrderHistory()
-  const { lines, totalCount, subtotal, clear } = useCart()
-  const [payment, setPayment] = useState('transfer')
-  const [submitting, setSubmitting] = useState(false)
-  const [confirmError, setConfirmError] = useState('')
-  const [selectedBuilding, setSelectedBuilding] = useState('')
-  const [isLocationOpen, setIsLocationOpen] = useState(false)
+  const { user, token } = useAuth()
+  const { addOrder, orders, loading: ordersLoading, error: ordersError } = useOrderHistory()
+  const { lines, subtotal, clear, catalogLoading, catalogError } = useCart()
+  const [locations, setLocations] = useState<CampusLocation[]>([])
+  const [settings, setSettings] = useState<Record<string, string>>({})
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const lock = useRef(false)
+  const [name, setName] = useState(user?.full_name || '')
+  const [phone, setPhone] = useState(user?.phone_number || '')
+  const [orderType, setOrderType] = useState<'delivery' | 'pickup'>('delivery')
+  const [location, setLocation] = useState('')
   const [room, setRoom] = useState('')
   const [note, setNote] = useState('')
-  const locationRef = useRef(null)
-  const shipping = totalCount > 0 ? 10000 : 0
-  const discount = totalCount > 0 ? 5000 : 0
-  const total = Math.max(0, subtotal + shipping - discount)
-  const deliveryLocations = [
-    { value: 'A1', label: 'Giảng đường A1' },
-    { value: 'A2', label: 'Giảng đường A2' },
-    { value: 'B', label: 'Giảng đường B' },
-    { value: 'C', label: 'Giảng đường C' },
-    { value: 'D', label: 'Giảng đường D' },
-    { value: 'E', label: 'Nhà văn hóa' },
-    { value: 'F', label: 'Hội trường A2' },
-    { value: 'G', label: 'Kí túc xá' },
-    { value: 'H', label: 'Thư viện' },
-  ]
+  const [isPreorder, setPreorder] = useState(false)
+  const [scheduledAt, setScheduledAt] = useState('')
+  const [payment, setPayment] = useState<Order['payment_method']>('cod_cash')
 
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (locationRef.current && !locationRef.current.contains(event.target)) {
-        setIsLocationOpen(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
+    let ignore = false
+    Promise.all([orderService.getLocations(), orderService.getSettings()])
+      .then(([rows, config]) => { if (!ignore) { setLocations(rows); setSettings(config) } })
+      .catch(err => { if (!ignore) setLoadError(orderError(err)) })
+      .finally(() => { if (!ignore) setLoading(false) })
+    return () => { ignore = true }
   }, [])
+  const shipping = orderType === 'delivery' ? Number(settings.delivery_fee ?? 5000) : 0
+  const total = subtotal + shipping
+  const activeOrder = orders.find(order => activeOrderStatuses.includes(order.status))
+  const blocked = busy || loading || catalogLoading || ordersLoading || !!(loadError || catalogError || ordersError) || !lines.length || !!user?.is_blacklisted || !!activeOrder || lines.some(line => !line.dish.is_available)
 
-  async function handleConfirmOrder() {
-    if (totalCount === 0 || submitting) return
-    setConfirmError('')
-    if (!selectedBuilding) {
-      setConfirmError('Vui lòng chọn địa điểm giao hàng trước khi xác nhận.')
-      return
+  async function submit(event) {
+    event.preventDefault()
+    if (lock.current || blocked) return
+    setError('')
+    if (name.trim().length < 2) { setError('Vui lòng nhập họ tên người nhận.'); return }
+    if (!/^0[35789][0-9]{8}$/.test(phone.trim())) { setError('Số điện thoại Việt Nam không hợp lệ.'); return }
+    if (orderType === 'delivery' && !locations.some(row => row.id === Number(location))) { setError('Vui lòng chọn địa điểm giao hợp lệ.'); return }
+    if (lines.some(line => !Number.isInteger(line.qty) || line.qty < 1 || line.qty > Math.min(10, Number(settings.max_dish_quantity_per_order ?? 10)))) { setError('Số lượng mỗi món phải từ 1 đến 10.'); return }
+    if (total > Math.min(500000, Number(settings.max_cod_amount ?? 500000))) { setError('Tổng đơn vượt hạn mức COD.'); return }
+    const scheduled = isPreorder ? new Date(scheduledAt) : null
+    if (isPreorder && (!scheduledAt || !Number.isFinite(scheduled.getTime()) || scheduled.getTime() - Date.now() < Math.max(30, Number(settings.min_preorder_lead_minutes ?? 30)) * 60000)) {
+      setError('Giờ hẹn phải cách hiện tại ít nhất 30 phút hoặc thời gian tối thiểu của canteen.'); return
     }
-    setSubmitting(true)
+    lock.current = true; setBusy(true)
     try {
-      addOrder({
-        lines,
-        total,
-        subtotal,
-        shipping,
-        discount,
-        payment,
-        selectedBuilding,
-        room,
-        note,
-        deliveryLocations,
+      const order = await addOrder({
+        order_type: orderType, recipient_name: name.trim(), recipient_phone: phone.trim(),
+        campus_location_id: orderType === 'delivery' ? Number(location) : null,
+        room_detail: orderType === 'delivery' ? room.trim() || null : null,
+        delivery_note: note.trim() || null, payment_method: payment,
+        is_preorder: isPreorder, scheduled_at: scheduled ? scheduled.toISOString() : null,
+        items: lines.map(line => ({ dish_id: line.dish.id, quantity: line.qty })),
       })
+      if (localStorage.getItem('neufood_token') !== token) return
       clear()
-      navigate('/lich-su-don', { state: { orderPlaced: true } })
-    } finally {
-      setSubmitting(false)
-    }
+      navigate('/don-hang/' + encodeURIComponent(order.id))
+    } catch (err) { setError(orderError(err)) }
+    finally { lock.current = false; setBusy(false) }
   }
 
-  return (
-    <>
-      <main class={styles.pay}>
-        <div class="wrap">
-          <section class={styles.paySteps}>
-            <div class={styles.steps}>
-              <div class={styles.stepsItem}>
-                <div class={`${styles.stepsDot} ${styles.stepsDotOk}`}>
-                  <span class={`material-symbols-outlined material-symbols-fill ${styles.stepsIcon}`}>check_circle</span>
-                </div>
-                <span class={`${styles.stepsLbl} ${styles.stepsLblOn}`}>Giỏ hàng</span>
-              </div>
-              <div class={`${styles.stepsBar} ${styles.stepsBarOn}`} />
-              <div class={styles.stepsItem}>
-                <div class={`${styles.stepsDot} ${styles.stepsDotHere}`}>
-                  <span class={styles.stepsNum}>2</span>
-                </div>
-                <span class={`${styles.stepsLbl} ${styles.stepsLblBold}`}>Thanh toán</span>
-              </div>
-              <div class={styles.stepsBar} />
-              <div class={styles.stepsItem}>
-                <div class={`${styles.stepsDot} ${styles.stepsDotOff}`}>
-                  <span class={styles.stepsNum}>3</span>
-                </div>
-                <span class={`${styles.stepsLbl} ${styles.stepsLblOff}`}>Hoàn tất</span>
-              </div>
-            </div>
-          </section>
-
-          <div class={styles.payGrid}>
-            <div class={styles.payLeft}>
-              <div class={styles.card}>
-                <div class={styles.cardHead}>
-                  <span class={`material-symbols-outlined ${styles.cardIcon}`}>location_on</span>
-                  <h2 class={styles.cardH}>Thông tin giao hàng</h2>
-                </div>
-                <div class={styles.cardBody}>
-                  <div class={styles.field}>
-                    <span class={styles.fieldLbl}> Địa điểm giao hàng</span>
-                    <div class={styles.locationSelect} ref={locationRef}>
-                      <button
-                        type="button"
-                        class={styles.locationToggle}
-                        onClick={() => setIsLocationOpen((prev) => !prev)}
-                        aria-expanded={isLocationOpen}
-                      >
-                        <span>{deliveryLocations.find((item) => item.value === selectedBuilding)?.label ?? 'Chọn địa điểm giao hàng'}</span>
-                        <span class={`material-symbols-outlined ${isLocationOpen ? styles.locationChevronOpen : ''}`}>expand_more</span>
-                      </button>
-
-                      {isLocationOpen ? (
-                        <div class={styles.locationMenu}>
-                          <button
-                            type="button"
-                            class={selectedBuilding === '' ? `${styles.locationItem} ${styles.locationItemActive}` : styles.locationItem}
-                            onClick={() => {
-                              setSelectedBuilding('')
-                              setIsLocationOpen(false)
-                            }}
-                          >
-                            Chọn địa điểm giao hàng
-                          </button>
-                          {deliveryLocations.map((location) => (
-                            <button
-                              key={location.value}
-                              type="button"
-                              class={selectedBuilding === location.value ? `${styles.locationItem} ${styles.locationItemActive}` : styles.locationItem}
-                              onClick={() => {
-                                setSelectedBuilding(location.value)
-                                setIsLocationOpen(false)
-                              }}
-                            >
-                              {location.label}
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                  <label class={styles.field}>
-                    <span class={styles.fieldLbl}>Phòng học / Vị trí cụ thể (Ví dụ: A101, B203)</span>
-                    <input class={styles.fieldInput} id="room" type="text" value={room} onChange={(e) => setRoom(e.target.value)} placeholder="Nhập số phòng học của bạn..." />
-                  </label>
-                  <label class={styles.field}>
-                    <span class={styles.fieldLbl}>Ghi chú</span>
-                    <textarea class={styles.fieldArea} id="note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ví dụ: Ít cay, thêm đá, để ở bàn bảo vệ..." rows={3} />
-                  </label>
-                </div>
-              </div>
-
-              <div class={styles.card}>
-                <div class={styles.cardHead}>
-                  <span class={`material-symbols-outlined ${styles.cardIcon}`}>account_balance_wallet</span>
-                  <h2 class={styles.cardH}>Phương thức thanh toán</h2>
-                </div>
-                <div class={styles.payOpts}>
-                  <label class={payment === 'cash' ? `${styles.payOpt} ${styles.payOptOn}` : styles.payOpt}>
-                    <input class="sr-only" type="radio" name="payment" value="cash" checked={payment === 'cash'} onChange={() => setPayment('cash')} />
-                    <div class={styles.payOptIco}>
-                      <span class="material-symbols-outlined">payments</span>
-                    </div>
-                    <div>
-                      <p class={styles.payOptT}>Tiền mặt</p>
-                      <p class={styles.payOptD}>Thanh toán khi nhận hàng</p>
-                    </div>
-                    <span class={payment === 'cash' ? `${styles.payOptRing} ${styles.payOptRingOn}` : styles.payOptRing} />
-                  </label>
-                  <label class={payment === 'transfer' ? `${styles.payOpt} ${styles.payOptOn}` : styles.payOpt}>
-                    <input class="sr-only" type="radio" name="payment" value="transfer" checked={payment === 'transfer'} onChange={() => setPayment('transfer')} />
-                    <div class={styles.payOptIco}>
-                      <span class="material-symbols-outlined">qr_code_2</span>
-                    </div>
-                    <div>
-                      <p class={styles.payOptT}>Chuyển khoản (QR)</p>
-                      <p class={styles.payOptD}>Quét mã nhanh chóng</p>
-                    </div>
-                    <span class={payment === 'transfer' ? `${styles.payOptRing} ${styles.payOptRingOn}` : styles.payOptRing} />
-                  </label>
-                </div>
-
-                {payment === 'transfer' ? (
-                  <div class={styles.qr}>
-                    <div class={styles.qrImg}>
-                      <img
-                        alt="QR thanh toán"
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuBzmpJ6Yzy-8CIuFOtTul9dVhEGHNhtJqTSmW46lfAQNj3pKPXvohOWqbSzAcBcGpGRr4FiJCcD8nMIXou5TPyOeEesWaUsyYDh4ZXQxZnTPZH6iYO-DuL6VpFCMQ0LqbAz3h2GVU9VTkgsS1Y1Qhx-aegL3Ut8T4smSvrB4cNDfrfGtPnlvDhUOygAtDurMzrFfeve_iNpQK68VVBFdk7Fh9BfFB0EybmACihauiKdlRTL1U09guXUeFOthmpRODV6lysfikx1Cjs"
-                      />
-                    </div>
-                    <div class={styles.qrTxt}>
-                      <h3 class={styles.qrH}>Quét mã để thanh toán</h3>
-                      <ul class={styles.qrList}>
-                        <li>
-                          <span class={styles.qrDot} />
-                          Mở ứng dụng ngân hàng hoặc ví điện tử
-                        </li>
-                        <li>
-                          <span class={styles.qrDot} />
-                          Chọn quét mã QR và quét mã bên trái
-                        </li>
-                        <li>
-                          <span class={styles.qrDot} />
-                          Kiểm tra số tiền và nội dung chuyển khoản
-                        </li>
-                      </ul>
-                      <span class={styles.qrTag}>Tự động xác nhận</span>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
-            <aside class={styles.paySide}>
-              <div class={styles.bill}>
-                <div class={styles.billHead}>
-                  <h2 class={styles.billTitle}>Chi tiết đơn hàng</h2>
-                  <p class={styles.billHint}>Sẽ được giao trong vòng 15-20 phút</p>
-                </div>
-                <div class={styles.billBody}>
-                  <div class={styles.billLines}>
-                    {lines.length > 0 ? (
-                      lines.map((line) => (
-                        <div class={styles.billLine} key={line.dish.id}>
-                          <div class={styles.billThumb}>
-                            <img alt={line.dish.name} src={line.dish.image} />
-                          </div>
-                          <div class={styles.billMid}>
-                            <h4 class={styles.billName}>{line.dish.name}</h4>
-                            <p class={styles.billMeta}>x{line.qty}</p>
-                          </div>
-                          <p class={styles.billP}>{formatPrice(line.dish.price * line.qty)}</p>
-                        </div>
-                      ))
-                    ) : (
-                      <p class={styles.billMeta}>Giỏ hàng đang trống.</p>
-                    )}
-                  </div>
-                  <div class={styles.billSep} />
-                  <div class={styles.billRows}>
-                    <div class={styles.billRow}>
-                      <span>Tạm tính ({totalCount} món)</span>
-                      <span class={styles.billRowInk}>{formatPrice(subtotal)}</span>
-                    </div>
-                    <div class={styles.billRow}>
-                      <span>Phí giao hàng</span>
-                      <span class={styles.billRowInk}>{formatPrice(shipping)}</span>
-                    </div>
-                    <div class={styles.billRow}>
-                      <span>Giảm giá Campus</span>
-                      <span class={styles.billRowDanger}>-{formatPrice(discount)}</span>
-                    </div>
-                  </div>
-                  <div class={styles.billSep} />
-                  <div class={styles.billSum}>
-                    <div>
-                      <span class={styles.billSumL}>Tổng cộng</span>
-                      <p class={styles.billVat}>Bao gồm thuế VAT</p>
-                    </div>
-                    <span class={styles.billSumN}>{formatPrice(total)}</span>
-                  </div>
-                  {confirmError ? (
-                    <p class={styles.billErr} role="alert">
-                      {confirmError}
-                    </p>
-                  ) : null}
-                  <button
-                    type="button"
-                    class={styles.billGo}
-                    disabled={totalCount === 0 || submitting}
-                    onClick={handleConfirmOrder}
-                  >
-                    <span class="material-symbols-outlined material-symbols-fill">shopping_bag</span>
-                    {submitting ? 'Đang xử lý…' : 'Xác nhận đặt hàng'}
-                  </button>
-                  <p class={styles.billLegal}>
-                    Bằng việc nhấn đặt hàng, bạn đã đồng ý với các{' '}
-                    <Link class={styles.billLegalLink} to="/thanh-toan">
-                      Điều khoản &amp; Chính sách
-                    </Link>{' '}
-                    của NEUFood.
-                  </p>
-                </div>
-              </div>
-            </aside>
-          </div>
-        </div>
-      </main>
-
-      <footer class={styles.payFoot}>
-        <div class={`wrap ${styles.payFootInner}`}>
-          <div class={styles.payFootBrand}>NEUFood</div>
-          <div class={styles.payFootLinks}>
-            <a href="#">Support</a>
-            <a href="#">Privacy Policy</a>
-            <a href="#">Terms of Service</a>
-            <a href="#">Campus Map</a>
-          </div>
-          <div class={styles.payFootCopy}>© 2024 NEUFood Campus Dining. All rights reserved.</div>
-        </div>
-      </footer>
-    </>
-  )
+  return <main className={styles.page}>
+    <h1 className={styles.heading}>Xác nhận đơn COD</h1>
+    <Link to="/gio-hang">← Quay lại giỏ hàng</Link>
+    {(loading || catalogLoading || ordersLoading) && <p role="status">Đang tải thông tin đặt hàng…</p>}
+    {(loadError || catalogError || ordersError) && <p role="alert" className={styles.error}>{loadError || catalogError || ordersError} Vui lòng tải lại trang.</p>}
+    {user?.is_blacklisted && <p role="alert" className={styles.error}>Tài khoản đang bị khóa đặt COD.</p>}
+    {activeOrder && <p role="alert">Bạn đang có đơn chưa kết thúc. <Link to={'/don-hang/' + activeOrder.id}>Xem đơn {activeOrder.id}</Link></p>}
+    {!lines.length && !catalogLoading && <p>Giỏ hàng trống. <Link to="/menu">Chọn món</Link></p>}
+    <form onSubmit={submit} className={styles.panel}>
+      <label className={styles.field}>Họ tên người nhận<input className={styles.input} required minLength={2} maxLength={150} value={name} onChange={e => setName(e.target.value)} autoComplete="name" /></label>
+      <label className={styles.field}>Số điện thoại<input className={styles.input} required type="tel" pattern="0[35789][0-9]{8}" value={phone} onChange={e => setPhone(e.target.value)} autoComplete="tel" /></label>
+      <label className={styles.field}>Cách nhận món<select className={styles.input} value={orderType} onChange={e => setOrderType(e.target.value as typeof orderType)}><option value="delivery">Giao trong khuôn viên</option><option value="pickup">Nhận tại quầy — miễn phí giao</option></select></label>
+      {orderType === 'delivery' && <>
+        <label className={styles.field}>Địa điểm giao<select className={styles.input} required value={location} onChange={e => setLocation(e.target.value)}><option value="">Chọn địa điểm</option>{locations.map(row => <option key={row.id} value={row.id}>{row.building_name}</option>)}</select></label>
+        <label className={styles.field}>Phòng / vị trí cụ thể<input className={styles.input} maxLength={100} value={room} onChange={e => setRoom(e.target.value)} /></label>
+      </>}
+      <label className={styles.field}>Ghi chú<textarea className={styles.input} value={note} onChange={e => setNote(e.target.value)} /></label>
+      <label><input type="checkbox" checked={isPreorder} onChange={e => setPreorder(e.target.checked)} /> Đặt trước theo giờ hẹn</label>
+      {isPreorder && <label className={styles.field}>Giờ nhận (theo giờ trên thiết bị)<input className={styles.input} type="datetime-local" required value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} /></label>}
+      <label className={styles.field}>Thanh toán khi nhận hàng<select className={styles.input} value={payment} onChange={e => setPayment(e.target.value as typeof payment)}><option value="cod_cash">Tiền mặt COD</option><option value="cod_vietqr">VietQR COD</option></select></label>
+      <p className={styles.muted}>Thanh toán cho nhân viên lúc bàn giao món và đối chiếu 4 số cuối mã đơn.</p>
+      {lines.map(line => <p key={line.dish.id}>{line.dish.name} × {line.qty} — {formatVnd(line.dish.price * line.qty)} {!line.dish.is_available && <strong role="alert">Món đã hết — vui lòng xóa khỏi giỏ.</strong>}</p>)}
+      <p>Tạm tính: {formatVnd(subtotal)} · Phí giao: {formatVnd(shipping)}</p>
+      <p><strong>Tổng dự kiến: {formatVnd(total)}</strong></p>
+      <p className={styles.muted}>Giá cuối cùng được chốt tại thời điểm đặt hàng. Giờ mở cửa: {settings.canteen_open_time || '06:30'}–{settings.canteen_close_time || '19:30'}.</p>
+      {error && <p role="alert" className={styles.error}>{error}</p>}
+      <button className={styles.button} disabled={blocked} type="submit">{busy ? 'Đang gửi đơn…' : 'Xác nhận đặt hàng COD'}</button>
+    </form>
+  </main>
 }

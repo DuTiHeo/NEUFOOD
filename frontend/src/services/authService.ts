@@ -5,17 +5,11 @@ import { User, UserProfileUpdate } from '../types/user';
 export const authService = {
   async login(payload: LoginPayload): Promise<AuthResponse> {
     const res = await api.post<ApiResponse<AuthResponse>>('/auth/login', payload);
-    if (res.data.data?.access_token) {
-      localStorage.setItem('neufood_token', res.data.data.access_token);
-    }
     return res.data.data;
   },
 
   async register(payload: RegisterPayload): Promise<AuthResponse> {
     const res = await api.post<ApiResponse<AuthResponse>>('/auth/register', payload);
-    if (res.data.data?.access_token) {
-      localStorage.setItem('neufood_token', res.data.data.access_token);
-    }
     return res.data.data;
   },
 

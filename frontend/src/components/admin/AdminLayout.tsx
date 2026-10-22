@@ -8,7 +8,7 @@ const navCls = ({ isActive }: { isActive: boolean }) =>
   isActive ? `${styles.navLink} ${styles.navOn}` : styles.navLink
 
 export default function AdminLayout() {
-  const { logout } = useAdminAuth()
+  const { logout, user } = useAdminAuth()
   const { pathname } = useLocation()
 
   let topTitle = 'Thống kê & báo cáo'
@@ -23,14 +23,14 @@ export default function AdminLayout() {
           <p className={styles.brandSub}>Campus dining</p>
         </div>
         <nav className={styles.nav}>
-          <NavLink to="/quan-ly" className={navCls} end>
+          {user?.role !== 'staff' && <><NavLink to="/quan-ly" className={navCls} end>
             <LayoutDashboard size={20} strokeWidth={2} aria-hidden />
             Tổng quan
           </NavLink>
           <NavLink to="/quan-ly/mon" className={navCls}>
             <UtensilsCrossed size={20} strokeWidth={2} aria-hidden />
             Thực đơn
-          </NavLink>
+          </NavLink></>}
           <NavLink to="/quan-ly/don" className={navCls}>
             <Receipt size={20} strokeWidth={2} aria-hidden />
             Đơn hàng

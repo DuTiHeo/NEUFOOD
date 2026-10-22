@@ -1,5 +1,6 @@
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import ProtectedRoute from './ProtectedRoute'
 import MainLayout from '../components/layout/MainLayout'
 import AdminLayout from '../components/admin/AdminLayout'
 import RequireAdmin from '../components/admin/RequireAdmin'
@@ -69,9 +70,9 @@ export const AppRoutes: React.FC = () => {
         <Route path="gan-neu" element={<GanNeuPage />} />
         <Route path="mon/:id" element={<ChiTietMonPage />} />
         <Route path="gio-hang" element={<GioHangPage />} />
-        <Route path="thanh-toan" element={<ThanhToanPage />} />
-        <Route path="lich-su-don" element={<LichSuDonHangPage />} />
-        <Route path="don-hang/:orderId" element={<DonHangPage />} />
+        <Route path="thanh-toan" element={<ProtectedRoute><ThanhToanPage /></ProtectedRoute>} />
+        <Route path="lich-su-don" element={<ProtectedRoute><LichSuDonHangPage /></ProtectedRoute>} />
+        <Route path="don-hang/:orderId" element={<ProtectedRoute><DonHangPage /></ProtectedRoute>} />
         <Route path="don-hang" element={<Navigate to="/lich-su-don" replace />} />
         <Route path="tai-khoan" element={<TaiKhoanPage />} />
         <Route path="dang-nhap" element={<LoginPage />} />

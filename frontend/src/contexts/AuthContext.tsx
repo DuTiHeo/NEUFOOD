@@ -47,12 +47,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     try {
       const currentUser = await authService.getMe();
+      if (localStorage.getItem('neufood_token') !== token) return;
       setUser(currentUser);
       localStorage.setItem('neufood_user', JSON.stringify(currentUser));
     } catch (err) {
       console.warn('Failed to load user info:', err);
     }
   }, [token]);
+
+  useEffect(() => {
+    window.addEventListener('neufood-auth-expired', logout);
+    return () => window.removeEventListener('neufood-auth-expired', logout);
+  }, [logout]);
 
   useEffect(() => {
     const initAuth = async () => {
