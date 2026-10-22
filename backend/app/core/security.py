@@ -49,6 +49,20 @@ def jwt_required(f):
         if not payload:
             return jsonify({"success": False, "message": "Phiên đăng nhập không hợp lệ hoặc đã hết hạn"}), 401
         
+        user_id_raw = payload.get("sub")
+        try:
+            user_id = int(user_id_raw)
+        except (ValueError, TypeError):
+            return jsonify({"success": False, "message": "Phiên đăng nhập không hợp lệ hoặc đã hết hạn"}), 401
+
+        from app.db.session import get_db
+        from app.db.models import User
+
+        with get_db() as db:
+            db_user = db.query(User.id, User.is_active).filter(User.id == user_id).first()
+            if db_user and not db_user.is_active:
+                return jsonify({"success": False, "message": "Tài khoản này đã bị khóa"}), 403
+
         g.current_user = payload
         return f(*args, **kwargs)
     return decorated_function
