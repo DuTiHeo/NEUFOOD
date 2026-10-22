@@ -5,7 +5,12 @@ Tài liệu đặc tả chi tiết toàn bộ các giao diện lập trình ứn
 - **Phiên bản API**: `v1`
 - **Tiền tố gốc (Base URL)**: `http://localhost:5000/api/v1`
 - **Định dạng dữ liệu**: `application/json`
-- **Cơ chế xác thực**: Bearer Token (JSON Web Token - JWT) trong Header: `Authorization: Bearer <access_token>`
+- **Cơ chế xác thực**: Cặp JSON Web Token (JWT) gồm **Access Token** (thời hạn 15 phút - 900 giây, gửi qua Header: `Authorization: Bearer <access_token>`) và **Refresh Token** (thời hạn 7 ngày, gửi qua body để cấp mới Access Token).
+- **Kiến trúc Two-Tier Hybrid Token Blacklist & Revocation**:
+  - **Tầng 1 (Redis 7 In-Memory Cache)**: Lưu vết `revoked_token:{jti}` với cơ chế TTL tự hủy bằng thời gian sống còn lại của token (`access`: tối đa 15 phút, `refresh`: tối đa 7 ngày). Tốc độ kiểm tra siêu tốc $O(1)$ (~ 3ms), giảm tải tối đa cho cơ sở dữ liệu.
+  - **Tầng 2 (PostgreSQL Persistence)**: Bảng `revoked_tokens` lưu trữ bền vững, đảm bảo toàn vẹn dữ liệu thu hồi kể cả khi Redis khởi động lại.
+  - **Cơ chế Cache-Aside with Backfill**: Khi Cache Miss, hệ thống tự động truy vấn PostgreSQL và nạp bù ngược lại Redis kèm TTL tương ứng.
+  - **Cơ chế Graceful Fallback**: Nếu Redis gặp sự cố hoặc offline, hệ thống tự động fallback sang PostgreSQL mà không bao giờ gây lỗi HTTP 500 cho API (Fault-tolerant & Graceful Degradation).
 - **4 Vai trò (Roles) trong JWT Payload**: `customer`, `staff`, `manager`, `admin`
 
 ---
@@ -82,6 +87,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
   - `student_id`: Không bắt buộc (Optional), tối đa 30 ký tự; chuỗi rỗng tự động chuyển thành `null` (`None`).
 - **Quy tắc nghiệp vụ & Kịch bản ngoại lệ**:
   - `BR-01`: Tài khoản đăng ký mới luôn được gán vai trò mặc định `role = "customer"`.
+  - Cấp cặp JWT Token: Access Token (hiệu lực 15 phút, `expires_in: 900` giây) và Refresh Token (hiệu lực 7 ngày).
   - `EX-01`: Nếu `email` đã tồn tại trên hệ thống $\rightarrow$ Trả về `400 Bad Request` (`"Email đã tồn tại trên hệ thống (EX-01)"`).
   - `EX-01`: Nếu `student_id` đã được liên kết với một tài khoản khác $\rightarrow$ Trả về `400 Bad Request` (`"Mã sinh viên đã tồn tại trên hệ thống (EX-01)"`).
   - `BR-01` / Lỗi Validate: Nếu `phone_number` không đúng định dạng 10 số bắt đầu bằng 0 $\rightarrow$ Trả về `422 Unprocessable Entity` (`"Số điện thoại không hợp lệ, phải gồm đúng 10 chữ số và bắt đầu bằng số 0 (BR-01)"`).
@@ -93,7 +99,9 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
   "message": "Đăng ký tài khoản thành công",
   "data": {
     "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "token_type": "Bearer",
+    "expires_in": 900,
     "user": {
       "id": 2,
       "email": "sinhvien_moi@neu.edu.vn",
@@ -156,7 +164,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
       - Khi chạm mốc `failed_login_attempts >= 5` lần liên tiếp $\rightarrow$ Thiết lập `locked_until = now() + 15 minutes` và trả ngay `403 Forbidden` (`"Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần (EX-02)"`).
     - Nếu đúng mật khẩu:
       - Reset `failed_login_attempts = 0` và xóa mốc khóa `locked_until = null`.
-      - Cấp JWT Access Token chứa payload (`sub`, `email`, `role`, `name`) có hiệu lực mặc định 24 giờ.
+      - Cấp cặp JWT Token: Access Token (hiệu lực 15 phút, `expires_in: 900` giây) và Refresh Token (hiệu lực 7 ngày).
 - **Response (`200 OK`)**:
 ```json
 {
@@ -164,7 +172,9 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
   "message": "Đăng nhập thành công",
   "data": {
     "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "token_type": "Bearer",
+    "expires_in": 900,
     "user": {
       "id": 1,
       "email": "admin@neufood.vn",
@@ -204,12 +214,125 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 }
 ```
 
-### 2.3. Lấy Thông Tin Phiên Hiện Tại (`UC03`, `UC04`)
+### 2.3. Làm Mới Access Token (Token Refresh)
+- **Endpoint**: `POST /api/v1/auth/refresh`
+- **Quyền hạn**: Public (Không yêu cầu Bearer token trong Header, truyền refresh token qua Request Body)
+- **Headers**: `Content-Type: application/json`
+- **Request Body**:
+```json
+{
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+- **Ràng buộc dữ liệu (`schemas/auth.py`)**:
+  - `refresh_token`: Bắt buộc, chuỗi JWT Refresh Token hợp lệ (`min_length=10`).
+- **Quy tắc nghiệp vụ & Kịch bản ngoại lệ**:
+  - **Mục đích**: Cấp Access Token mới (15 phút) từ Refresh Token hợp lệ (7 ngày) mà không bắt buộc người dùng đăng nhập lại bằng mật khẩu.
+  - **Kiểm tra cú pháp JSON**: Request body không phải JSON object hợp lệ $\rightarrow$ Trả về `400 Bad Request` (`"Dữ liệu đầu vào phải là JSON object hợp lệ"`).
+  - **Validate Schema**: Thiếu trường `refresh_token` hoặc chuỗi rỗng / < 10 ký tự $\rightarrow$ Trả về `422 Unprocessable Entity` (`"Dữ liệu làm mới token không hợp lệ"`).
+  - **Giải mã & Kiểm tra chữ ký/thời hạn Token**: Giải mã token qua `decode_token()`; nếu chữ ký sai hoặc token đã hết hạn $\rightarrow$ Trả về `401 Unauthorized` (`"Token làm mới không hợp lệ hoặc đã hết hạn"`).
+  - **Kiểm tra loại Token (Token Type)**: Claim `type` bắt buộc phải là `"refresh"`. Nếu client gửi nhầm Access Token $\rightarrow$ Trả về `401 Unauthorized` (`"Loại token không hợp lệ (yêu cầu refresh token)"`).
+  - **Kiểm tra định danh người dùng**: Trích xuất `user_id` từ claim `sub`. Nếu không phải số hợp lệ $\rightarrow$ Trả về `401 Unauthorized` (`"Phiên đăng nhập không hợp lệ hoặc đã hết hạn"`).
+  - **Kiểm tra Danh sách đen (Two-Tier Revoked Token Blacklist)**: Trích xuất `jti` từ token; kiểm tra qua cơ chế Two-Tier Blacklist (Redis Cache $O(1)$ và PostgreSQL kèm Cache-Aside Backfill); nếu token đã bị thu hồi (do đăng xuất trước đó) $\rightarrow$ Trả về `401 Unauthorized` (`"Phiên đăng nhập đã bị thu hồi hoặc đăng xuất"`).
+  - **Kiểm tra trạng thái người dùng trong DB**:
+    - Nếu không tìm thấy người dùng trong CSDL $\rightarrow$ Trả về `404 Not Found` (`"Không tìm thấy người dùng"`).
+    - Nếu tài khoản người dùng có `is_active == false` (bị quản trị viên khóa) $\rightarrow$ Trả về `403 Forbidden` (`"Tài khoản này đã bị khóa"`).
+  - **Cấp Access Token mới**: Nếu mọi kiểm tra hợp lệ, hệ thống cấp Access Token mới có hiệu lực 15 phút (`expires_in: 900` giây) chứa thông tin người dùng (`sub`, `email`, `role`, `name`) và giữ nguyên Refresh Token gửi lên.
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Làm mới token thành công",
+  "data": {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "token_type": "Bearer",
+    "expires_in": 900,
+    "user": {
+      "id": 2,
+      "email": "sinhvien_moi@neu.edu.vn",
+      "full_name": "Nguyễn Văn Sinh Viên",
+      "phone_number": "0912345678",
+      "student_id": "11218888",
+      "role": "customer",
+      "avatar_url": null,
+      "is_blacklisted": false,
+      "blacklist_reason": null
+    }
+  }
+}
+```
+- **Response lỗi (`400 Bad Request` - Body không phải JSON)**:
+```json
+{
+  "success": false,
+  "message": "Dữ liệu đầu vào phải là JSON object hợp lệ",
+  "data": null
+}
+```
+- **Response lỗi (`401 Unauthorized` - Token hết hạn hoặc không hợp lệ)**:
+```json
+{
+  "success": false,
+  "message": "Token làm mới không hợp lệ hoặc đã hết hạn",
+  "data": null
+}
+```
+- **Response lỗi (`401 Unauthorized` - Gửi nhầm Access Token)**:
+```json
+{
+  "success": false,
+  "message": "Loại token không hợp lệ (yêu cầu refresh token)",
+  "data": null
+}
+```
+- **Response lỗi (`401 Unauthorized` - Token đã bị thu hồi / Đăng xuất)**:
+```json
+{
+  "success": false,
+  "message": "Phiên đăng nhập đã bị thu hồi hoặc đăng xuất",
+  "data": null
+}
+```
+- **Response lỗi (`403 Forbidden` - Tài khoản bị khóa)**:
+```json
+{
+  "success": false,
+  "message": "Tài khoản này đã bị khóa",
+  "data": null
+}
+```
+- **Response lỗi (`404 Not Found` - Không tìm thấy người dùng)**:
+```json
+{
+  "success": false,
+  "message": "Không tìm thấy người dùng",
+  "data": null
+}
+```
+- **Response lỗi (`422 Unprocessable Entity` - Thiếu refresh_token)**:
+```json
+{
+  "success": false,
+  "message": "Dữ liệu làm mới token không hợp lệ",
+  "data": null,
+  "errors": [
+    {
+      "loc": ["refresh_token"],
+      "msg": "Field required",
+      "type": "missing"
+    }
+  ]
+}
+```
+
+### 2.4. Lấy Thông Tin Phiên Hiện Tại (`UC03`, `UC04`)
 - **Endpoint**: `GET /api/v1/auth/me`
 - **Quyền hạn**: Authenticated (`@jwt_required` - Tất cả các role: `customer`, `staff`, `manager`, `admin`)
 - **Headers**: `Authorization: Bearer <access_token>`
 - **Quy tắc nghiệp vụ**:
   - Trích xuất định danh người dùng từ claim `sub` trong JWT.
+  - Kiểm tra token chưa bị thu hồi qua Two-Tier Blacklist (Redis Cache $O(1)$ / PostgreSQL) (`is_token_revoked`).
   - Kiểm tra người dùng tồn tại và tài khoản đang kích hoạt (`is_active == true`).
 - **Response (`200 OK`)**:
 ```json
@@ -231,17 +354,33 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 ```
 - **Response lỗi mẫu**:
   - `401 Unauthorized` (Thiếu hoặc Token hết hạn): `{"success": false, "message": "Token không hợp lệ hoặc đã hết hạn", "data": null}`
+  - `401 Unauthorized` (Token đã bị thu hồi do đăng xuất): `{"success": false, "message": "Phiên đăng nhập đã bị thu hồi hoặc đăng xuất", "data": null}`
   - `403 Forbidden` (Tài khoản bị vô hiệu hóa): `{"success": false, "message": "Tài khoản này đã bị khóa", "data": null}`
   - `404 Not Found` (Không tìm thấy user): `{"success": false, "message": "Không tìm thấy người dùng", "data": null}`
 
-### 2.4. Đăng Xuất Hệ Thống (`UC03`)
+### 2.5. Đăng Xuất Hệ Thống (`UC03`)
 - **Endpoint**: `POST /api/v1/auth/logout`
-- **Quyền hạn**: Authenticated (`@jwt_required`)
-- **Headers**: `Authorization: Bearer <access_token>`
-- **Request Body**: Không yêu cầu (None)
-- **Quy tắc xử lý**:
-  - Kiểm tra JWT hợp lệ của phiên làm việc.
-  - Phía Client khi nhận phản hồi `200` sẽ xóa Token khỏi `localStorage` / Session Storage.
+- **Quyền hạn**: Authenticated (`@jwt_required` - Tất cả các role: `customer`, `staff`, `manager`, `admin`)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: application/json` (khi gửi kèm body)
+- **Request Body** (Không bắt buộc - Optional):
+```json
+{
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+*(Có thể gửi body rỗng `{}` hoặc không truyền body)*
+- **Ràng buộc dữ liệu (`schemas/auth.py`)**:
+  - `refresh_token`: Không bắt buộc (Optional), chuỗi JWT Refresh Token cần thu hồi đồng thời.
+- **Quy tắc xử lý & Cơ chế thu hồi Token (Two-Tier Dual-Write Blacklist)**:
+  - Trích xuất định danh token `jti` (JWT ID) và thời hạn `exp` của Access Token hiện tại từ `g.current_user`.
+  - **Hành vi Dual-Write đồng thời vào PostgreSQL & Redis**:
+    - **Thu hồi Access Token**: Ghi nhận bản ghi vào bảng `revoked_tokens` trong PostgreSQL (`token_type = "access"`, `reason = "logout"`) và nạp đồng thời vào Redis key `revoked_token:{jti}` với TTL bằng thời gian sống còn lại của token (tối đa 15 phút - 900 giây).
+    - **Thu hồi Refresh Token (nếu cung cấp)**: Nếu client truyền kèm `refresh_token` trong body, hệ thống giải mã, trích xuất `jti` và `exp`, sau đó Dual-Write đồng thời vào bảng `revoked_tokens` trong PostgreSQL (`token_type = "refresh"`, `reason = "logout"`) và nạp vào Redis key `revoked_token:{jti}` với TTL tương ứng (thời gian sống còn lại của refresh token, tối đa 7 ngày).
+  - **Cơ chế Graceful Fallback**: Nếu Redis gặp sự cố hoặc ngoại tuyến, token vẫn được thu hồi an toàn tuyệt đối trong PostgreSQL (Graceful Degradation) mà không gây lỗi gián đoạn HTTP 500 cho API.
+  - Sau khi đăng xuất thành công, mọi request sử dụng lại Access Token hoặc Refresh Token đã bị thu hồi đều bị chặn tức thì qua Redis $O(1)$ và trả về lỗi `401 Unauthorized` (`"Phiên đăng nhập đã bị thu hồi hoặc đăng xuất"`).
+  - Phía Client khi nhận phản hồi `200` sẽ xóa toàn bộ cặp Token khỏi `localStorage` / Session Storage.
 - **Response (`200 OK`)**:
 ```json
 {
@@ -250,18 +389,18 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
   "data": null
 }
 ```
-- **Response lỗi (`401 Unauthorized`)**:
+- **Response lỗi (`401 Unauthorized` - Token đã bị thu hồi trước đó)**:
 ```json
 {
   "success": false,
-  "message": "Thiếu token xác thực trong header Authorization",
+  "message": "Phiên đăng nhập đã bị thu hồi hoặc đăng xuất",
   "data": null
 }
 ```
 
-### 2.5. Đổi Mật Khẩu Tài Khoản (`UC05`)
+### 2.6. Đổi Mật Khẩu Tài Khoản (`UC05`, `EX-04`)
 - **Endpoint**: `POST /api/v1/auth/change-password`
-- **Quyền hạn**: Authenticated (`@jwt_required`)
+- **Quyền hạn**: Authenticated (`@jwt_required` - Tất cả các role)
 - **Headers**:
   - `Authorization: Bearer <access_token>`
   - `Content-Type: application/json`
@@ -275,10 +414,15 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 - **Ràng buộc dữ liệu (`schemas/auth.py`)**:
   - `old_password`: Bắt buộc, độ dài từ 1 đến 128 ký tự.
   - `new_password`: Bắt buộc, độ dài từ 6 đến 128 ký tự (`min_length=6, max_length=128`).
-- **Quy tắc nghiệp vụ**:
+- **Quy tắc nghiệp vụ & Cơ chế bảo mật (`UC05`, `EX-04`)**:
   - Kiểm tra `old_password` có khớp với hash mật khẩu hiện tại trong DB hay không. Nếu sai $\rightarrow$ Trả về `400 Bad Request` (`"Mật khẩu hiện tại không chính xác"`).
   - Kiểm tra `new_password` không được trùng với mật khẩu hiện tại (`old_password` hoặc hash DB). Nếu trùng $\rightarrow$ Trả về `400 Bad Request` (`"Mật khẩu mới không được trùng với mật khẩu hiện tại"`).
-  - Mật khẩu mới được băm bảo mật bằng thuật toán Argon2/Bcrypt thông qua hàm `update_user_password(db, user, new_password)`.
+  - Mật khẩu mới được băm bảo mật bằng thuật toán Bcrypt thông qua hàm `update_user_password(db, user, new_password)`.
+  - **Tự động thu hồi Access Token (Two-Tier Dual-Write / EX-04)**: Ngay sau khi đổi mật khẩu thành công, Access Token hiện tại được tự động thu hồi bằng cơ chế Dual-Write:
+    - Ghi nhận bản ghi vào bảng `revoked_tokens` trong PostgreSQL (`token_type = "access"`, `reason = "change_password"`).
+    - Nạp đồng thời vào Redis key `revoked_token:{jti}` với TTL bằng thời gian sống còn lại của Access Token (tối đa 15 phút - 900 giây).
+    - Nếu Redis ngoại tuyến, token vẫn được thu hồi an toàn và bền vững trong PostgreSQL (Graceful Fallback).
+    - Mọi request kế tiếp sử dụng token cũ này sẽ bị chặn tức thì qua Redis $O(1)$ và nhận lỗi `401 Unauthorized` (`"Phiên đăng nhập đã bị thu hồi hoặc đăng xuất"`), buộc người dùng phải đăng nhập lại bằng mật khẩu mới hoặc sử dụng Refresh Token để lấy token mới.
 - **Response (`200 OK`)**:
 ```json
 {
@@ -319,7 +463,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 }
 ```
 
-### 2.6. Quên Mật Khẩu & Gửi Mã OTP (`UC05`, `EX-04`)
+### 2.7. Quên Mật Khẩu & Gửi Mã OTP (`UC05`, `EX-04`)
 - **Endpoint**: `POST /api/v1/auth/forgot-password`
 - **Quyền hạn**: Public (Không yêu cầu JWT)
 - **Headers**: `Content-Type: application/json`
@@ -367,7 +511,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 }
 ```
 
-### 2.7. Đặt Lại Mật Khẩu Bằng Mã OTP (`UC05`, `BR-02`, `EX-04`)
+### 2.8. Đặt Lại Mật Khẩu Bằng Mã OTP (`UC05`, `BR-02`, `EX-04`)
 - **Endpoint**: `POST /api/v1/auth/reset-password`
 - **Quyền hạn**: Public (Không yêu cầu JWT)
 - **Headers**: `Content-Type: application/json`
@@ -425,9 +569,9 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 }
 ```
 
-### 2.8. Hồ Sơ Người Dùng Cá Nhân (`UC04`, `BR-01`, `EX-01`, `EX-03`)
+### 2.9. Hồ Sơ Người Dùng Cá Nhân (`UC04`, `BR-01`, `EX-01`, `EX-03`)
 
-#### 2.8.1. Xem Hồ Sơ Cá Nhân (`UC04`)
+#### 2.9.1. Xem Hồ Sơ Cá Nhân (`UC04`)
 - **Endpoint**: `GET /api/v1/users/profile`
 - **Quyền hạn**: Authenticated (`@jwt_required` - Tất cả các role: `customer`, `staff`, `manager`, `admin`)
 - **Headers**: `Authorization: Bearer <access_token>`
@@ -461,7 +605,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
   - `403 Forbidden` (Tài khoản đang bị khóa `is_active == false`): `{"success": false, "message": "Tài khoản này đã bị khóa", "data": null}`
   - `404 Not Found` (Không tìm thấy người dùng): `{"success": false, "message": "Không tìm thấy người dùng", "data": null}`
 
-#### 2.8.2. Cập Nhật Hồ Sơ Cá Nhân (`UC04`, `BR-01`, `EX-01`, `EX-03`)
+#### 2.9.2. Cập Nhật Hồ Sơ Cá Nhân (`UC04`, `BR-01`, `EX-01`, `EX-03`)
 - **Endpoint**: `PUT /api/v1/users/profile`
 - **Quyền hạn**: Authenticated (`@jwt_required` - Tất cả các role: `customer`, `staff`, `manager`, `admin`)
 - **Headers**:
@@ -541,9 +685,9 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 }
 ```
 
-### 2.9. Quản Trị Tài Khoản & Blacklist COD (`UC23`, `BR-02`, `BR-08`, `BR-22`, `EX-22` - Role: `admin`)
+### 2.10. Quản Trị Tài Khoản & Blacklist COD (`UC23`, `BR-02`, `BR-08`, `BR-22`, `EX-22` - Role: `admin`)
 
-#### 2.9.1. Danh Sách & Lọc Tài Khoản Người Dùng (`UC23`)
+#### 2.10.1. Danh Sách & Lọc Tài Khoản Người Dùng (`UC23`)
 - **Endpoint**: `GET /api/v1/users/admin/all`
 - **Quyền hạn**: Độc quyền Quản trị viên (`@role_required("admin")`)
 - **Headers**: `Authorization: Bearer <access_token>`
@@ -599,7 +743,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
   - `400 Bad Request` (Sai tham số lọc): `{"success": false, "message": "Vai trò lọc không hợp lệ, chỉ chấp nhận: customer, staff, manager, admin", "data": null}`
   - `403 Forbidden` (Không phải role `admin`): `{"success": false, "message": "Truy cập bị từ chối. Yêu cầu một trong các quyền: admin", "data": null}`
 
-#### 2.9.2. Khóa / Mở Khóa & Phân Quyền Tài Khoản (`UC23`, `BR-02`, `BR-08`, `EX-22`)
+#### 2.10.2. Khóa / Mở Khóa & Phân Quyền Tài Khoản (`UC23`, `BR-02`, `BR-08`, `EX-22`)
 - **Endpoint**: `PATCH /api/v1/users/admin/<int:user_id>/status`
 - **Quyền hạn**: Độc quyền Quản trị viên (`@role_required("admin")`)
 - **Headers**:
@@ -680,7 +824,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 }
 ```
 
-#### 2.9.3. Quản Trị Danh Sách Đen COD - Blacklist (`UC23`, `BR-22`)
+#### 2.10.3. Quản Trị Danh Sách Đen COD - Blacklist (`UC23`, `BR-22`)
 - **Endpoint**: `PATCH /api/v1/users/admin/<int:user_id>/blacklist`
 - **Quyền hạn**: Độc quyền Quản trị viên (`@role_required("admin")`)
 - **Headers**:
@@ -758,7 +902,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 }
 ```
 
-### 2.10. Cấu Hình Tham Số Vận Hành Hệ Thống (`/api/v1/settings` - `UC23`, `BR-07`, `BR-08`, `BR-11`–`BR-15`, `BR-17`, `BR-20`, `BR-23`)
+### 2.11. Cấu Hình Tham Số Vận Hành Hệ Thống (`/api/v1/settings` - `UC23`, `BR-07`, `BR-08`, `BR-11`–`BR-15`, `BR-17`, `BR-20`, `BR-23`)
 
 Phân hệ cấu hình tham số vận hành hệ thống lưu trữ tập trung các ngưỡng thời gian, mức phí, hạn mức và quy tắc hoạt động của toàn bộ nền tảng NEUFood trong bảng `system_settings` (`UC23`). Các tham số này chi phối trực tiếp logic tính toán của các phân hệ khác (Menu, Đơn hàng, Khiếu nại, Ca trực).
 
@@ -779,7 +923,7 @@ Phân hệ cấu hình tham số vận hành hệ thống lưu trữ tập trung
 
 ---
 
-#### 2.10.1. Lấy Danh Sách Toàn Bộ Tham Số Hệ Thống (`UC23`)
+#### 2.11.1. Lấy Danh Sách Toàn Bộ Tham Số Hệ Thống (`UC23`)
 - **Endpoint**: `GET /api/v1/settings`
 - **Quyền hạn**: Public / Authenticated (Khách vãng lai, Sinh viên, Nhân viên, Quản lý và Quản trị viên đều có thể gọi để lấy thông số hiển thị giao diện và tính toán phía client).
 - **Headers**: Không bắt buộc (Nếu có: `Authorization: Bearer <access_token>`).
@@ -864,7 +1008,7 @@ Phân hệ cấu hình tham số vận hành hệ thống lưu trữ tập trung
 
 ---
 
-#### 2.10.2. Lấy Chi Tiết Một Tham Số Cấu Hình Theo Khóa (`UC23`)
+#### 2.11.2. Lấy Chi Tiết Một Tham Số Cấu Hình Theo Khóa (`UC23`)
 - **Endpoint**: `GET /api/v1/settings/<setting_key>`
 - **Quyền hạn**: Public / Authenticated (Không yêu cầu đăng nhập).
 - **Headers**: Không bắt buộc (Nếu có: `Authorization: Bearer <access_token>`).
@@ -897,7 +1041,7 @@ Phân hệ cấu hình tham số vận hành hệ thống lưu trữ tập trung
 
 ---
 
-#### 2.10.3. Cập Nhật Một Tham Số Cấu Hình Hệ Thống (`UC23`, `BR-07`, `BR-08`, `BR-12`, `BR-14`, `BR-15`, `BR-17`, `BR-20`, `BR-23`)
+#### 2.11.3. Cập Nhật Một Tham Số Cấu Hình Hệ Thống (`UC23`, `BR-07`, `BR-08`, `BR-12`, `BR-14`, `BR-15`, `BR-17`, `BR-20`, `BR-23`)
 - **Endpoint**: `PUT /api/v1/settings/<setting_key>`
 - **Quyền hạn**: Độc quyền Quản trị viên (`@role_required("admin")`)
 - **Headers**:
@@ -951,7 +1095,7 @@ Phân hệ cấu hình tham số vận hành hệ thống lưu trữ tập trung
 
 ---
 
-#### 2.10.4. Cập Nhật Đồng Loạt Tham Số Hệ Thống - Bulk Update (`UC23`, Atomicity Transaction)
+#### 2.11.4. Cập Nhật Đồng Loạt Tham Số Hệ Thống - Bulk Update (`UC23`, Atomicity Transaction)
 - **Endpoint**: `PUT /api/v1/settings/bulk`
 - **Quyền hạn**: Độc quyền Quản trị viên (`@role_required("admin")`)
 - **Headers**:

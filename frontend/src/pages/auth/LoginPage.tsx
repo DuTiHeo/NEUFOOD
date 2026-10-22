@@ -17,7 +17,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const data = await authService.login({ email, password });
-      login(data.access_token, data.user);
+      login(data.access_token, data.user, data.refresh_token);
       navigate('/');
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Đăng nhập không thành công, vui lòng kiểm tra lại');

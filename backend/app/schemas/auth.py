@@ -58,10 +58,22 @@ class ResetPasswordRequest(BaseModel):
     new_password: str = Field(..., min_length=6, max_length=128)
 
 
+class RefreshTokenRequest(BaseModel):
+    """Schema yêu cầu cấp lại Access Token qua Refresh Token."""
+    refresh_token: str = Field(..., min_length=10, description="JWT Refresh Token hợp lệ")
+
+
+class LogoutRequest(BaseModel):
+    """Schema tùy chọn gửi kèm refresh_token khi đăng xuất để thu hồi cả cặp token."""
+    refresh_token: Optional[str] = Field(default=None, description="Refresh token cần thu hồi cùng lúc")
+
+
 class TokenResponse(BaseModel):
     """Schema phản hồi thông tin xác thực JWT (UC01, UC02)."""
     access_token: str
+    refresh_token: Optional[str] = None
     token_type: str = "Bearer"
     expires_in: Optional[int] = None
     user: dict
+
 

@@ -2,8 +2,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
-from app.db.models import User, Order, ACTIVE_ORDER_STATUSES
+from app.db.models import User, Order, ACTIVE_ORDER_STATUSES, RevokedToken
 from app.core.security import hash_password
+from app.core.redis_client import is_redis_revoked, set_redis_revoked
 
 # Các trường hồ sơ cho phép gán giá trị None khi người dùng xóa thông tin tùy chọn (UC04)
 NULLABLE_PROFILE_FIELDS = {"student_id", "avatar_url"}
@@ -225,5 +226,102 @@ def admin_update_user_blacklist(
     db.commit()
     db.refresh(user)
     return user
+
+
+def revoke_token(
+    db: Session,
+    jti: str,
+    token_type: str,
+    expires_at: datetime,
+    user_id: Optional[int] = None,
+    reason: Optional[str] = None,
+) -> RevokedToken:
+    """
+    Lưu trữ mã định danh JTI vào danh sách đen token bị thu hồi.
+    Cơ chế Hybrid Two-Tier:
+    1. Tier 2: Lưu trữ bền vững vào PostgreSQL (revoked_tokens).
+    2. Tier 1: Nạp vào Redis Cache với TTL bằng thời gian sống còn lại của token.
+    Graceful Degradation: Nếu Redis offline, token vẫn được thu hồi an toàn trong PostgreSQL.
+    """
+    # Chuẩn hóa timezone UTC cho expires_at
+    normalized_expires_at = (
+        expires_at.replace(tzinfo=timezone.utc)
+        if expires_at.tzinfo is None
+        else expires_at
+    )
+    now = datetime.now(timezone.utc)
+    ttl = int((normalized_expires_at - now).total_seconds())
+
+    # Tier 2: Lưu vào PostgreSQL (tránh duplicate key)
+    existing = db.query(RevokedToken).filter(RevokedToken.jti == jti).first()
+    if existing:
+        # Nếu đã tồn tại trong DB, vẫn cố gắng đảm bảo đã có trong Redis nếu còn hạn
+        if ttl > 0:
+            set_redis_revoked(jti=jti, ttl=ttl, reason=reason or existing.reason)
+        return existing
+
+    revoked = RevokedToken(
+        jti=jti,
+        token_type=token_type,
+        user_id=user_id,
+        expires_at=normalized_expires_at,
+        reason=reason,
+        revoked_at=now,
+    )
+    db.add(revoked)
+    db.commit()
+    db.refresh(revoked)
+
+    # Tier 1: Nạp vào Redis cache với TTL tương ứng
+    if ttl > 0:
+        set_redis_revoked(jti=jti, ttl=ttl, reason=reason)
+
+    return revoked
+
+
+def is_token_revoked(db: Session, jti: str) -> bool:
+    """
+    Kiểm tra xem token có nằm trong danh sách đen bị thu hồi hay không.
+    Cơ chế Two-Tier Cache & Graceful Fallback:
+    - Tier 1: Kiểm tra Redis Cache O(1). Nếu hit -> trả về True ngay.
+    - Tier 2: Fallback sang PostgreSQL O(log N) nếu cache miss hoặc Redis lỗi.
+      + Nếu PostgreSQL có bản ghi: Backfill nạp lại vào Redis (nếu Redis online) -> trả về True.
+      + Nếu PostgreSQL không có bản ghi: trả về False.
+    - Chịu lỗi (Fault Tolerance): Không bao giờ quăng ngoại lệ làm crash HTTP 500 khi Redis offline.
+    """
+    if not jti:
+        return False
+
+    # Tier 1: Kiểm tra Redis In-Memory Cache
+    redis_status = is_redis_revoked(jti)
+    if redis_status is True:
+        return True
+
+    # Tier 2: Fallback sang PostgreSQL khi Redis miss (False) hoặc Redis offline (None)
+    revoked_record = db.query(RevokedToken).filter(RevokedToken.jti == jti).first()
+    if revoked_record is not None:
+        # Backfill vào Redis nếu Redis đang kết nối được (redis_status is False)
+        if redis_status is not None:
+            now = datetime.now(timezone.utc)
+            exp = (
+                revoked_record.expires_at.replace(tzinfo=timezone.utc)
+                if revoked_record.expires_at.tzinfo is None
+                else revoked_record.expires_at
+            )
+            ttl = int((exp - now).total_seconds())
+            if ttl > 0:
+                set_redis_revoked(jti=jti, ttl=ttl, reason=revoked_record.reason)
+        return True
+
+    return False
+
+
+def cleanup_expired_revoked_tokens(db: Session) -> int:
+    """Xóa các token trong danh sách đen đã quá hạn tự nhiên để giảm tải dung lượng DB."""
+    now = datetime.now(timezone.utc)
+    deleted_count = db.query(RevokedToken).filter(RevokedToken.expires_at < now).delete()
+    db.commit()
+    return deleted_count
+
 
 
