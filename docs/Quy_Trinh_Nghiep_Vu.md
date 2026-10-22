@@ -35,6 +35,9 @@ Hệ thống **NEUFood** được xây dựng nhằm giải quyết nhu cầu cu
 * **Công thức tổng tiền thanh toán:**
   * Đơn giao tận nơi: $\text{Tổng thanh toán} = \sum (\text{Giá niêm yết} \times \text{Số lượng}) + 5.000\text{ VNĐ (ship)}$
   * Đơn nhận tại quầy: $\text{Tổng thanh toán} = \sum (\text{Giá niêm yết} \times \text{Số lượng})$
+* **Phân bổ doanh thu & Mốc thời gian ghi nhận kế toán:**
+  * Cơ cấu doanh thu: $\text{Tổng doanh thu gộp (Gross)} = \text{Doanh thu gốc Canteen (Net)} + \text{Phụ phí bảo trì hệ thống} + \text{Phí vận chuyển}$.
+  * Mốc thời gian ghi nhận doanh thu: Doanh thu của các đơn hàng đã thu tiền COD (`payment_status == 'da_thanh_toan'`) được ghi nhận thống nhất căn cứ theo **thời điểm bàn giao thực tế (`delivered_at`)** theo chuẩn múi giờ Việt Nam (UTC+7). Quy tắc này bảo đảm số liệu doanh thu Canteen khớp chính xác 100% với số tiền mặt và sao kê QR nhân viên nộp lại theo ca trực trong ngày (BR-25). Các đơn hàng hủy hoặc từ chối (không phát sinh dòng tiền) được thống kê theo thời điểm tạo đơn (`created_at`).
 
 ### 1.4. Phương thức thanh toán và Mô hình vận hành nhân sự
 * **Phương thức thanh toán:** Hệ thống áp dụng duy nhất hình thức **COD (Cash On Delivery - Thanh toán khi nhận hàng)**. Khách hàng thanh toán trực tiếp khi nhận đồ ăn bằng một trong hai cách:
@@ -165,7 +168,11 @@ flowchart TD
     
     DA_GIAO -.->|Khách gửi khiếu nại trong 24h| KHIEU_NAI[Đang khiếu nại]
     DA_BAN_GIAO -.->|Khách gửi khiếu nại trong 24h| KHIEU_NAI
-    KHIEU_NAI -->|Admin phân xử| DA_GIAI_QUYET([Đã giải quyết])
+    KHIEU_NAI -->|Admin yêu cầu bổ sung bằng chứng| YEU_CAU_BO_SUNG[Yêu cầu bổ sung trong 12h]
+    YEU_CAU_BO_SUNG -->|Khách nạp thêm bằng chứng| KHIEU_NAI
+    YEU_CAU_BO_SUNG -->|Quá 12h không nạp / Admin chốt| DA_GIAI_QUYET([Đã giải quyết])
+    KHIEU_NAI -->|Admin chốt Chấp nhận / Từ chối| DA_GIAI_QUYET
+    DA_GIAI_QUYET -.->|Khách vẫn được đánh giá món| DANH_GIA([Đánh giá món ăn])
 ```
 
 ### 3.2. Mô tả chi tiết các trạng thái đơn hàng
@@ -181,7 +188,10 @@ flowchart TD
 10. **`TU_CHOI` (Đã từ chối):** Canteen chủ động từ chối do hết món, hết nguyên liệu hoặc đột xuất quá tải.
 11. **`TU_DONG_HUY` (Tự động hủy do quá hạn):** Sau 10 phút kể từ lúc tạo đơn, nếu Canteen không thao tác tiếp nhận thì hệ thống tự động hủy đơn.
 12. **`BO_DON_BLACKLIST` (Bỏ đơn / Boom hàng):** Khách không đến quầy nhận sau 30 phút lưu giữ hoặc từ chối thanh toán khi giao. Đơn bị đóng, hệ thống tự động đưa tài khoản vào Blacklist COD.
-13. **`KHIEU_NAI` $\rightarrow$ `DA_GIAI_QUYET`:** Khách gửi ticket khiếu nại sau khi nhận món (sai món, thiếu món, chất lượng kém). Admin tiếp nhận xử lý và đóng ticket.
+13. **`KHIEU_NAI` $\rightarrow$ `DA_GIAI_QUYET` (Kèm quy trình phân xử nhiều bước & trạng thái `YEU_CAU_BO_SUNG`):** Khách gửi ticket khiếu nại trong vòng 24h sau khi nhận món. Admin tiếp nhận xử lý theo quy trình phân xử 2 bước:
+    * *Bước 1 (Yêu cầu bổ sung nếu thiếu bằng chứng - EX-15):* Admin yêu cầu khách hàng gửi thêm ảnh chụp/bằng chứng rõ nét trong vòng 12 giờ. Trong thời gian này, ticket chuyển sang trạng thái `YEU_CAU_BO_SUNG`, đơn hàng vẫn duy trì trạng thái `KHIEU_NAI` (chưa khép đơn).
+    * *Bước 2 (Phân xử chung cuộc):* Admin đưa ra quyết định cuối cùng là "Chấp nhận bồi hoàn" hoặc "Từ chối khiếu nại" (hoặc tự động từ chối nếu quá 12h khách không nạp thêm bằng chứng). Đơn hàng chính thức chuyển sang `DA_GIAI_QUYET`.
+    * *Quyền đánh giá sau khiếu nại (UC14, BR-23):* Sau khi đơn hàng chuyển sang `DA_GIAI_QUYET`, khách hàng vẫn có quyền gửi đánh giá sao và bình luận về món ăn đã nhận.
 
 ---
 
@@ -235,7 +245,7 @@ flowchart TD
   3. Từ chối trả tiền hoặc không đủ tiền thanh toán khi nhân viên giao hàng đến.
 * **BR-23 (Quy định gửi khiếu nại):** Khách hàng chỉ được gửi khiếu nại trong vòng **24 giờ** kể từ thời điểm đơn hàng chuyển sang `DA_GIAO` hoặc `DA_BAN_GIAO`. Mỗi đơn hàng chỉ được tạo tối đa 01 khiếu nại kèm hình ảnh/bằng chứng.
 * **BR-24 (Thẩm quyền phân xử khiếu nại):** Toàn bộ khiếu nại được tiếp nhận và xử lý **độc quyền bởi Quản trị viên (Admin)** để đảm bảo tính khách quan giữa khách hàng và Canteen.
-* **BR-25 (Đối soát nộp tiền cuối ca):** Cuối mỗi ca làm việc, nhân viên giao hàng phải đối soát tổng số tiền COD đã thu (gồm tiền mặt và sao kê QR) khớp với Báo cáo doanh thu ca trên hệ thống và nộp đầy đủ lại cho Canteen.
+* **BR-25 (Đối soát nộp tiền cuối ca & Mốc thời gian doanh thu):** Cuối mỗi ca làm việc, nhân viên giao hàng phải đối soát tổng số tiền COD đã thu (gồm tiền mặt và sao kê QR) khớp với Báo cáo doanh thu ca trên hệ thống và nộp đầy đủ lại cho Canteen. Mốc thời gian ghi nhận doanh thu các đơn hàng thành công được tính thống nhất theo **thời điểm bàn giao thực tế (`delivered_at`)** trong ngày (giờ Việt Nam UTC+7); nếu phát sinh chênh lệch tiền mặt/sao kê QR với hệ thống, nhân viên bắt buộc phải có giải trình (`discrepancy_note`) trước khi Quản lý duyệt chốt ca (EX-20).
 
 ---
 
@@ -243,33 +253,33 @@ flowchart TD
 
 Hệ thống được chuẩn hóa toàn bộ các Use Case liên tục từ **UC01** đến **UC25**, tuyệt đối không đứt đoạn và ánh xạ chính xác với các Business Rules (BR) và Ngoại lệ (EX):
 
-| Mã UC | Tên Use Case | Actor thực hiện | Mức ưu tiên | BR áp dụng | Mã Ngoại lệ liên quan |
-| :---: | :--- | :--- | :---: | :--- | :--- |
-| **UC01** | Đăng ký tài khoản khách hàng | Khách vãng lai | Must | BR-01 | EX-01 |
-| **UC02** | Đăng nhập hệ thống | Tất cả Actors | Must | BR-01, BR-02 | EX-02 |
-| **UC03** | Đăng xuất | Tất cả Actors | Must | - | - |
-| **UC04** | Cập nhật hồ sơ cá nhân | Khách hàng, Canteen, Admin | Should | BR-01 | EX-03 |
-| **UC05** | Đổi / Khôi phục mật khẩu | Tất cả Actors | Should | BR-02 | EX-04 |
-| **UC06** | Xem thực đơn & chi tiết món | Tất cả Actors | Must | BR-04, BR-06, BR-12 | EX-05 |
-| **UC07** | Tìm kiếm & lọc món ăn | Tất cả Actors | Must | BR-04 | - |
-| **UC08** | Quản lý giỏ hàng | Khách hàng | Must | BR-06, BR-07 | EX-05, EX-06 |
-| **UC09** | Chọn phương thức nhận & Điểm giao | Khách hàng | Must | BR-09, BR-11, BR-13 | EX-07, EX-08 |
-| **UC10** | Tạo đơn hàng COD | Khách hàng | Must | BR-05, BR-08, BR-12, BR-13, BR-14, BR-22 | EX-09, EX-10, EX-11 |
-| **UC11** | Theo dõi trạng thái đơn hàng | Khách hàng, Canteen, Admin | Must | BR-16, BR-20, BR-21 | - |
-| **UC12** | Khách hủy đơn hàng | Khách hàng | Should | BR-17 | EX-12 |
-| **UC13** | Xác nhận nhận hàng thành công | Khách hàng | Should | BR-18 | EX-13 |
-| **UC14** | Đánh giá món ăn | Khách hàng | Should | BR-23 | - |
-| **UC15** | Gửi ticket khiếu nại | Khách hàng | Should | BR-23 | EX-14, EX-15 |
-| **UC16** | Bật / Tắt trạng thái Còn/Hết món | Nhân viên, Quản lý Canteen | Must | BR-06 | - |
-| **UC17** | Tiếp nhận hoặc từ chối đơn hàng | Nhân viên, Quản lý Canteen | Must | BR-16, BR-17 | EX-16 |
-| **UC18** | Cập nhật tiến độ nấu & Sẵn sàng giao | Nhân viên, Quản lý Canteen | Must | BR-16, BR-17, BR-21 | - |
-| **UC19** | Bàn giao đơn & Thu tiền COD | Nhân viên Canteen | Must | BR-15, BR-18, BR-19, BR-20 | EX-17, EX-18, EX-19 |
-| **UC20** | Chốt ca và nộp tiền COD | Nhân viên Canteen | Must | BR-25 | EX-20 |
-| **UC21** | Quản lý thực đơn (CRUD món, sửa giá) | Quản lý Canteen | Must | BR-04, BR-05, BR-12 | EX-21 |
-| **UC22** | Xem báo cáo doanh thu Canteen | Quản lý Canteen, Admin | Should | BR-03, BR-25 | - |
-| **UC23** | Quản lý tài khoản & Blacklist COD | Admin | Must | BR-01, BR-08, BR-22 | EX-22 |
-| **UC24** | Quản lý danh mục địa điểm nội khu | Admin | Must | BR-09, BR-10 | EX-23 |
-| **UC25** | Tiếp nhận & Xử lý khiếu nại | Admin | Must | BR-23, BR-24 | EX-15 |
+| Mã UC | Tên Use Case | Actor thực hiện | Mức ưu tiên | BR áp dụng | Mã Ngoại lệ liên quan | Mô tả phạm vi nghiệp vụ |
+| :---: | :--- | :--- | :---: | :--- | :--- | :--- |
+| **UC01** | Đăng ký tài khoản khách hàng | Khách vãng lai | Must | BR-01 | EX-01 | Đăng ký bằng Email NEU và SĐT 10 số. |
+| **UC02** | Đăng nhập hệ thống | Tất cả Actors | Must | BR-01, BR-02 | EX-02 | Khóa tạm thời 15p nếu sai liên tiếp 5 lần. |
+| **UC03** | Đăng xuất | Tất cả Actors | Must | - | - | Thu hồi quyền truy cập của phiên làm việc. |
+| **UC04** | Cập nhật hồ sơ cá nhân | Khách hàng, Canteen, Admin | Should | BR-01 | EX-03 | Đổi SĐT, MSSV, ảnh đại diện. |
+| **UC05** | Đổi / Khôi phục mật khẩu | Tất cả Actors | Should | BR-02 | EX-04 | Đổi mật khẩu với mật khẩu cũ hoặc OTP. |
+| **UC06** | Xem thực đơn & chi tiết món | Tất cả Actors | Must | BR-04, BR-06, BR-12 | EX-05 | Giá niêm yết = giá gốc + 5.000đ phụ phí. |
+| **UC07** | Tìm kiếm & lọc món ăn | Tất cả Actors | Must | BR-04 | - | Lọc theo danh mục và từ khóa tên món. |
+| **UC08** | Quản lý giỏ hàng | Khách hàng | Must | BR-06, BR-07 | EX-05, EX-06 | Tối đa 10 phần/món; cảnh báo món hết hàng. |
+| **UC09** | Chọn phương thức nhận & Điểm giao | Khách hàng | Must | BR-09, BR-11, BR-13 | EX-07, EX-08 | Giao tận nơi (5k ship) hoặc nhận tại quầy (0đ). |
+| **UC10** | Tạo đơn hàng COD | Khách hàng | Must | BR-05, BR-08, BR-12, BR-13, BR-14, BR-22 | EX-09, EX-10, EX-11 | Hạn mức trần 500k COD; tối đa 1 đơn hoạt động. |
+| **UC11** | Theo dõi trạng thái đơn hàng | Khách hàng, Canteen, Admin | Must | BR-16, BR-20, BR-21 | - | Bảo mật IDOR: khách chỉ xem được đơn của mình. |
+| **UC12** | Khách hủy đơn hàng | Khách hàng | Should | BR-17 | EX-12 | Chỉ hủy khi đơn đang ở CHO_XAC_NHAN. |
+| **UC13** | Xác nhận nhận hàng thành công | Khách hàng | Should | BR-18 | EX-13 | Chuyển HOAN_THANH sau khi đã thu tiền COD. |
+| **UC14** | Đánh giá món ăn | Khách hàng | Should | BR-23 | - | Áp dụng cho đơn đã nhận (DA_GIAO, DA_BAN_GIAO, HOAN_THANH) và cả đơn sau giải quyết khiếu nại (DA_GIAI_QUYET). |
+| **UC15** | Gửi ticket khiếu nại | Khách hàng | Should | BR-23 | EX-14, EX-15 | Tạo ticket trong 24h kể từ khi nhận đơn. |
+| **UC16** | Bật / Tắt trạng thái Còn/Hết món | Nhân viên, Quản lý Canteen | Must | BR-06 | - | Nhân viên và Quản lý chuyển đổi tình trạng món. |
+| **UC17** | Tiếp nhận hoặc từ chối đơn hàng | Nhân viên, Quản lý Canteen | Must | BR-16, BR-17 | EX-16 | Tiếp nhận trong 10p; từ chối bắt buộc có lý do. |
+| **UC18** | Cập nhật tiến độ nấu & Sẵn sàng giao | Nhân viên, Quản lý Canteen | Must | BR-16, BR-17, BR-21 | - | Chuyển DANG_GIAO (delivery) hoặc SAN_SANG_LAY (pickup). |
+| **UC19** | Bàn giao đơn & Thu tiền COD | Nhân viên Canteen | Must | BR-15, BR-18, BR-19, BR-20 | EX-17, EX-18, EX-19 | Đối chiếu 4 số cuối; xử lý giao thất bại / boom hàng. |
+| **UC20** | Chốt ca và nộp tiền COD | Nhân viên Canteen | Must | BR-25 | EX-20 | Đối chiếu tiền thu với ca trực tính theo delivered_at. |
+| **UC21** | Quản lý thực đơn (CRUD món, sửa giá) | Quản lý Canteen | Must | BR-04, BR-05, BR-12 | EX-21 | Độc quyền Quản lý Canteen (Admin không có quyền). |
+| **UC22** | Xem báo cáo doanh thu Canteen | Quản lý Canteen, Admin | Should | BR-03, BR-25 | - | Tự động quét SLA; doanh thu đơn thanh toán tính theo delivered_at. |
+| **UC23** | Quản lý tài khoản & Blacklist COD | Admin | Must | BR-01, BR-08, BR-22 | EX-22 | Quản trị tài khoản, khóa tài khoản, gỡ Blacklist. |
+| **UC24** | Quản lý danh mục địa điểm nội khu | Admin | Must | BR-09, BR-10 | EX-23 | Quản lý danh mục tòa nhà, phòng học trong NEU. |
+| **UC25** | Tiếp nhận & Xử lý khiếu nại | Admin | Must | BR-23, BR-24 | EX-15 | Độc quyền Admin phân xử 2 bước: YEU_CAU_BO_SUNG (12h) và Chốt giải quyết. |
 
 ---
 
