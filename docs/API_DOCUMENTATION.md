@@ -5,7 +5,12 @@ Tài liệu đặc tả chi tiết toàn bộ các giao diện lập trình ứn
 - **Phiên bản API**: `v1`
 - **Tiền tố gốc (Base URL)**: `http://localhost:5000/api/v1`
 - **Định dạng dữ liệu**: `application/json`
-- **Cơ chế xác thực**: Cặp JSON Web Token (JWT) gồm **Access Token** (thời hạn 15 phút - 900 giây, gửi qua Header: `Authorization: Bearer <access_token>`) và **Refresh Token** (thời hạn 7 ngày, gửi qua body để cấp mới Access Token). Cơ chế thu hồi token (Token Blacklist / Revocation) lưu các token bị vô hiệu hóa trong cơ sở dữ liệu (`revoked_tokens`).
+- **Cơ chế xác thực**: Cặp JSON Web Token (JWT) gồm **Access Token** (thời hạn 15 phút - 900 giây, gửi qua Header: `Authorization: Bearer <access_token>`) và **Refresh Token** (thời hạn 7 ngày, gửi qua body để cấp mới Access Token).
+- **Kiến trúc Two-Tier Hybrid Token Blacklist & Revocation**:
+  - **Tầng 1 (Redis 7 In-Memory Cache)**: Lưu vết `revoked_token:{jti}` với cơ chế TTL tự hủy bằng thời gian sống còn lại của token (`access`: tối đa 15 phút, `refresh`: tối đa 7 ngày). Tốc độ kiểm tra siêu tốc $O(1)$ (~ 3ms), giảm tải tối đa cho cơ sở dữ liệu.
+  - **Tầng 2 (PostgreSQL Persistence)**: Bảng `revoked_tokens` lưu trữ bền vững, đảm bảo toàn vẹn dữ liệu thu hồi kể cả khi Redis khởi động lại.
+  - **Cơ chế Cache-Aside with Backfill**: Khi Cache Miss, hệ thống tự động truy vấn PostgreSQL và nạp bù ngược lại Redis kèm TTL tương ứng.
+  - **Cơ chế Graceful Fallback**: Nếu Redis gặp sự cố hoặc offline, hệ thống tự động fallback sang PostgreSQL mà không bao giờ gây lỗi HTTP 500 cho API (Fault-tolerant & Graceful Degradation).
 - **4 Vai trò (Roles) trong JWT Payload**: `customer`, `staff`, `manager`, `admin`
 
 ---
@@ -228,7 +233,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
   - **Giải mã & Kiểm tra chữ ký/thời hạn Token**: Giải mã token qua `decode_token()`; nếu chữ ký sai hoặc token đã hết hạn $\rightarrow$ Trả về `401 Unauthorized` (`"Token làm mới không hợp lệ hoặc đã hết hạn"`).
   - **Kiểm tra loại Token (Token Type)**: Claim `type` bắt buộc phải là `"refresh"`. Nếu client gửi nhầm Access Token $\rightarrow$ Trả về `401 Unauthorized` (`"Loại token không hợp lệ (yêu cầu refresh token)"`).
   - **Kiểm tra định danh người dùng**: Trích xuất `user_id` từ claim `sub`. Nếu không phải số hợp lệ $\rightarrow$ Trả về `401 Unauthorized` (`"Phiên đăng nhập không hợp lệ hoặc đã hết hạn"`).
-  - **Kiểm tra Danh sách đen (Revoked Token Blacklist)**: Trích xuất `jti` từ token; nếu token đã nằm trong bảng `revoked_tokens` (do đăng xuất trước đó) $\rightarrow$ Trả về `401 Unauthorized` (`"Phiên đăng nhập đã bị thu hồi hoặc đăng xuất"`).
+  - **Kiểm tra Danh sách đen (Two-Tier Revoked Token Blacklist)**: Trích xuất `jti` từ token; kiểm tra qua cơ chế Two-Tier Blacklist (Redis Cache $O(1)$ và PostgreSQL kèm Cache-Aside Backfill); nếu token đã bị thu hồi (do đăng xuất trước đó) $\rightarrow$ Trả về `401 Unauthorized` (`"Phiên đăng nhập đã bị thu hồi hoặc đăng xuất"`).
   - **Kiểm tra trạng thái người dùng trong DB**:
     - Nếu không tìm thấy người dùng trong CSDL $\rightarrow$ Trả về `404 Not Found` (`"Không tìm thấy người dùng"`).
     - Nếu tài khoản người dùng có `is_active == false` (bị quản trị viên khóa) $\rightarrow$ Trả về `403 Forbidden` (`"Tài khoản này đã bị khóa"`).
@@ -327,7 +332,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 - **Headers**: `Authorization: Bearer <access_token>`
 - **Quy tắc nghiệp vụ**:
   - Trích xuất định danh người dùng từ claim `sub` trong JWT.
-  - Kiểm tra token chưa bị thu hồi trong bảng `revoked_tokens` (`is_token_revoked`).
+  - Kiểm tra token chưa bị thu hồi qua Two-Tier Blacklist (Redis Cache $O(1)$ / PostgreSQL) (`is_token_revoked`).
   - Kiểm tra người dùng tồn tại và tài khoản đang kích hoạt (`is_active == true`).
 - **Response (`200 OK`)**:
 ```json
@@ -368,11 +373,13 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 *(Có thể gửi body rỗng `{}` hoặc không truyền body)*
 - **Ràng buộc dữ liệu (`schemas/auth.py`)**:
   - `refresh_token`: Không bắt buộc (Optional), chuỗi JWT Refresh Token cần thu hồi đồng thời.
-- **Quy tắc xử lý & Cơ chế thu hồi Token (Token Revocation / Blacklist)**:
+- **Quy tắc xử lý & Cơ chế thu hồi Token (Two-Tier Dual-Write Blacklist)**:
   - Trích xuất định danh token `jti` (JWT ID) và thời hạn `exp` của Access Token hiện tại từ `g.current_user`.
-  - Tự động lưu bản ghi Access Token vào bảng danh sách đen `revoked_tokens` với `token_type = "access"`, `reason = "logout"`.
-  - Nếu client truyền kèm `refresh_token` trong body: Giải mã token, trích xuất `jti` và `exp`, đồng thời lưu bản ghi thu hồi vào bảng `revoked_tokens` với `token_type = "refresh"`, `reason = "logout"`.
-  - Sau khi đăng xuất thành công, mọi request sử dụng lại Access Token hoặc Refresh Token đã bị thu hồi đều bị chặn và trả về lỗi `401 Unauthorized` (`"Phiên đăng nhập đã bị thu hồi hoặc đăng xuất"`).
+  - **Hành vi Dual-Write đồng thời vào PostgreSQL & Redis**:
+    - **Thu hồi Access Token**: Ghi nhận bản ghi vào bảng `revoked_tokens` trong PostgreSQL (`token_type = "access"`, `reason = "logout"`) và nạp đồng thời vào Redis key `revoked_token:{jti}` với TTL bằng thời gian sống còn lại của token (tối đa 15 phút - 900 giây).
+    - **Thu hồi Refresh Token (nếu cung cấp)**: Nếu client truyền kèm `refresh_token` trong body, hệ thống giải mã, trích xuất `jti` và `exp`, sau đó Dual-Write đồng thời vào bảng `revoked_tokens` trong PostgreSQL (`token_type = "refresh"`, `reason = "logout"`) và nạp vào Redis key `revoked_token:{jti}` với TTL tương ứng (thời gian sống còn lại của refresh token, tối đa 7 ngày).
+  - **Cơ chế Graceful Fallback**: Nếu Redis gặp sự cố hoặc ngoại tuyến, token vẫn được thu hồi an toàn tuyệt đối trong PostgreSQL (Graceful Degradation) mà không gây lỗi gián đoạn HTTP 500 cho API.
+  - Sau khi đăng xuất thành công, mọi request sử dụng lại Access Token hoặc Refresh Token đã bị thu hồi đều bị chặn tức thì qua Redis $O(1)$ và trả về lỗi `401 Unauthorized` (`"Phiên đăng nhập đã bị thu hồi hoặc đăng xuất"`).
   - Phía Client khi nhận phản hồi `200` sẽ xóa toàn bộ cặp Token khỏi `localStorage` / Session Storage.
 - **Response (`200 OK`)**:
 ```json
@@ -411,7 +418,11 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
   - Kiểm tra `old_password` có khớp với hash mật khẩu hiện tại trong DB hay không. Nếu sai $\rightarrow$ Trả về `400 Bad Request` (`"Mật khẩu hiện tại không chính xác"`).
   - Kiểm tra `new_password` không được trùng với mật khẩu hiện tại (`old_password` hoặc hash DB). Nếu trùng $\rightarrow$ Trả về `400 Bad Request` (`"Mật khẩu mới không được trùng với mật khẩu hiện tại"`).
   - Mật khẩu mới được băm bảo mật bằng thuật toán Bcrypt thông qua hàm `update_user_password(db, user, new_password)`.
-  - **Tự động thu hồi Access Token (Token Revocation / EX-04)**: Ngay sau khi đổi mật khẩu thành công, Access Token hiện tại được tự động ghi vào bảng `revoked_tokens` với `reason = "change_password"`. Mọi request kế tiếp sử dụng token cũ này sẽ nhận lỗi `401 Unauthorized` (`"Phiên đăng nhập đã bị thu hồi hoặc đăng xuất"`), buộc người dùng phải đăng nhập lại bằng mật khẩu mới hoặc sử dụng Refresh Token để lấy token mới.
+  - **Tự động thu hồi Access Token (Two-Tier Dual-Write / EX-04)**: Ngay sau khi đổi mật khẩu thành công, Access Token hiện tại được tự động thu hồi bằng cơ chế Dual-Write:
+    - Ghi nhận bản ghi vào bảng `revoked_tokens` trong PostgreSQL (`token_type = "access"`, `reason = "change_password"`).
+    - Nạp đồng thời vào Redis key `revoked_token:{jti}` với TTL bằng thời gian sống còn lại của Access Token (tối đa 15 phút - 900 giây).
+    - Nếu Redis ngoại tuyến, token vẫn được thu hồi an toàn và bền vững trong PostgreSQL (Graceful Fallback).
+    - Mọi request kế tiếp sử dụng token cũ này sẽ bị chặn tức thì qua Redis $O(1)$ và nhận lỗi `401 Unauthorized` (`"Phiên đăng nhập đã bị thu hồi hoặc đăng xuất"`), buộc người dùng phải đăng nhập lại bằng mật khẩu mới hoặc sử dụng Refresh Token để lấy token mới.
 - **Response (`200 OK`)**:
 ```json
 {

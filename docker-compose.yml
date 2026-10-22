@@ -21,6 +21,20 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: neufood_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -35,6 +49,7 @@ services:
       FLASK_DEBUG: 1
       PORT: 5000
       DATABASE_URL: postgresql://${DB_USER:-neufood_user}:${DB_PASSWORD:-neufood_password}@database:5432/${DB_NAME:-neufood_db}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       SECRET_KEY: ${SECRET_KEY:-neufood_jwt_secret_key_change_in_production}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
     volumes:
@@ -42,6 +57,8 @@ services:
       - backend_uploads:/app/app/uploads
     depends_on:
       database:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   frontend:
@@ -64,4 +81,6 @@ volumes:
   pgdata:
     driver: local
   backend_uploads:
+    driver: local
+  redis_data:
     driver: local

@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "postgresql://neufood_user:neufood_password@localhost:5432/neufood_db"
 
+    # Redis Cache & Token Blacklist (Tier 1)
+    REDIS_URL: str = "redis://localhost:6379/0"
+
     # CORS
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 
