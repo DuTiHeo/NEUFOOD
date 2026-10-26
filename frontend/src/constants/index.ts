@@ -6,7 +6,10 @@ export const APP_CONFIG = {
 };
 
 export const USER_ROLES = {
-  USER: 'user',
+  USER: 'customer',
+  CUSTOMER: 'customer',
+  STAFF: 'staff',
+  MANAGER: 'manager',
   ADMIN: 'admin',
 } as const;
 

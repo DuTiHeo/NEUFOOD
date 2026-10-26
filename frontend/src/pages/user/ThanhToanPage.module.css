@@ -2,7 +2,7 @@
     background-color: var(--color-page);
     padding-left: 1rem;
     padding-right: 1rem;
-    padding-bottom: 4rem;
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
     padding-top: 8rem;
     font-family: var(--font-body);
     color: var(--color-ink);

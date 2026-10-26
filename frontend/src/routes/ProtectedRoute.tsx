@@ -5,7 +5,7 @@ import { useAdminAuth } from '../contexts/AdminAuthContext'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
-  requiredRole?: 'user' | 'admin'
+  requiredRole?: 'user' | 'customer' | 'admin'
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
@@ -22,6 +22,16 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         <div className="w-8 h-8 border-4 border-[#003f87] border-t-transparent rounded-full animate-spin" />
       </div>
     )
+  }
+
+  if (requiredRole === 'customer') {
+    if (!isAuthenticated) {
+      return <Navigate to="/dang-nhap" replace state={{ from: location }} />
+    }
+    if (user?.role !== 'customer') {
+      return <Navigate to="/quan-ly" replace />
+    }
+    return <>{children}</>
   }
 
   if (requiredRole === 'admin') {

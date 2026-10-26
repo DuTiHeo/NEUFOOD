@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { authService } from '../../services/authService';
 
@@ -15,6 +15,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -25,9 +26,19 @@ export default function RegisterPage() {
     setError('');
     setLoading(true);
     try {
-      const data = await authService.register(formData);
+      const data = await authService.register({
+        ...formData,
+        full_name: formData.full_name.trim(),
+        email: formData.email.trim(),
+        phone_number: formData.phone_number.trim(),
+        student_id: formData.student_id.trim() || undefined,
+      });
       login(data.access_token, data.user, data.refresh_token);
-      navigate('/');
+      const from = location.state?.from;
+      const returnTo = from?.pathname
+        ? `${from.pathname}${from.search || ''}${from.hash || ''}`
+        : '/';
+      navigate(returnTo, { replace: true });
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Đăng ký thất bại, vui lòng kiểm tra lại thông tin');
     } finally {
@@ -36,7 +47,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4 bg-[#f7f7fb]">
+    <main className="min-h-screen flex items-center justify-center px-4 pt-28 pb-12 bg-[#f7f7fb]">
       <section className="w-full max-w-[480px] p-8 rounded-2xl bg-white shadow-xl flex flex-col gap-6">
         <div className="flex flex-col items-center text-center gap-2">
           <Link to="/" className="flex items-center gap-2 mb-2">
@@ -55,10 +66,12 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-gray-700">HỌ VÀ TÊN</label>
+            <label htmlFor="register-name" className="text-xs font-semibold text-gray-700">HỌ VÀ TÊN</label>
             <input
+              id="register-name"
               name="full_name"
               type="text"
+              autoComplete="name"
               value={formData.full_name}
               onChange={handleChange}
               placeholder="Nguyễn Văn A"
@@ -68,10 +81,12 @@ export default function RegisterPage() {
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-gray-700">ĐỊA CHỈ EMAIL</label>
+            <label htmlFor="register-email" className="text-xs font-semibold text-gray-700">ĐỊA CHỈ EMAIL</label>
             <input
+              id="register-email"
               name="email"
               type="email"
+              autoComplete="email"
               value={formData.email}
               onChange={handleChange}
               placeholder="sinhvien@neu.edu.vn"
@@ -82,21 +97,30 @@ export default function RegisterPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-gray-700">SỐ ĐIỆN THOẠI</label>
+              <label htmlFor="register-phone" className="text-xs font-semibold text-gray-700">SỐ ĐIỆN THOẠI</label>
               <input
+                id="register-phone"
                 name="phone_number"
                 type="tel"
+                autoComplete="tel"
+                inputMode="numeric"
                 value={formData.phone_number}
                 onChange={handleChange}
                 placeholder="0912345678"
+                pattern="0[0-9]{9}"
+                title="Nhập số điện thoại gồm 10 chữ số, bắt đầu bằng 0."
+                maxLength={10}
+                required
                 className="w-full px-3.5 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#003f87]/20 focus:border-[#003f87]"
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-gray-700">MÃ SINH VIÊN (MSV)</label>
+              <label htmlFor="register-student-id" className="text-xs font-semibold text-gray-700">MÃ SINH VIÊN (MSV)</label>
               <input
+                id="register-student-id"
                 name="student_id"
                 type="text"
+                autoComplete="off"
                 value={formData.student_id}
                 onChange={handleChange}
                 placeholder="11210001"
@@ -106,10 +130,12 @@ export default function RegisterPage() {
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-gray-700">MẬT KHẨU</label>
+            <label htmlFor="register-password" className="text-xs font-semibold text-gray-700">MẬT KHẨU</label>
             <input
+              id="register-password"
               name="password"
               type="password"
+              autoComplete="new-password"
               value={formData.password}
               onChange={handleChange}
               placeholder="Tối thiểu 6 ký tự"

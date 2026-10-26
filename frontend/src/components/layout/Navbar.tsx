@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   Home,
   UtensilsCrossed,
@@ -14,6 +14,7 @@ import {
   Gamepad2,
 } from 'lucide-react'
 import { useAdminAuth } from '../../contexts/AdminAuthContext'
+import { useAuth } from '../../contexts/AuthContext'
 import { useCart } from '../../contexts/CartContext'
 import { useMenuSearch } from '../../contexts/MenuSearchContext'
 import styles from './Navbar.module.css'
@@ -23,32 +24,14 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
 
 export default function Navbar() {
   const { isAdmin } = useAdminAuth()
+  const { user, isAuthenticated, logout } = useAuth()
   const { totalCount } = useCart()
   const { menuSearch, setMenuSearch } = useMenuSearch()
+  const { pathname } = useLocation()
   const cartCount = totalCount
   const [showAccountMenu, setShowAccountMenu] = useState(false)
   const accountMenuRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
-  const [userSession, setUserSession] = useState<any>(null)
-
-  const SESSION_KEY = 'neufood_session_v1'
-
-  const readSession = () => {
-    try {
-      const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY)
-      return raw ? JSON.parse(raw) : null
-    } catch {
-      return null
-    }
-  }
-
-  const clearSession = () => {
-    try {
-      localStorage.removeItem(SESSION_KEY)
-      sessionStorage.removeItem(SESSION_KEY)
-    } catch { }
-  }
-
   const toggleAccountMenu = () => {
     setShowAccountMenu(!showAccountMenu)
   }
@@ -66,23 +49,16 @@ export default function Navbar() {
     }
   }, [])
 
-  useEffect(() => {
-    setUserSession(readSession())
-    const onStorage = () => setUserSession(readSession())
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
-  }, [])
-
-  const handleLogout = () => {
-    clearSession()
-    setUserSession(null)
+  const handleLogout = async () => {
+    if (isAuthenticated) await logout()
     setShowAccountMenu(false)
     navigate('/')
   }
 
+  const hasSession = isAuthenticated
   const displayName =
-    (userSession && typeof userSession === 'object' && String(userSession.name || '').trim()) ||
-    (userSession && typeof userSession === 'object' && String(userSession.email || '').trim()) ||
+    String(user?.full_name || '').trim() ||
+    String(user?.email || '').trim() ||
     ''
 
   return (
@@ -98,7 +74,7 @@ export default function Navbar() {
             <span>NEUFood</span>
           </Link>
           <nav className={styles.topnavMenu}>
-            <NavLink className={linkClass} end to="/">
+            <NavLink className={({ isActive }) => linkClass({ isActive: isActive || pathname === '/khach-hang' })} end to="/">
               <Home className={styles.topnavIcon} strokeWidth={2} aria-hidden />
               Trang chủ
             </NavLink>
@@ -144,6 +120,8 @@ export default function Navbar() {
                 type="button"
                 className={`${styles.topnavRound} ${styles.accountTrigger}`}
                 onClick={toggleAccountMenu}
+                aria-expanded={showAccountMenu}
+                aria-haspopup="menu"
                 aria-label={displayName ? `Tài khoản: ${displayName}` : 'Tài khoản'}
               >
                 <User strokeWidth={2} />
@@ -151,7 +129,7 @@ export default function Navbar() {
               </button>
               {showAccountMenu && (
                 <div className={styles.accountDropdown}>
-                  {userSession ? (
+                  {hasSession ? (
                     <>
                       <Link
                         to="/tai-khoan"

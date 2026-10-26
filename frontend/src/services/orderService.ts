@@ -1,9 +1,9 @@
 import api from './api';
-import { Order } from '../types/order';
+import { CreateOrderPayload, Order, OrderIssuePayload, OrderListParams, OrderProcessPayload, OrderStatus } from '../types/order';
 import { ApiResponse } from '../types/auth';
 
 export const orderService = {
-  async createOrder(payload: any): Promise<Order> {
+  async createOrder(payload: CreateOrderPayload): Promise<Order> {
     const res = await api.post<ApiResponse<Order>>('/orders', payload);
     return res.data.data;
   },
@@ -18,13 +18,43 @@ export const orderService = {
     return res.data.data;
   },
 
-  async getAllOrdersAdmin(params?: any): Promise<{ items: Order[]; total: number }> {
+  async getAllOrdersAdmin(params?: OrderListParams): Promise<{ items: Order[]; total: number }> {
     const res = await api.get<ApiResponse<{ items: Order[]; total: number }>>('/orders/admin/all', { params });
     return res.data.data;
   },
 
-  async updateOrderStatus(orderId: string, status: string): Promise<Order> {
-    const res = await api.patch<ApiResponse<Order>>(`/orders/${orderId}/status`, { status });
+  async cancelOrder(orderId: string): Promise<Order> {
+    const res = await api.post<ApiResponse<Order>>(`/orders/${orderId}/cancel`);
+    return res.data.data;
+  },
+
+  async confirmReceipt(orderId: string): Promise<Order> {
+    const res = await api.post<ApiResponse<Order>>(`/orders/${orderId}/confirm-receipt`);
+    return res.data.data;
+  },
+
+  async processOrder(orderId: string, payload: OrderProcessPayload): Promise<Order> {
+    const res = await api.patch<ApiResponse<Order>>(`/orders/${orderId}/process`, payload);
+    return res.data.data;
+  },
+
+  async updateOrderStatus(orderId: string, status: OrderStatus, cancelledReason?: string): Promise<Order> {
+    const res = await api.patch<ApiResponse<Order>>(`/orders/${orderId}/status`, {
+      status,
+      ...(cancelledReason ? { cancelled_reason: cancelledReason } : {}),
+    });
+    return res.data.data;
+  },
+
+  async handoverOrder(orderId: string, orderCodeSuffix: string): Promise<Order> {
+    const res = await api.post<ApiResponse<Order>>(`/orders/${orderId}/handover`, {
+      order_code_suffix: orderCodeSuffix,
+    });
+    return res.data.data;
+  },
+
+  async reportDeliveryIssue(orderId: string, payload: OrderIssuePayload): Promise<Order> {
+    const res = await api.post<ApiResponse<Order>>(`/orders/${orderId}/delivery-issue`, payload);
     return res.data.data;
   },
 };

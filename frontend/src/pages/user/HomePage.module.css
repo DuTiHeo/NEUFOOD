@@ -1,168 +1,388 @@
 .pageHome {
     background-color: var(--color-page);
     padding-bottom: 6rem;
-    padding-top: 8rem;
+    padding-top: 4.5rem;
+    min-height: 100vh;
 }
 
 @media (min-width: 768px) {
     .pageHome {
-        padding-bottom: 3rem;
+        padding-bottom: 3.5rem;
+        padding-top: 5rem;
     }
 }
 
-.pageHome::selection {
-    background-color: var(--color-brand-2);
-    color: var(--color-brand-soft);
-}
-
-.sectionMb12 {
-    margin-bottom: 3rem;
+/* ───── HERO SECTION ───── */
+.heroSection {
+    width: 100%;
+    max-width: 80rem;
+    margin: 0 auto 2.5rem;
+    padding: 0 1.5rem;
 }
 
 .hero {
     position: relative;
-    height: clamp(360px, 80vh, 360px);
-    max-height: 550px;
+    min-height: 420px;
+    border-radius: 1.5rem;
     overflow: hidden;
-    border-radius: 1.25rem;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 10px 30px -10px rgb(0 63 135 / 0.15);
+}
+
+@media (min-width: 768px) {
+    .hero {
+        min-height: 480px;
+    }
 }
 
 .heroBg {
     position: absolute;
     inset: 0;
-    height: 100%;
     width: 100%;
+    height: 100%;
     object-fit: cover;
     object-position: center;
-    transition: transform 0.7s ease;
+    transform: scale(1.02);
+    transition: transform 0.8s ease;
 }
 
-.heroBox {
+.hero:hover .heroBg {
+    transform: scale(1.05);
+}
+
+.heroOverlay {
     position: absolute;
     inset: 0;
+    background: linear-gradient(
+        105deg,
+        rgba(0, 39, 84, 0.92) 0%,
+        rgba(0, 63, 135, 0.82) 45%,
+        rgba(0, 63, 135, 0.45) 80%,
+        rgba(0, 63, 135, 0.2) 100%
+    );
+}
+
+.heroContent {
+    position: relative;
+    z-index: 2;
+    padding: 2.5rem 1.5rem;
+    max-width: 38rem;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    background: linear-gradient(to right, rgb(0 63 135 / 0.8), rgb(0 63 135 / 0.4), transparent);
-    padding-left: clamp(1rem, 4vw, 2.5rem);
-    padding-right: clamp(1rem, 4vw, 2.5rem);
+    align-items: flex-start;
+}
+
+@media (min-width: 768px) {
+    .heroContent {
+        padding: 3.5rem 3rem;
+    }
+}
+
+.heroBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.875rem;
+    border-radius: 9999px;
+    background-color: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin-bottom: 1.25rem;
 }
 
 .heroTitle {
-    margin-bottom: 0.75rem;
-    max-width: 32rem;
     font-family: var(--font-headline);
-    font-size: clamp(1.5rem, 4.5vw, 2.25rem);
-    line-height: 1.15;
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
+    line-height: 1.2;
     font-weight: 800;
-    letter-spacing: -0.025em;
-    color: var(--color-on-brand);
+    color: #ffffff;
+    letter-spacing: -0.03em;
+    margin: 0 0 1rem;
 }
 
-.heroButton {
-    margin-top: 1.5rem;
+.heroAccent {
+    color: #FDBA74; /* Soft warm orange for high contrast on navy */
+    display: inline;
 }
 
 .heroLead {
-    margin-bottom: 1rem;
-    max-width: 28rem;
-    font-size: clamp(0.875rem, 2vw, 1.125rem);
-    line-height: 1.5;
-    font-weight: 500;
-    color: rgb(255 255 255 / 0.9);
-    white-space: nowrap;
-    overflow: visible;
+    font-size: clamp(0.9375rem, 1.5vw, 1.125rem);
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.9);
+    margin: 0 0 1.75rem;
+    max-width: 32rem;
 }
 
-
-/* 1. KHUNG TỔNG THỂ: Giữ nguyên cấu trúc grid nhưng đảm bảo nền đồng bộ */
-
-.promoBanner {
-    display: grid;
-    width: 100%;
-    max-width: 100%;
-    overflow: hidden;
-    border-radius: 0.75rem;
-    box-shadow: 0 4px 14px -2px rgb(0 0 0 / 0.1);
-    grid-template-columns: 1fr;
-    background-color: #F7F3E9;
-    /* Đặt nền chung là màu kem */
+.heroCtas {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.875rem;
 }
 
-@media (min-width: 640px) {
-    .promoBanner {
-        grid-template-columns: 1fr 1fr;
-        /* Chia đôi cột khi màn hình rộng */
-        min-height: 300px;
-        /* Tăng chiều cao một chút để chứa chữ to */
+/* ───── SECTION SHARED ───── */
+.section {
+    margin-bottom: 3rem;
+}
+
+.categorySection {
+    margin-bottom: 1.75rem;
+}
+
+.sectionHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+}
+
+.sectionTitle {
+    font-family: var(--font-headline);
+    font-size: 1.375rem;
+    line-height: 1.75rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--color-ink);
+    margin: 0;
+}
+
+@media (min-width: 768px) {
+    .sectionTitle {
+        font-size: 1.625rem;
+        line-height: 2rem;
     }
 }
 
+.sectionLink {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-brand);
+    text-decoration: none;
+    transition: color 0.15s ease, transform 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
 
-/* 2. CỘT CHỨA CHỮ: Chỉnh màu nền và canh giữa */
+.sectionLink:hover {
+    color: var(--color-accent);
+    transform: translateX(2px);
+}
 
-.promoTextCol {
+/* ───── CATEGORY ROW ───── */
+.catRow {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    overflow-x: auto;
+    padding: 0.25rem 0 0.5rem;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.catRow::-webkit-scrollbar {
+    display: none;
+}
+
+.catChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.125rem;
+    border-radius: 9999px;
+    background-color: var(--color-panel);
+    border: 1px solid var(--color-edge);
+    text-decoration: none;
+    color: var(--color-ink);
+    font-weight: 600;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.03);
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    flex-shrink: 0;
+}
+
+.catChip:hover {
+    background-color: var(--color-brand-soft);
+    border-color: #BFDBFE;
+    color: var(--color-brand);
+    box-shadow: 0 4px 8px -2px rgb(0 63 135 / 0.08);
+}
+
+.catIcon {
+    font-size: 1.125rem;
+    line-height: 1;
+}
+
+.catLabel {
+    line-height: 1;
+}
+
+/* ───── FOOD GRID ───── */
+.foodGrid {
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    gap: 1.25rem;
+}
+
+@media (min-width: 480px) {
+    .foodGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 768px) {
+    .foodGrid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    .foodGrid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* ───── PROMO BANNER ───── */
+.promoBanner {
+    display: grid;
+    grid-template-columns: 1fr;
+    border-radius: 1.5rem;
+    overflow: hidden;
+    background: linear-gradient(135deg, #002754 0%, #003F87 60%, #0056B3 100%);
+    box-shadow: 0 12px 28px -6px rgb(0 63 135 / 0.2);
+    align-items: center;
+}
+
+@media (min-width: 768px) {
+    .promoBanner {
+        grid-template-columns: 1.3fr 0.9fr;
+    }
+}
+
+.promoContent {
+    padding: 2.25rem 1.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+@media (min-width: 768px) {
+    .promoContent {
+        padding: 3rem 2.5rem;
+    }
+}
+
+.promoTag {
+    display: inline-block;
+    padding: 0.3125rem 0.75rem;
+    border-radius: 9999px;
+    background-color: var(--color-accent);
+    color: var(--color-on-accent);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.875rem;
+}
+
+.promoTitle {
+    font-family: var(--font-headline);
+    font-size: clamp(1.375rem, 3vw, 1.875rem);
+    line-height: 1.25;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.75rem;
+}
+
+.promoDesc {
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.85);
+    margin: 0 0 1.5rem;
+    max-width: 28rem;
+}
+
+.promoVisual {
     display: flex;
     align-items: center;
     justify-content: center;
-    order: 1;
-    background-color: #F7F3E9;
-    /* Màu kem tiệp với ảnh Sơn Tùng */
-    padding: 2rem 1rem;
-    /* Tăng padding để chữ to có không gian */
-    text-align: center;
+    padding: 1.5rem;
+}
+
+.promoImg {
+    max-height: 220px;
+    width: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 15px 25px rgba(0, 0, 0, 0.3));
+    transition: transform 0.4s ease;
+}
+
+.promoBanner:hover .promoImg {
+    transform: scale(1.05) rotate(2deg);
+}
+
+/* ───── WHY NEUFOOD (FEATURE GRID) ───── */
+.featureGrid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
 }
 
 @media (min-width: 640px) {
-    .promoTextCol {
-        order: 0;
-        border-radius: 0.75rem 0 0 0.75rem;
+    .featureGrid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.25rem;
     }
 }
 
-
-/* 3. TIÊU ĐỀ: Phần thay đổi quan trọng nhất để chữ to và mỗi chữ 1 dòng */
-
-.promoHeadline {
-    margin: 0;
-    font-family: var(--font-headline);
-    /* 1. GIỮ CỠ CHỮ TO */
-    font-size: clamp(2rem, 5vw, 3.5rem);
-    font-weight: 900;
-    /* 2. DÃN KHOẢNG CÁCH DÒNG (Line-height) */
-    /* Tăng từ 1.1 lên 1.25 để các chữ không bị dính vào nhau quá mức */
-    line-height: 1.25;
-    /* 3. DÃN KHOẢNG CÁCH CHỮ (Letter-spacing) */
-    /* Thêm một chút khoảng cách giữa các chữ cái để trông thanh thoát hơn */
-    letter-spacing: 0.05em;
-    color: #003F87;
-    text-transform: uppercase;
-    display: block;
-    max-width: min-content;
-    margin: 0 auto;
-}
-
-
-/* 4. CỘT CHỨA ẢNH: Xóa màu nền xanh cũ để tránh bị lộ viền */
-
-.promoImageCol {
+.featureCard {
+    background-color: var(--color-panel);
+    border: 1px solid var(--color-edge);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     display: flex;
-    order: 2;
-    background-color: transparent;
-    /* Để lộ nền kem bên dưới */
+    flex-direction: column;
 }
 
-@media (min-width: 640px) {
-    .promoImageCol {
-        order: 1;
-    }
+.featureCard:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 20px -6px rgb(0 63 135 / 0.08);
+    border-color: #BFDBFE;
 }
 
-.promoImage {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    /* [Suy luận] Nếu ảnh Sơn Tùng bị lệch, bạn có thể chỉnh lại position */
-    object-position: center;
+.featureIcon {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 0.75rem;
+    background-color: var(--color-brand-soft);
+    color: var(--color-brand);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.featureTitle {
+    font-family: var(--font-headline);
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: var(--color-ink);
+    margin: 0 0 0.5rem;
+}
+
+.featureDesc {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--color-muted);
+    margin: 0;
 }

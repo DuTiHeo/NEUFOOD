@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { authService } from '../../services/authService';
 
@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,7 +19,11 @@ export default function LoginPage() {
     try {
       const data = await authService.login({ email, password });
       login(data.access_token, data.user, data.refresh_token);
-      navigate('/');
+      const from = location.state?.from;
+      const returnTo = from?.pathname
+        ? `${from.pathname}${from.search || ''}${from.hash || ''}`
+        : '/';
+      navigate(returnTo, { replace: true });
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Đăng nhập không thành công, vui lòng kiểm tra lại');
     } finally {
@@ -27,7 +32,7 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4 bg-[#f7f7fb]">
+    <main className="min-h-screen flex items-center justify-center px-4 pt-28 pb-12 bg-[#f7f7fb]">
       <section className="w-full max-w-[480px] p-8 rounded-2xl bg-white shadow-xl flex flex-col gap-6">
         <div className="flex flex-col items-center text-center gap-2">
           <Link to="/" className="flex items-center gap-2 mb-2">
@@ -46,9 +51,11 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-gray-700 tracking-wider">ĐỊA CHỈ EMAIL</label>
+            <label htmlFor="login-email" className="text-xs font-semibold text-gray-700 tracking-wider">ĐỊA CHỈ EMAIL</label>
             <input
+              id="login-email"
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="sinhvien@neu.edu.vn"
@@ -59,13 +66,15 @@ export default function LoginPage() {
 
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-gray-700 tracking-wider">MẬT KHẨU</label>
+              <label htmlFor="login-password" className="text-xs font-semibold text-gray-700 tracking-wider">MẬT KHẨU</label>
               <Link to="/quen-mat-khau" className="text-xs font-medium text-[#003f87] hover:underline">
                 Quên mật khẩu?
               </Link>
             </div>
             <input
+              id="login-password"
               type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -86,7 +95,7 @@ export default function LoginPage() {
         <div className="flex flex-col gap-3 text-center text-sm text-gray-600">
           <div>
             Chưa có tài khoản?{' '}
-            <Link to="/dang-ky" className="font-semibold text-[#003f87] hover:underline">
+            <Link to="/dang-ky" state={location.state} className="font-semibold text-[#003f87] hover:underline">
               Đăng ký ngay
             </Link>
           </div>

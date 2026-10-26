@@ -454,3 +454,105 @@
   font-weight: 600;
   color: var(--color-brand);
 }
+
+.dateRange {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: -1rem 0 1.5rem;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+.dateRange label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dateRange input {
+  border: 1px solid var(--color-edge);
+  border-radius: 0.5rem;
+  background: var(--color-panel);
+  padding: 0.5rem 0.625rem;
+  color: var(--color-ink);
+  font: inherit;
+}
+
+.reportError,
+.reportNotice {
+  border-radius: 0.75rem;
+  background: var(--color-panel);
+  padding: 1rem;
+  color: var(--color-ink);
+}
+
+.reportError {
+  color: #b42318;
+}
+
+.reportBreakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  margin: 0 0 1.5rem;
+}
+
+.reportBreakdown > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--color-edge);
+  padding-bottom: 0.75rem;
+}
+
+.reportBreakdown dt {
+  color: var(--color-muted);
+}
+
+.reportBreakdown dd {
+  margin: 0;
+  font-weight: 700;
+  color: var(--color-ink);
+  text-align: right;
+}
+
+.reportBreakdown .reportTotal dt,
+.reportBreakdown .reportTotal dd {
+  color: var(--color-brand);
+  font-weight: 800;
+}
+
+.reportRank {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 2.75rem;
+  place-items: center;
+  border-radius: 0.75rem;
+  background: var(--color-brand-soft);
+  color: var(--color-brand);
+  font-weight: 800;
+}
+
+.reportStatus {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1rem;
+  padding-bottom: 2rem;
+}
+
+.reportStatus > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid var(--color-edge);
+  border-radius: 0.75rem;
+  background: var(--color-panel);
+  padding: 1rem 1.25rem;
+  color: var(--color-muted);
+}
+
+.reportStatus strong {
+  color: var(--color-ink);
+}

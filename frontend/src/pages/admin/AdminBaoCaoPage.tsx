@@ -1,318 +1,129 @@
-import { useEffect, useRef, useState } from 'react'
-import { Chart, registerables } from 'chart.js'
-import { dishes } from '../../data/dishes.js'
+import { useEffect, useState } from 'react'
+import { reportService, RevenueReport } from '../../services/reportService'
 import styles from './AdminBaoCaoPage.module.css'
 
-Chart.register(...registerables)
+function dateValue(date: Date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return local.toISOString().slice(0, 10)
+}
 
-// Tạo topItems từ dữ liệu dishes, sắp xếp theo reviewCount
-const totalReviews = dishes.reduce((sum, dish) => sum + dish.reviewCount, 0)
-const topItems = dishes
-  .sort((a, b) => b.reviewCount - a.reviewCount)
-  .slice(0, 4)
-  .map(dish => ({
-    name: dish.name,
-    sold: dish.reviewCount,
-    pct: Math.round((dish.reviewCount / totalReviews) * 100),
-    img: dish.image
-  }))
+function money(value: number) {
+  return `${Number(value || 0).toLocaleString('vi-VN')}đ`
+}
+
+function defaultRange(days: number) {
+  const to = new Date()
+  const from = new Date(to)
+  from.setDate(from.getDate() - days + 1)
+  return { from: dateValue(from), to: dateValue(to) }
+}
 
 export default function AdminBaoCaoPage() {
-  const [range, setRange] = useState('30')
-  const lineRef = useRef(null)
-  const pieRef = useRef(null)
-  const lineChartRef = useRef(null)
-  const pieChartRef = useRef(null)
+  const [range, setRange] = useState(() => defaultRange(30))
+  const [quickRange, setQuickRange] = useState(30)
+  const [report, setReport] = useState<RevenueReport | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    const lc = lineRef.current
-    const pc = pieRef.current
-    if (!lc || !pc) return
-
-    lineChartRef.current?.destroy()
-    pieChartRef.current?.destroy()
-
-    lineChartRef.current = new Chart(lc, {
-      type: 'line',
-      data: {
-        labels: ['1', '5', '10', '15', '20', '25', '30'],
-        datasets: [
-          {
-            label: 'Doanh thu (k đ)',
-            data: [450, 780, 600, 950, 820, 1100, 980],
-            borderColor: '#003f87',
-            borderWidth: 3,
-            tension: 0.4,
-            fill: true,
-            backgroundColor: (ctx) => {
-              const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 280)
-              g.addColorStop(0, 'rgba(0, 63, 135, 0.15)')
-              g.addColorStop(1, 'rgba(0, 63, 135, 0)')
-              return g
-            },
-            pointRadius: 0,
-            pointHoverRadius: 6,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          y: {
-            beginAtZero: true,
-            grid: { borderDash: [4, 4], drawBorder: false },
-            ticks: { callback: (v) => `${v}k` },
-          },
-          x: { grid: { display: false } },
-        },
-      },
-    })
-
-    pieChartRef.current = new Chart(pc, {
-      type: 'doughnut',
-      data: {
-        labels: ['Phở', 'Bún', 'Món trộn', 'Món khác'],
-        datasets: [
-          {
-            data: [42, 28, 18, 12],
-            backgroundColor: ['#003f87', '#4f46e5', '#fbbf24', '#f87171'],
-            borderWidth: 0,
-            cutout: '75%',
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-      },
-    })
-
-    return () => {
-      lineChartRef.current?.destroy()
-      pieChartRef.current?.destroy()
+    if (!range.from || !range.to || range.from > range.to) {
+      setError('Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.')
+      setReport(null)
+      setIsLoading(false)
+      return
     }
-  }, [range])
+
+    let active = true
+    setIsLoading(true)
+    setError('')
+    reportService.getRevenueSummary(range.from, range.to)
+      .then((result) => { if (active) setReport(result) })
+      .catch((requestError: any) => {
+        if (active) {
+          setReport(null)
+          setError(requestError?.response?.data?.message || 'Không tải được báo cáo doanh thu từ máy chủ.')
+        }
+      })
+      .finally(() => { if (active) setIsLoading(false) })
+    return () => { active = false }
+  }, [range.from, range.to])
+
+  function chooseDays(days: number) {
+    setQuickRange(days)
+    setRange(defaultRange(days))
+  }
+
+  const reportForDisplay: RevenueReport = report || {
+    from_date: range.from,
+    to_date: range.to,
+    total_orders: 0,
+    completed_orders: 0,
+    cancelled_or_rejected_orders: 0,
+    blacklisted_orders: 0,
+    gross_revenue: 0,
+    canteen_net_revenue: 0,
+    system_fee_total: 0,
+    ship_fee_total: 0,
+    top_dishes: [],
+  }
+  const topQuantity = Math.max(1, ...reportForDisplay.top_dishes.map((dish) => dish.total_quantity))
 
   return (
     <>
-      <header class={styles.hd}>
+      <header className={styles.hd}>
         <div>
-          <h1 class={styles.h1}>Thống kê &amp; báo cáo</h1>
-          <p class={styles.sub}>Theo dõi hiệu suất đặt món campus (dữ liệu demo).</p>
+          <h1 className={styles.h1}>Báo cáo doanh thu</h1>
+          <p className={styles.sub}>Số liệu đơn hàng và COD do API tổng hợp theo thời gian bàn giao.</p>
         </div>
-        <div class={styles.range}>
-          <button
-            type="button"
-            class={`${styles.rngBtn} ${range === '30' ? styles.rngOn : ''}`}
-            onClick={() => setRange('30')}
-          >
-            30 ngày
-          </button>
-          <button
-            type="button"
-            class={`${styles.rngBtn} ${range === '90' ? styles.rngOn : ''}`}
-            onClick={() => setRange('90')}
-          >
-            3 tháng
-          </button>
-          <button
-            type="button"
-            class={`${styles.rngBtn} ${range === 'custom' ? styles.rngOn : ''}`}
-            onClick={() => setRange('custom')}
-          >
-            Tuỳ chọn
-          </button>
+        <div className={styles.range} aria-label="Khoảng thời gian báo cáo">
+          <button type="button" className={`${styles.rngBtn} ${quickRange === 30 ? styles.rngOn : ''}`} onClick={() => chooseDays(30)}>30 ngày</button>
+          <button type="button" className={`${styles.rngBtn} ${quickRange === 90 ? styles.rngOn : ''}`} onClick={() => chooseDays(90)}>90 ngày</button>
         </div>
       </header>
 
-      <section class={styles.metrics}>
-        <div class={styles.mc}>
-          <div class={styles.mcTop}>
-            <span class={`material-symbols-outlined ${styles.mcIco}`} style={{ background: '#eff6ff', color: '#2563eb' }}>
-              payments
-            </span>
-            <span class={`${styles.trend} ${styles.trendUp}`}>
-              <span class="material-symbols-outlined" style={{ fontSize: '14px' }}>
-                trending_up
-              </span>
-              +12,5%
-            </span>
-          </div>
-          <p class={styles.mcLbl}>Tổng doanh thu</p>
-          <p class={styles.mcVal}>25.400.000đ</p>
-        </div>
-        <div class={styles.mc}>
-          <div class={styles.mcTop}>
-            <span class={`material-symbols-outlined ${styles.mcIco}`} style={{ background: '#eef2ff', color: '#4f46e5' }}>
-              receipt
-            </span>
-            <span class={`${styles.trend} ${styles.trendUp}`}>
-              <span class="material-symbols-outlined" style={{ fontSize: '14px' }}>
-                trending_up
-              </span>
-              +5,2%
-            </span>
-          </div>
-          <p class={styles.mcLbl}>Tổng đơn</p>
-          <p class={styles.mcVal}>1.248</p>
-        </div>
-        <div class={styles.mc}>
-          <div class={styles.mcTop}>
-            <span class={`material-symbols-outlined ${styles.mcIco}`} style={{ background: '#fffbeb', color: '#d97706' }}>
-              avg_pace
-            </span>
-            <span class={`${styles.trend} ${styles.trendFlat}`}>Ổn định</span>
-          </div>
-          <p class={styles.mcLbl}>TB giá trị đơn</p>
-          <p class={styles.mcVal}>45.000đ</p>
-        </div>
-        <div class={styles.mc}>
-          <div class={styles.mcTop}>
-            <span class={`material-symbols-outlined ${styles.mcIco}`} style={{ background: '#faf5ff', color: '#9333ea' }}>
-              group
-            </span>
-            <span class={`${styles.trend} ${styles.trendUp}`}>
-              <span class="material-symbols-outlined" style={{ fontSize: '14px' }}>
-                trending_up
-              </span>
-              +8%
-            </span>
-          </div>
-          <p class={styles.mcLbl}>Sinh viên hoạt động</p>
-          <p class={styles.mcVal}>850</p>
-        </div>
+      <section className={styles.dateRange} aria-label="Tùy chọn khoảng ngày">
+        <label>Từ ngày <input type="date" value={range.from} max={range.to || undefined} onChange={(event) => { setQuickRange(0); setRange((current) => ({ ...current, from: event.target.value })) }} /></label>
+        <label>Đến ngày <input type="date" value={range.to} min={range.from || undefined} max={dateValue(new Date())} onChange={(event) => { setQuickRange(0); setRange((current) => ({ ...current, to: event.target.value })) }} /></label>
       </section>
 
-      <section class={styles.charts}>
-        <div class={styles.chartCard}>
-          <div class={styles.chartHd}>
-            <div>
-              <h2 class={styles.chartTit}>Xu hướng doanh thu</h2>
-              <p class={styles.chartSub}>Theo ngày trong kỳ đang chọn</p>
-            </div>
-            <div class={styles.legend}>
-              <span class={styles.dot} />
-              Tháng này
-            </div>
-          </div>
-          <div class={styles.canvas}>
-            <canvas ref={lineRef} />
-          </div>
-        </div>
-        <div class={styles.chartCard}>
-          <h2 class={styles.chartTit} style={{ marginBottom: '1.5rem' }}>
-            Món bán chạy
-          </h2>
-          <div class={styles.topList}>
-            {topItems.map((t) => (
-              <div key={t.name} class={styles.topItem}>
-                <div class={styles.topImg}>
-                  <img src={t.img} alt="" />
-                </div>
-                <div class={styles.topBody}>
-                  <div class={styles.topRow}>
-                    <span class={styles.topName}>{t.name}</span>
-                    <span class={styles.topSold}>{t.sold} đơn</span>
-                  </div>
-                  <div class={styles.barBg}>
-                    <div class={styles.barFg} style={{ width: `${t.pct}%` }} />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <button type="button" class={styles.btnAll}>
-            Xem toàn bộ thực đơn
-          </button>
-        </div>
-      </section>
+      {error ? <p role="alert" className={styles.reportError}>{error}</p> : null}
+      {isLoading ? <p role="status" className={styles.reportNotice}>Đang tải báo cáo…</p> : null}
 
-      <section class={styles.bottom}>
-        <div class={styles.split}>
-          <div class={styles.pieWrap}>
-            <h2 class={styles.chartTit}>Tỷ trọng danh mục</h2>
-            <p class={styles.chartSub} style={{ marginBottom: '1rem' }}>
-              Phân bổ doanh thu theo nhóm món
-            </p>
-            <div class={styles.pieCanvas}>
-              <canvas ref={pieRef} />
-            </div>
-          </div>
-          <div class={styles.insights}>
-            <div class={styles.insItem}>
-              <p class={styles.insLbl}>Dẫn đầu</p>
-              <p class={styles.insTxt}>Phở &amp; bún (42%)</p>
-            </div>
-            <div class={styles.insItem}>
-              <p class={styles.insLbl}>Tăng nhanh</p>
-              <p class={styles.insTxt}>Món trộn &amp; đặc sản (28%)</p>
-            </div>
-            <div class={styles.insItem}>
-              <p class={styles.insLbl}>Món khác</p>
-              <p class={styles.insTxt}>Ăn vặt &amp; đồ uống (18%)</p>
-            </div>
-          </div>
-        </div>
-        <div class={styles.feed}>
-          <div class={styles.feedHd}>
-            <h2 class={styles.feedTit}>Insight hoạt động</h2>
-            <button type="button" class={styles.feedLink}>
-              Live
-            </button>
-          </div>
-          <div class={styles.events}>
-            <div class={styles.ev}>
-              <div class={styles.evIco}>
-                <span class="material-symbols-outlined" style={{ fontSize: '20px' }}>
-                  schedule
-                </span>
-              </div>
-              <div>
-                <p class={styles.evTit}>Giờ cao điểm</p>
-                <p class={styles.evTxt}>
-                  Mật độ đơn cao nhất <strong style={{ color: 'var(--color-brand)' }}>11:30–13:15</strong> hôm nay.
-                </p>
-              </div>
-            </div>
-            <div class={styles.ev}>
-              <div class={styles.evIco} style={{ background: '#fffbeb', color: '#d97706' }}>
-                <span class="material-symbols-outlined" style={{ fontSize: '20px' }}>
-                  local_fire_department
-                </span>
-              </div>
-              <div>
-                <p class={styles.evTit}>Xu hướng “Healthy”</p>
-                <p class={styles.evTxt}>
-                  Nhóm salad tăng <strong style={{ color: '#d97706' }}>22%</strong> từ đầu tuần.
-                </p>
-              </div>
-            </div>
-            <div class={styles.ev}>
-              <div class={styles.evIco} style={{ background: '#faf5ff', color: '#9333ea' }}>
-                <span class="material-symbols-outlined" style={{ fontSize: '20px' }}>
-                  notifications_active
-                </span>
-              </div>
-              <div>
-                <p class={styles.evTit}>Cảnh báo tồn kho</p>
-                <p class={styles.evTxt}>Trân chà trà sữa dưới 15% — nên nhập trước sáng mai.</p>
-              </div>
-            </div>
-          </div>
-          <div class={styles.tipBox}>
-            <div class={styles.tipTxt}>
-              <span class="material-symbols-outlined">lightbulb</span>
-              Gợi ý: gói Cơm + Đồ uống để tăng giá trị đơn.
-            </div>
-            <span class="material-symbols-outlined" style={{ color: 'var(--color-brand)' }}>
-              chevron_right
-            </span>
-          </div>
-        </div>
-      </section>
+      {!isLoading ? <>
+        <section className={styles.metrics} aria-label="Chỉ số tổng hợp">
+          <article className={styles.mc}><div className={styles.mcTop}><span className={`material-symbols-outlined ${styles.mcIco}`} style={{ background: '#eff6ff', color: '#2563eb' }}>payments</span></div><p className={styles.mcLbl}>Tổng doanh thu đã thu</p><p className={styles.mcVal}>{money(reportForDisplay.gross_revenue)}</p></article>
+          <article className={styles.mc}><div className={styles.mcTop}><span className={`material-symbols-outlined ${styles.mcIco}`} style={{ background: '#eef2ff', color: '#4f46e5' }}>receipt_long</span></div><p className={styles.mcLbl}>Tổng đơn trong kỳ</p><p className={styles.mcVal}>{reportForDisplay.total_orders.toLocaleString('vi-VN')}</p></article>
+          <article className={styles.mc}><div className={styles.mcTop}><span className={`material-symbols-outlined ${styles.mcIco}`} style={{ background: '#ecfdf5', color: '#059669' }}>storefront</span></div><p className={styles.mcLbl}>Doanh thu Canteen</p><p className={styles.mcVal}>{money(reportForDisplay.canteen_net_revenue)}</p></article>
+          <article className={styles.mc}><div className={styles.mcTop}><span className={`material-symbols-outlined ${styles.mcIco}`} style={{ background: '#fffbeb', color: '#d97706' }}>task_alt</span></div><p className={styles.mcLbl}>Đã bàn giao / hoàn tất</p><p className={styles.mcVal}>{reportForDisplay.completed_orders.toLocaleString('vi-VN')}</p></article>
+        </section>
+
+        <section className={styles.charts}>
+          <article className={styles.chartCard}>
+            <div className={styles.chartHd}><div><h2 className={styles.chartTit}>Cơ cấu doanh thu</h2><p className={styles.chartSub}>Khoản thu từ đơn đã thanh toán trong kỳ</p></div></div>
+            <dl className={styles.reportBreakdown}>
+              <div><dt>Doanh thu món (Canteen)</dt><dd>{money(reportForDisplay.canteen_net_revenue)}</dd></div>
+              <div><dt>Phụ phí hệ thống</dt><dd>{money(reportForDisplay.system_fee_total)}</dd></div>
+              <div><dt>Phí giao hàng</dt><dd>{money(reportForDisplay.ship_fee_total)}</dd></div>
+              <div className={styles.reportTotal}><dt>Tổng tiền đã thu</dt><dd>{money(reportForDisplay.gross_revenue)}</dd></div>
+            </dl>
+            <p className={styles.chartSub}>Kỳ báo cáo: {new Date(`${reportForDisplay.from_date}T00:00:00`).toLocaleDateString('vi-VN')} – {new Date(`${reportForDisplay.to_date}T00:00:00`).toLocaleDateString('vi-VN')}</p>
+          </article>
+          <article className={styles.chartCard}>
+            <div className={styles.chartHd}><div><h2 className={styles.chartTit}>Món bán nhiều nhất</h2><p className={styles.chartSub}>Sắp xếp theo số lượng đã bán</p></div></div>
+            {reportForDisplay.top_dishes.length ? <div className={styles.topList}>
+              {reportForDisplay.top_dishes.map((dish, index) => <div key={dish.dish_id} className={styles.topItem}>
+                <div className={styles.reportRank}>{index + 1}</div>
+                <div className={styles.topBody}><div className={styles.topRow}><span className={styles.topName}>{dish.dish_name}</span><span className={styles.topSold}>{dish.total_quantity} phần</span></div><div className={styles.barBg}><div className={styles.barFg} style={{ width: `${Math.round((dish.total_quantity / topQuantity) * 100)}%` }} /></div><span className={styles.chartSub}>{money(dish.total_revenue)}</span></div>
+              </div>)}
+            </div> : <p className={styles.chartSub}>Chưa có đơn đã thanh toán trong khoảng thời gian này.</p>}
+          </article>
+        </section>
+
+        <section className={styles.reportStatus} aria-label="Trạng thái đơn hàng">
+          <div><span>Đã hủy hoặc bị từ chối</span><strong>{reportForDisplay.cancelled_or_rejected_orders.toLocaleString('vi-VN')}</strong></div>
+          <div><span>Đơn bị đưa vào danh sách đen</span><strong>{reportForDisplay.blacklisted_orders.toLocaleString('vi-VN')}</strong></div>
+        </section>
+      </> : null}
     </>
   )
 }

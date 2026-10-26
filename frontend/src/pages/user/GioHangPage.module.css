@@ -2,17 +2,17 @@
   min-height: 100vh;
   background-color: var(--color-page);
   padding-bottom: 6rem;
-  padding-top: 6rem;
+  padding-top: 6.5rem;
   color: var(--color-ink);
 }
 
 .cartWrap {
-  padding-bottom: 3rem;
+  padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
 }
 
 @media (min-width: 768px) {
-  .cart {
-    padding-bottom: 0;
+  .cartWrap {
+    padding-bottom: 2rem;
   }
 }
 
@@ -22,11 +22,12 @@
 
 .cartTitle {
   margin-bottom: 0.5rem;
-  font-size: 2.25rem;
-  line-height: 2.5rem;
+  font-family: var(--font-headline);
+  font-size: 2rem;
+  line-height: 2.25rem;
   font-weight: 800;
   letter-spacing: -0.025em;
-  color: var(--color-brand);
+  color: var(--color-ink);
 }
 
 .cartSub {
@@ -36,11 +37,65 @@
 
 .cartHl {
   font-weight: 700;
-  color: var(--color-brand);
+  color: var(--color-accent);
 }
 
-.cartEmpty {
+.cartEmptyBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  background-color: var(--color-panel);
+  border-radius: 1rem;
+  border: 1px dashed var(--color-edge);
+  text-align: center;
+  gap: 1rem;
+}
+
+.cartEmptyIcon {
+  font-size: 3.5rem;
   color: var(--color-muted);
+}
+
+.cartEmptyTitle {
+  font-family: var(--font-headline);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-ink);
+  margin: 0;
+}
+
+.cartEmptyText {
+  color: var(--color-muted);
+  max-width: 24rem;
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.cartEmptyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background-color: var(--color-brand);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.cartEmptyBtn:hover {
+  background-color: var(--color-brand-2);
+  transform: translateY(-1px);
+}
+
+.cartEmptyBtn:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
 }
 
 .cartGrid {
@@ -113,7 +168,7 @@
   font-size: 1.125rem;
   line-height: 1.75rem;
   font-weight: 700;
-  color: var(--color-brand);
+  color: var(--color-accent);
 }
 
 .lineQty {
@@ -198,7 +253,7 @@
 }
 
 .shipIconBrand {
-  color: var(--color-brand);
+  color: var(--color-accent);
 }
 
 .shipTitle {
@@ -345,7 +400,7 @@
 }
 
 .sumRowBrand {
-  color: var(--color-brand);
+  color: var(--color-accent);
 }
 
 .sumTotal {
@@ -369,7 +424,7 @@
   line-height: 2.25rem;
   font-weight: 900;
   letter-spacing: -0.025em;
-  color: var(--color-brand);
+  color: var(--color-accent);
 }
 
 .sumActions {
@@ -384,7 +439,7 @@
   justify-content: center;
   width: 100%;
   border-radius: 0.75rem;
-  background: linear-gradient(to right, var(--color-brand), var(--color-brand-2));
+  background-color: var(--color-accent);
   padding: 1rem;
   text-align: center;
   font-family: var(--font-headline);

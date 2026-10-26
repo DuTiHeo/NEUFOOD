@@ -16,6 +16,19 @@ let failedQueue: Array<{
   reject: (error: any) => void;
 }> = [];
 
+const AUTH_STORAGE_KEYS = ['neufood_token', 'neufood_refresh_token', 'neufood_user'];
+
+function readStoredAuth(key: string) {
+  return localStorage.getItem(key) ?? sessionStorage.getItem(key);
+}
+
+function clearStoredAuth() {
+  AUTH_STORAGE_KEYS.forEach((key) => {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  });
+}
+
 const processQueue = (error: any, token: string | null = null) => {
   failedQueue.forEach((prom) => {
     if (error) {
@@ -27,10 +40,10 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
-// Request Interceptor: Tự động đính kèm Bearer token từ localStorage
+// Request Interceptor: hỗ trợ cả phiên ghi nhớ và phiên chỉ trong tab hiện tại.
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('neufood_token');
+    const token = readStoredAuth('neufood_token');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -56,17 +69,14 @@ api.interceptors.response.use(
       requestUrl.includes('/auth/login') ||
       originalRequest._retry
     ) {
-      localStorage.removeItem('neufood_token');
-      localStorage.removeItem('neufood_refresh_token');
-      localStorage.removeItem('neufood_user');
+      clearStoredAuth();
       processQueue(error, null);
       return Promise.reject(error);
     }
 
-    const refreshToken = localStorage.getItem('neufood_refresh_token');
+    const refreshToken = readStoredAuth('neufood_refresh_token');
     if (!refreshToken) {
-      localStorage.removeItem('neufood_token');
-      localStorage.removeItem('neufood_user');
+      clearStoredAuth();
       return Promise.reject(error);
     }
 
@@ -101,9 +111,10 @@ api.interceptors.response.use(
         throw new Error('No access token returned');
       }
 
-      localStorage.setItem('neufood_token', newAccessToken);
+      const storage = localStorage.getItem('neufood_refresh_token') ? localStorage : sessionStorage;
+      storage.setItem('neufood_token', newAccessToken);
       if (newRefreshToken) {
-        localStorage.setItem('neufood_refresh_token', newRefreshToken);
+        storage.setItem('neufood_refresh_token', newRefreshToken);
       }
 
       originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
@@ -111,9 +122,7 @@ api.interceptors.response.use(
       return api(originalRequest);
     } catch (refreshErr) {
       processQueue(refreshErr, null);
-      localStorage.removeItem('neufood_token');
-      localStorage.removeItem('neufood_refresh_token');
-      localStorage.removeItem('neufood_user');
+      clearStoredAuth();
       return Promise.reject(refreshErr);
     } finally {
       isRefreshing = false;

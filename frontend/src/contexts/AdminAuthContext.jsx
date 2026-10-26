@@ -1,51 +1,27 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useMemo } from 'react'
+import { authService } from '../services/authService'
+import { useAuth } from './AuthContext'
 
-const STORAGE_KEY = 'neufood_admin_auth'
-
-const ADMIN_EMAIL = 'admin@gmail.com'
-const ADMIN_PASSWORD = 'admin123'
-
+const MANAGEMENT_ROLES = new Set(['staff', 'manager', 'admin'])
 const AdminAuthContext = createContext(null)
 
 export function AdminAuthProvider({ children }) {
-  const [token, setToken] = useState(() => {
-    try {
-      return localStorage.getItem(STORAGE_KEY) === '1'
-    } catch {
-      return false
-    }
-  })
+  const { user, isAuthenticated, isLoading, login: setAuth, logout } = useAuth()
+  const isAdmin = isAuthenticated && MANAGEMENT_ROLES.has(user?.role)
 
-  const login = useCallback((email, password) => {
-    const ok =
-      email.trim().toLowerCase() === ADMIN_EMAIL && password === ADMIN_PASSWORD
-    if (ok) {
-      try {
-        localStorage.setItem(STORAGE_KEY, '1')
-      } catch {
-        /* ignore */
-      }
-      setToken(true)
+  const login = useCallback(async (email, password) => {
+    const data = await authService.login({ email: email.trim(), password })
+    if (!MANAGEMENT_ROLES.has(data?.user?.role)) {
+      throw new Error('Tài khoản này không có quyền truy cập khu vực Canteen.')
     }
-    return ok
-  }, [])
 
-  const logout = useCallback(() => {
-    try {
-      localStorage.removeItem(STORAGE_KEY)
-    } catch {
-      /* ignore */
-    }
-    setToken(false)
-  }, [])
+    setAuth(data.access_token, data.user, data.refresh_token)
+    return data.user
+  }, [setAuth])
 
   const value = useMemo(
-    () => ({
-      isAdmin: Boolean(token),
-      login,
-      logout,
-    }),
-    [token, login, logout],
+    () => ({ isAdmin, isLoading, login, logout }),
+    [isAdmin, isLoading, login, logout],
   )
 
   return <AdminAuthContext.Provider value={value}>{children}</AdminAuthContext.Provider>
