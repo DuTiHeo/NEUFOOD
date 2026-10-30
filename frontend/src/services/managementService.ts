@@ -46,7 +46,7 @@ export interface ManagedComplaint {
 
 export const managementService = {
   async getUsers(params?: { role?: string; is_active?: boolean; is_blacklisted?: boolean; search?: string }) {
-    const res = await api.get<ApiResponse<ManagedUser[]>>('/users/admin/all', { params })
+    const res = await api.get<ApiResponse<ManagedUser[]>>('/users/admin/all', { params, timeout: 30000 })
     return res.data.data ?? []
   },
   async updateUserStatus(id: number, payload: { is_active?: boolean; role?: ManagedUser['role'] }) {
@@ -58,7 +58,7 @@ export const managementService = {
     return res.data.data
   },
   async getLocations(includeInactive = true) {
-    const res = await api.get<ApiResponse<ManagedLocation[]>>('/locations', { params: includeInactive ? { all: 'true' } : undefined })
+    const res = await api.get<ApiResponse<ManagedLocation[]>>('/locations', { params: includeInactive ? { all: 'true' } : undefined, timeout: 30000 })
     return res.data.data ?? []
   },
   async createLocation(payload: Omit<ManagedLocation, 'id'>) {
@@ -74,7 +74,7 @@ export const managementService = {
     return res.data.data
   },
   async getSettings() {
-    const res = await api.get<ApiResponse<ManagedSetting[]>>('/settings')
+    const res = await api.get<ApiResponse<ManagedSetting[]>>('/settings', { timeout: 30000 })
     return res.data.data ?? []
   },
   async updateSettings(settings: Array<Pick<ManagedSetting, 'setting_key' | 'setting_value' | 'description'>>) {
@@ -82,7 +82,7 @@ export const managementService = {
     return res.data.data ?? []
   },
   async getComplaints() {
-    const res = await api.get<ApiResponse<ManagedComplaint[]>>('/complaints')
+    const res = await api.get<ApiResponse<ManagedComplaint[]>>('/complaints', { timeout: 30000 })
     return res.data.data ?? []
   },
   async resolveComplaint(id: number, status: ManagedComplaint['status'], admin_response: string) {
