@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 480" role="img" aria-label="Ảnh món ăn đang được cập nhật">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f2f8ff"/>
+      <stop offset="1" stop-color="#fff7ed"/>
+    </linearGradient>
+    <linearGradient id="plate" x1="0" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e8f1f8"/>
+    </linearGradient>
+  </defs>
+  <rect width="720" height="480" rx="28" fill="url(#bg)"/>
+  <circle cx="360" cy="238" r="154" fill="#dceaf6" opacity=".75"/>
+  <circle cx="360" cy="225" r="132" fill="url(#plate)" stroke="#c7d9e9" stroke-width="8"/>
+  <circle cx="360" cy="225" r="97" fill="#fff" stroke="#e4edf5" stroke-width="4"/>
+  <path d="M285 238c25-45 53-52 75-19 24-39 57-34 78 4 22 41-10 69-50 62-32-6-72 11-97-9-16-12-17-24-6-38Z" fill="#f5a24c"/>
+  <path d="M318 191c7-18 19-20 25-1m42-5c6-14 16-15 22-1" fill="none" stroke="#4f9e63" stroke-width="12" stroke-linecap="round"/>
+  <path d="M189 154v133m-18-133v42m18-42v42m18-42v42m-18 91v37m179-170 24 170m0-170-24 170m24-170v170" fill="none" stroke="#0b5d9d" stroke-width="9" stroke-linecap="round"/>
+  <text x="360" y="420" text-anchor="middle" fill="#58718a" font-family="Arial, sans-serif" font-size="24" font-weight="700">NEUFood · Ảnh món ăn</text>
+</svg>

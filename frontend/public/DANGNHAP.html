@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html class="light" lang="vi">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Đăng nhập | NEU Food</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="DangNhap.module.css" />
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+
+<body class="body">
+    <div class="heroPattern"></div>
+    <nav class="nav">
+        <a class="homeLink" href="/">
+            <span class="material-symbols-outlined" aria-hidden="true">home</span>
+            <span>Về trang chủ</span>
+        </a>
+        <div class="navLogo">
+            <img class="brandMark" src="https://res.cloudinary.com/dco3anl6m/image/upload/f_auto,q_auto/neu-food_nbogtd" alt="" aria-hidden="true" />
+            <span class="brandNeu">NEU</span>
+            <span class="brandFood">Food</span>
+        </div>
+        <div class="navLinks">
+            <span class="navText">Bạn chưa có tài khoản?</span>
+            <a class="navLink" href="DANGKY.html">Đăng ký</a>
+        </div>
+    </nav>
+    <main class="main">
+        <div class="grid">
+            <!-- Left Section: Reordered Logo and Text -->
+            <section class="leftSection">
+                <div class="logoContainer">
+                    <div class="logoGlow"></div>
+                    <div class="logoWrapper">
+                        <img alt="Official NEU Food Logo" class="logoImage" src="https://res.cloudinary.com/dco3anl6m/image/upload/f_auto,q_auto/neu-food_nbogtd" />
+                    </div>
+                </div>
+                <div class="content">
+                    <h1 class="mainTitle">
+                        Giao hàng tận<br/><span>phòng học tại NEU.</span>
+                    </h1>
+                    <p class="description">
+                        Thưởng thức bữa trưa nóng hổi mà không cần rời khỏi lớp. Giải pháp đặt đồ ăn tối ưu giúp bạn tiết kiệm thời gian và nạp năng lượng nhanh chóng cho giờ học tiếp theo.
+                    </p>
+                </div>
+            </section>
+            <!-- Right Section: Login Form -->
+            <section class="rightSection">
+                <div class="formWrapper">
+                    <div class="formContainer">
+                        <header class="formHeader">
+                            <h2 class="formTitle">Chào mừng trở lại</h2>
+                            <p class="formDesc">Vui lòng nhập thông tin để tiếp tục.</p>
+                        </header>
+                        <form class="form" id="login-form">
+                            <div class="inputGroup">
+                                <label class="inputLabel" for="login-email">ĐỊA CHỈ EMAIL</label>
+                                <div class="inputWrapper">
+                                    <input class="input" id="login-email" placeholder="tên@côngty.com" type="email" autocomplete="email" required />
+                                </div>
+                            </div>
+                            <div class="inputGroup">
+                                <div class="passwordGroup">
+                                    <label class="inputLabel" for="login-password">MẬT KHẨU</label>
+                                    <a class="forgotLink" href="/quen-mat-khau">Quên mật khẩu?</a>
+                                </div>
+                                <div class="inputWrapper">
+                                    <input class="input" id="login-password" placeholder="••••••••" type="password" autocomplete="current-password" required />
+                                </div>
+                            </div>
+                            <div class="checkboxGroup">
+                                <input class="checkbox" id="remember" type="checkbox" />
+                                <label class="checkboxLabel" for="remember">Ghi nhớ tôi</label>
+                            </div>
+                            <p class="formDesc" id="login-message" role="alert" aria-live="polite" style="margin-top: 8px; display: none;"></p>
+                            <button class="submitButton" type="submit">
+                                Đăng nhập ngay
+                            </button>
+                        </form>
+                        <footer class="footer">
+                            <p class="footerText">
+                                Bạn chưa có tài khoản?
+                                <a class="footerLink" href="DANGKY.html">Đăng ký ngay</a>
+                            </p>
+                        </footer>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+    <footer class="pageFooter">
+        <p class="pageFooterText">© 2024 NEU Food. Hệ thống cung cấp suất ăn thông minh tại cơ sở.</p>
+        <div class="pageFooterNav">
+            <a class="pageFooterLink" href="ChinhSachBaoMat.html">Chính sách bảo mật</a>
+            <a class="pageFooterLink" href="DieuKhoanDichVu.html">Điều khoản dịch vụ</a>
+            <a class="pageFooterLink" href="BaoMat.html">Bảo mật</a>
+            <a class="pageFooterLink" href="CaiDatCookie.html">Cài đặt Cookie</a>
+        </div>
+    </footer>
+    <script src="/auth-navigation.js"></script>
+    <script>
+        const API_URL = '/api/v1';
+        const AUTH_KEYS = ['neufood_token', 'neufood_refresh_token', 'neufood_user'];
+
+        function setMessage(text, type) {
+            const el = document.getElementById('login-message');
+            if (!el) return;
+            el.style.display = 'block';
+            el.textContent = text;
+            el.style.color = type === 'success' ? '#0f766e' : type === 'loading' ? '#003f87' : '#b91c1c';
+        }
+
+        function clearAuth() {
+            AUTH_KEYS.forEach((key) => {
+                localStorage.removeItem(key);
+                sessionStorage.removeItem(key);
+            });
+        }
+
+        function saveAuth(auth, remember) {
+            const storage = remember ? localStorage : sessionStorage;
+            clearAuth();
+            storage.setItem('neufood_token', auth.access_token);
+            if (auth.refresh_token) storage.setItem('neufood_refresh_token', auth.refresh_token);
+            storage.setItem('neufood_user', JSON.stringify(auth.user));
+        }
+
+        // Keep already authenticated visitors from seeing the login form again.
+        try {
+            const existing = localStorage.getItem('neufood_token') || sessionStorage.getItem('neufood_token');
+            if (existing) window.location.replace(window.authDestination);
+        } catch {}
+
+        document.getElementById('login-form')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = String(document.getElementById('login-email')?.value || '').trim().toLowerCase();
+            const password = String(document.getElementById('login-password')?.value || '');
+            const remember = Boolean(document.getElementById('remember')?.checked);
+            const form = e.currentTarget;
+            const button = form.querySelector('button[type="submit"]');
+            const originalButtonText = button?.textContent;
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Đang đăng nhập…';
+            }
+            setMessage('Đang xác thực tài khoản…', 'loading');
+
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                });
+                const result = await response.json().catch(() => null);
+                const auth = result?.data;
+                if (!response.ok) throw new Error(result?.message || 'Email hoặc mật khẩu chưa chính xác.');
+                if (!auth?.access_token || !auth?.user) throw new Error('Máy chủ trả về dữ liệu đăng nhập không hợp lệ.');
+
+                saveAuth(auth, remember);
+                setMessage('Đăng nhập thành công! Đang chuyển trang…', 'success');
+                window.setTimeout(() => window.location.assign(window.authDestination), 350);
+            } catch (error) {
+                setMessage(error instanceof Error ? error.message : 'Không thể kết nối máy chủ. Vui lòng thử lại.', 'error');
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = originalButtonText;
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>
