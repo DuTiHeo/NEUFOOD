@@ -93,7 +93,6 @@ export default function AdminLayout() {
         <header className={styles.top}>
           <div><span className={styles.topEyebrow}>{preview ? 'MANAGEMENT PORTAL PREVIEW' : isAdmin ? 'ADMINISTRATOR PORTAL' : user?.role === 'manager' ? 'CANTEEN MANAGEMENT' : 'NEUFOOD MANAGEMENT PORTAL'}</span><h1 className={styles.topTitle}>{topTitle}</h1></div>
           <div className={styles.topTools}>
-            <Link to="/" className={styles.backSiteLink}><span className="material-symbols-outlined" aria-hidden style={{ fontSize: '1.125rem' }}>storefront</span>Xem cửa hàng</Link>
             <span className={styles.accountChip}><span className={styles.accountAvatar}>{user?.full_name?.slice(0, 1) || (preview ? 'QL' : isAdmin ? 'A' : 'Q')}</span><span><strong>{user?.full_name || (preview ? 'Bản xem trước' : isAdmin ? 'Admin' : 'Quản lý')}</strong><small>{preview ? 'Chưa đăng nhập' : isAdmin ? 'Admin hệ thống' : 'Quản lý Canteen A2'}</small></span></span>
           </div>
         </header>
