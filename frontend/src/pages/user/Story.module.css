@@ -1,49 +1,165 @@
+.storyPage {
+  min-height: 100vh;
+  background-color: var(--color-page);
+  padding-top: 6.5rem;
+  padding-bottom: 5rem;
+  font-family: var(--font-body);
+  color: var(--color-ink);
+}
+
 .container {
-    background: linear-gradient(rgba(255, 255, 255, 0.8), rgba(234, 241, 255, 0.8)), url('/background.jpg');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-  max-width: 900px;
-  margin: 40px auto;
-  padding: 30px;
-  border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  position: relative;
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+
+.crumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  margin-bottom: 1.5rem;
+  color: var(--color-muted);
+}
+
+.crumbLink {
+  color: var(--color-brand);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.15s ease;
+}
+
+.crumbLink:hover {
+  color: var(--color-brand-2);
+}
+
+.crumbSep {
+  color: var(--color-edge);
+}
+
+.crumbCurrent {
+  color: var(--color-muted);
+}
+
+.header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.tagWrap {
+  margin-bottom: 0.75rem;
+}
+
+.tag {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  background-color: var(--color-brand-soft);
+  color: var(--color-brand);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .title {
-  text-align: center;
-  color: #0b2c5f; /* màu chủ đạo */
-  margin-bottom: 25px;
+  font-family: var(--font-headline);
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: var(--color-ink);
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  margin: 0 0 0.75rem;
+}
+
+@media (max-width: 640px) {
+  .title {
+    font-size: 1.75rem;
+  }
+}
+
+.subtitle {
+  font-size: 1.0625rem;
+  color: var(--color-muted);
+  max-width: 38rem;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+.card {
+  background-color: var(--color-panel);
+  border-radius: 1.25rem;
+  border: 1px solid var(--color-edge);
+  padding: 2.5rem;
+  box-shadow: 0 4px 20px -2px rgb(0 0 0 / 0.05);
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: 1.5rem;
+  }
 }
 
 .content {
-  font-size: 17px;
+  font-size: 1rem;
   line-height: 1.8;
-  color: #333;
-  text-align: justify;
+  color: #334155;
 }
 
 .content p {
-  margin-bottom: 15px;
+  margin: 0 0 1.5rem;
 }
 
 .quote {
+  margin: 2rem 0;
+  padding: 1.25rem 1.5rem;
+  background: linear-gradient(135deg, rgba(0, 63, 135, 0.06), rgba(234, 88, 12, 0.04));
+  border-left: 4px solid var(--color-brand);
+  border-radius: 0 0.75rem 0.75rem 0;
+  font-family: var(--font-headline);
+  font-size: 1.0625rem;
+  font-weight: 600;
   font-style: italic;
-  color: #0b2c5f;
-  background: #eaf1ff;
-  padding: 10px;
-  border-left: 4px solid #ffd700;
-  border-radius: 6px;
-}
-body {
-  background: linear-gradient(135deg, #5f8eeb, #ffffff);
+  color: var(--color-ink);
+  line-height: 1.6;
 }
 
-.logo {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  width: 100px;
-  height: auto;
+.highlightBox {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  background-color: var(--color-soft);
+  border-radius: 1rem;
+  padding: 1.25rem 1.5rem;
+  margin: 2rem 0;
+  border: 1px solid var(--color-edge);
+}
+
+.highlightIcon {
+  font-size: 2rem;
+  color: var(--color-accent);
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.highlightTitle {
+  font-family: var(--font-headline);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--color-ink);
+  margin: 0 0 0.35rem;
+}
+
+.highlightDesc {
+  font-size: 0.9375rem;
+  color: var(--color-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.closing {
+  font-size: 1.0625rem;
+  font-weight: 500;
+  color: var(--color-brand);
+  margin-bottom: 0 !important;
 }

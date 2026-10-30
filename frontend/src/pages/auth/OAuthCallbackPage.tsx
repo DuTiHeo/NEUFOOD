@@ -1,55 +1,49 @@
-import React, { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-
-const SESSION_KEY = 'neufood_session_v1'
+import { Link, useSearchParams } from 'react-router-dom';
 
 export default function OAuthCallbackPage() {
-  const navigate = useNavigate()
-  const [params] = useSearchParams()
-  const next = params.get('next') || '/'
-  const provider = params.get('provider') || ''
-  const [msg, setMsg] = useState('Đang hoàn tất đăng nhập...')
+  const [params] = useSearchParams();
+  const provider = params.get('provider');
+  const providerName = provider ? `${provider.charAt(0).toUpperCase()}${provider.slice(1)}` : 'Nhà cung cấp ngoài';
 
-  useEffect(() => {
-    const run = async () => {
-      try {
-        const res = await fetch('/api/user', { credentials: 'include' })
-        if (!res.ok) {
-          const suffix = provider ? ` (${provider})` : ''
-          setMsg(`Đăng nhập thất bại${suffix}. Vui lòng thử lại.`)
-          setTimeout(() => navigate('/dang-nhap', { replace: true }), 800)
-          return
-        }
-        const data = await res.json()
-        const user = data && data.user ? data.user : null
-        if (!user) throw new Error('Missing user')
-
-        localStorage.setItem(
-          SESSION_KEY,
-          JSON.stringify({
-            email: user.email || '',
-            name: user.name || user.displayName || '',
-            provider: user.provider || provider || '',
-            loginAt: new Date().toISOString(),
-          }),
-        )
-
-        setMsg('Đăng nhập thành công! Đang chuyển trang...')
-        setTimeout(() => navigate(next, { replace: true }), 300)
-      } catch {
-        setMsg('Đã xảy ra lỗi khi hoàn tất đăng nhập.')
-        setTimeout(() => navigate('/dang-nhap', { replace: true }), 800)
-      }
+  let returnLocation = { pathname: '/', search: '', hash: '' };
+  try {
+    const target = new URL(params.get('next') || '/', window.location.origin);
+    if (target.origin === window.location.origin) {
+      returnLocation = {
+        pathname: target.pathname,
+        search: target.search,
+        hash: target.hash,
+      };
     }
-    run()
-  }, [navigate, next, provider])
+  } catch {
+    // Fall back to the home page when the return address is invalid.
+  }
 
   return (
-    <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: '2rem' }}>
-      <section style={{ width: '100%', maxWidth: 520, padding: '2rem', borderRadius: 20, background: '#fff', boxShadow: '0 20px 60px rgba(0,0,0,0.08)' }}>
-        <h1 style={{ marginBottom: '0.75rem' }}>NEUFood</h1>
-        <p style={{ color: '#475569' }}>{msg}</p>
+    <main className="min-h-screen flex items-center justify-center px-4 py-12 bg-[#f7f7fb]">
+      <section className="w-full max-w-[480px] p-8 rounded-2xl bg-white shadow-xl flex flex-col items-center gap-5 text-center">
+        <Link to="/" className="flex items-center gap-2" aria-label="Về trang chủ NEUFood">
+          <img src="/neu-food.png" alt="" className="w-10 h-10 rounded-xl" />
+          <span className="text-xl font-bold text-[#003f87]">NEUFood</span>
+        </Link>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Chưa thể hoàn tất đăng nhập</h1>
+          <p className="mt-2 text-sm leading-6 text-gray-600" role="status">
+            {provider
+              ? `Đăng nhập qua ${providerName} chưa được kết nối. Bạn có thể tiếp tục bằng email và mật khẩu.`
+              : 'Đăng nhập từ nhà cung cấp ngoài chưa được kết nối. Bạn có thể tiếp tục bằng email và mật khẩu.'}
+          </p>
+        </div>
+        <a
+          href={`/DANGNHAP.html?next=${encodeURIComponent(returnLocation.pathname + returnLocation.search + returnLocation.hash)}`}
+          className="w-full py-3 px-4 bg-[#003f87] hover:bg-[#002b5e] text-white font-semibold rounded-xl text-sm transition-colors"
+        >
+          Đăng nhập bằng email
+        </a>
+        <Link to="/" className="text-sm font-medium text-[#003f87] hover:underline">
+          Về trang chủ
+        </Link>
       </section>
     </main>
-  )
+  );
 }

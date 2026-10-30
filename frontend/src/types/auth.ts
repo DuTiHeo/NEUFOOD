@@ -9,8 +9,21 @@ export interface RegisterPayload {
   email: string;
   password: string;
   full_name: string;
-  phone_number?: string;
+  phone_number: string;
   student_id?: string;
+}
+
+export interface ForgotPasswordData {
+  email: string;
+  otp_debug?: string;
+  expires_in_seconds?: number;
+  daily_count?: number;
+}
+
+export interface ResetPasswordPayload {
+  email: string;
+  otp: string;
+  new_password: string;
 }
 
 export interface AuthResponse {

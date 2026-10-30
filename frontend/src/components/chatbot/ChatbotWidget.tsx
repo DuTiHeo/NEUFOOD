@@ -54,7 +54,9 @@ const QUICK_PROMPTS = [
 
 export default function ChatbotWidget() {
   const { pathname } = useLocation()
-  const hasBottomDock = ['/', '/menu', '/gio-hang'].includes(pathname)
+  const hasBottomDock = ['/', '/menu', '/gio-hang', '/tai-khoan', '/lich-su-don'].includes(pathname)
+  // Hide chatbot on checkout page to avoid obscuring form inputs and the submit order button
+  const isCheckout = pathname === '/thanh-toan'
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState([])
@@ -82,7 +84,7 @@ export default function ChatbotWidget() {
     return () => clearInterval(timer)
   }, [cooldownSec])
 
-  const postJson = useCallback(async (path, body) => {
+  const postJson = useCallback(async (path: string, body?: any) => {
     const url = `${API_BASE}${path}`
     const res = await fetch(url, {
       method: 'POST',
@@ -91,14 +93,14 @@ export default function ChatbotWidget() {
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
-      const error = new Error(data.error || data.reply || `Lỗi ${res.status}`)
+      const error: any = new Error(data.error || data.reply || `Lỗi ${res.status}`)
       error.status = res.status
       throw error
     }
     return data
   }, [])
 
-  const sendMessage = useCallback(async (overrideText) => {
+  const sendMessage = useCallback(async (overrideText?: any) => {
     const text = (overrideText != null ? String(overrideText) : input).trim()
     if (!text || loading || cooldownSec > 0) return
     setInput('')
@@ -108,7 +110,7 @@ export default function ChatbotWidget() {
       const data = await postJson('/api/chat', { message: text })
       const reply = data.reply ?? 'Không có phản hồi'
       setMessages((prev) => [...prev, { role: 'bot', text: reply }])
-    } catch (e) {
+    } catch (e: any) {
       if (e?.status === 429) {
         const waitSeconds =
           Number(e?.message?.match(/sau khoảng (\d+) giây/i)?.[1]) ||
@@ -140,23 +142,29 @@ export default function ChatbotWidget() {
     }
   }, [postJson])
 
-  const onKeyDown = (e) => {
+  const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       sendMessage()
     }
   }
 
-  const onQuick = (q) => {
+  const onQuick = (q: string) => {
     setInput(q)
     sendMessage(q)
+  }
+
+  if (isCheckout) {
+    return null
   }
 
   return (
     <div
       className={styles.root}
       style={{
-        '--chat-bottom': hasBottomDock ? '5.75rem' : '1.25rem',
+        ['--chat-bottom' as any]: hasBottomDock
+          ? 'calc(4.75rem + env(safe-area-inset-bottom, 0px))'
+          : 'calc(1.25rem + env(safe-area-inset-bottom, 0px))',
       }}
     >
       {open ? (

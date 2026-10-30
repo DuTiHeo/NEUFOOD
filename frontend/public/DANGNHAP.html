@@ -4,6 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Đăng nhập | NEU Food</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet" />
@@ -18,7 +19,15 @@
 <body class="body">
     <div class="heroPattern"></div>
     <nav class="nav">
-        <div class="navLogo">NEU Food</div>
+        <a class="homeLink" href="/">
+            <span class="material-symbols-outlined" aria-hidden="true">home</span>
+            <span>Về trang chủ</span>
+        </a>
+        <div class="navLogo">
+            <img class="brandMark" src="https://res.cloudinary.com/dco3anl6m/image/upload/f_auto,q_auto/neu-food_nbogtd" alt="" aria-hidden="true" />
+            <span class="brandNeu">NEU</span>
+            <span class="brandFood">Food</span>
+        </div>
         <div class="navLinks">
             <span class="navText">Bạn chưa có tài khoản?</span>
             <a class="navLink" href="DANGKY.html">Đăng ký</a>
@@ -53,15 +62,15 @@
                         </header>
                         <form class="form" id="login-form">
                             <div class="inputGroup">
-                                <label class="inputLabel">ĐỊA CHỈ EMAIL</label>
+                                <label class="inputLabel" for="login-email">ĐỊA CHỈ EMAIL</label>
                                 <div class="inputWrapper">
                                     <input class="input" id="login-email" placeholder="tên@côngty.com" type="email" autocomplete="email" required />
                                 </div>
                             </div>
                             <div class="inputGroup">
                                 <div class="passwordGroup">
-                                    <label class="inputLabel">MẬT KHẨU</label>
-                                    <a class="forgotLink" id="forgot-password" href="#">Quên mật khẩu?</a>
+                                    <label class="inputLabel" for="login-password">MẬT KHẨU</label>
+                                    <a class="forgotLink" href="/quen-mat-khau">Quên mật khẩu?</a>
                                 </div>
                                 <div class="inputWrapper">
                                     <input class="input" id="login-password" placeholder="••••••••" type="password" autocomplete="current-password" required />
@@ -71,7 +80,7 @@
                                 <input class="checkbox" id="remember" type="checkbox" />
                                 <label class="checkboxLabel" for="remember">Ghi nhớ tôi</label>
                             </div>
-                            <p class="formDesc" id="login-message" style="margin-top: 8px; display: none;"></p>
+                            <p class="formDesc" id="login-message" role="alert" aria-live="polite" style="margin-top: 8px; display: none;"></p>
                             <button class="submitButton" type="submit">
                                 Đăng nhập ngay
                             </button>
@@ -96,173 +105,77 @@
             <a class="pageFooterLink" href="CaiDatCookie.html">Cài đặt Cookie</a>
         </div>
     </footer>
-    <!-- Reset password modal -->
-    <div class="modalOverlay" id="reset-overlay" style="display:none;">
-        <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="reset-title">
-            <div class="modalHead">
-                <h3 class="modalTitle" id="reset-title">Tạo mật khẩu mới</h3>
-                <button class="modalClose" id="reset-close" type="button" aria-label="Đóng">×</button>
-            </div>
-            <p class="modalDesc">Nhập email đã đăng ký và đặt mật khẩu mới.</p>
-            <form id="reset-form" class="modalForm">
-                <div class="inputGroup">
-                    <label class="inputLabel" for="reset-email">EMAIL</label>
-                    <div class="inputWrapper">
-                        <input class="input" id="reset-email" type="email" autocomplete="email" required placeholder="tên@côngty.com" />
-                    </div>
-                </div>
-                <div class="inputGroup">
-                    <label class="inputLabel" for="reset-password">MẬT KHẨU MỚI</label>
-                    <div class="inputWrapper">
-                        <input class="input" id="reset-password" type="password" autocomplete="new-password" minlength="6" required placeholder="••••••••" />
-                    </div>
-                </div>
-                <div class="inputGroup">
-                    <label class="inputLabel" for="reset-confirm">XÁC NHẬN</label>
-                    <div class="inputWrapper">
-                        <input class="input" id="reset-confirm" type="password" autocomplete="new-password" minlength="6" required placeholder="••••••••" />
-                    </div>
-                </div>
-                <p class="formDesc" id="reset-message" style="margin-top: 8px; display: none;"></p>
-                <div class="modalActions">
-                    <button class="submitButton" type="submit">Cập nhật mật khẩu</button>
-                    <button class="ghostButton" id="reset-cancel" type="button">Hủy</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    <script src="/auth-navigation.js"></script>
     <script>
-        const USERS_KEY = 'neufood_users_v1';
-        const SESSION_KEY = 'neufood_session_v1';
-
-        function normalizeEmail(email) {
-            return String(email || '').trim().toLowerCase();
-        }
-
-        function loadUsers() {
-            try {
-                const raw = localStorage.getItem(USERS_KEY);
-                const users = raw ? JSON.parse(raw) : [];
-                return Array.isArray(users) ? users : [];
-            } catch {
-                return [];
-            }
-        }
+        const API_URL = '/api/v1';
+        const AUTH_KEYS = ['neufood_token', 'neufood_refresh_token', 'neufood_user'];
 
         function setMessage(text, type) {
             const el = document.getElementById('login-message');
             if (!el) return;
             el.style.display = 'block';
             el.textContent = text;
-            el.style.color = type === 'success' ? '#0f766e' : '#b91c1c';
+            el.style.color = type === 'success' ? '#0f766e' : type === 'loading' ? '#003f87' : '#b91c1c';
         }
 
-        function setResetMessage(text, type) {
-            const el = document.getElementById('reset-message');
-            if (!el) return;
-            el.style.display = 'block';
-            el.textContent = text;
-            el.style.color = type === 'success' ? '#0f766e' : '#b91c1c';
+        function clearAuth() {
+            AUTH_KEYS.forEach((key) => {
+                localStorage.removeItem(key);
+                sessionStorage.removeItem(key);
+            });
         }
 
-        function getSessionStorage(remember) {
-            return remember ? localStorage : sessionStorage;
+        function saveAuth(auth, remember) {
+            const storage = remember ? localStorage : sessionStorage;
+            clearAuth();
+            storage.setItem('neufood_token', auth.access_token);
+            if (auth.refresh_token) storage.setItem('neufood_refresh_token', auth.refresh_token);
+            storage.setItem('neufood_user', JSON.stringify(auth.user));
         }
 
-        // If already logged in, go straight to Home
+        // Keep already authenticated visitors from seeing the login form again.
         try {
-            const existing = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
-            if (existing) window.location.href = '/';
+            const existing = localStorage.getItem('neufood_token') || sessionStorage.getItem('neufood_token');
+            if (existing) window.location.replace(window.authDestination);
         } catch {}
 
-        document.getElementById('login-form')?.addEventListener('submit', (e) => {
+        document.getElementById('login-form')?.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const email = normalizeEmail(document.getElementById('login-email')?.value);
+            const email = String(document.getElementById('login-email')?.value || '').trim().toLowerCase();
             const password = String(document.getElementById('login-password')?.value || '');
             const remember = Boolean(document.getElementById('remember')?.checked);
-
-            if (!email) return setMessage('Vui lòng nhập email hợp lệ.', 'error');
-            if (!password) return setMessage('Vui lòng nhập mật khẩu.', 'error');
-
-            const users = loadUsers();
-            const user = users.find(u => normalizeEmail(u.email) === email);
-            if (!user) return setMessage('Email chưa được đăng ký. Vui lòng tạo tài khoản.', 'error');
-            if (String(user.password || '') !== password) return setMessage('Mật khẩu không đúng.', 'error');
-
-            // Clear both to avoid stale session
-            localStorage.removeItem(SESSION_KEY);
-            sessionStorage.removeItem(SESSION_KEY);
-
-            getSessionStorage(remember).setItem(SESSION_KEY, JSON.stringify({
-                email,
-                name: user.name || '',
-                loginAt: new Date().toISOString(),
-            }));
-
-            setMessage('Đăng nhập thành công! Đang chuyển về trang chủ...', 'success');
-            setTimeout(() => window.location.href = '/', 400);
-        });
-
-        document.getElementById('forgot-password')?.addEventListener('click', (e) => {
-            e.preventDefault();
-            const overlay = document.getElementById('reset-overlay');
-            const emailInput = document.getElementById('reset-email');
-            const msg = document.getElementById('reset-message');
-            if (msg) msg.style.display = 'none';
-            if (emailInput) emailInput.value = document.getElementById('login-email')?.value || '';
-            if (overlay) overlay.style.display = 'flex';
-            setTimeout(() => emailInput?.focus(), 0);
-        });
-
-        function closeReset() {
-            const overlay = document.getElementById('reset-overlay');
-            if (overlay) overlay.style.display = 'none';
-        }
-
-        document.getElementById('reset-close')?.addEventListener('click', closeReset);
-        document.getElementById('reset-cancel')?.addEventListener('click', closeReset);
-        document.getElementById('reset-overlay')?.addEventListener('click', (e) => {
-            if (e.target && e.target.id === 'reset-overlay') closeReset();
-        });
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeReset();
-        });
-
-        document.getElementById('reset-form')?.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const email = normalizeEmail(document.getElementById('reset-email')?.value);
-            const password = String(document.getElementById('reset-password')?.value || '');
-            const confirm = String(document.getElementById('reset-confirm')?.value || '');
-
-            if (!email) return setResetMessage('Vui lòng nhập email hợp lệ.', 'error');
-            if (password.length < 6) return setResetMessage('Mật khẩu phải có ít nhất 6 ký tự.', 'error');
-            if (password !== confirm) return setResetMessage('Mật khẩu xác nhận không khớp.', 'error');
-
-            let users = [];
-            try {
-                const raw = localStorage.getItem(USERS_KEY);
-                users = raw ? JSON.parse(raw) : [];
-                if (!Array.isArray(users)) users = [];
-            } catch {
-                users = [];
+            const form = e.currentTarget;
+            const button = form.querySelector('button[type="submit"]');
+            const originalButtonText = button?.textContent;
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Đang đăng nhập…';
             }
+            setMessage('Đang xác thực tài khoản…', 'loading');
 
-            const idx = users.findIndex(u => normalizeEmail(u.email) === email);
-            if (idx === -1) return setResetMessage('Email này chưa được đăng ký. Vui lòng tạo tài khoản.', 'error');
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                });
+                const result = await response.json().catch(() => null);
+                const auth = result?.data;
+                if (!response.ok) throw new Error(result?.message || 'Email hoặc mật khẩu chưa chính xác.');
+                if (!auth?.access_token || !auth?.user) throw new Error('Máy chủ trả về dữ liệu đăng nhập không hợp lệ.');
 
-            users[idx] = { ...users[idx], password, updatedAt: new Date().toISOString() };
-            localStorage.setItem(USERS_KEY, JSON.stringify(users));
-            setResetMessage('Cập nhật mật khẩu thành công! Bạn có thể đăng nhập ngay.', 'success');
-            // Prefill login form
-            const loginEmail = document.getElementById('login-email');
-            if (loginEmail) loginEmail.value = email;
-            const loginPass = document.getElementById('login-password');
-            if (loginPass) loginPass.value = '';
-            setTimeout(() => {
-                closeReset();
-                document.getElementById('login-password')?.focus();
-            }, 600);
+                saveAuth(auth, remember);
+                setMessage('Đăng nhập thành công! Đang chuyển trang…', 'success');
+                window.setTimeout(() => window.location.assign(window.authDestination), 350);
+            } catch (error) {
+                setMessage(error instanceof Error ? error.message : 'Không thể kết nối máy chủ. Vui lòng thử lại.', 'error');
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = originalButtonText;
+                }
+            }
         });
     </script>
 </body>

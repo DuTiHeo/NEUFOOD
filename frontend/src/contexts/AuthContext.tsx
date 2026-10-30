@@ -14,11 +14,15 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function readStoredAuth(key: string) {
+  return localStorage.getItem(key) ?? sessionStorage.getItem(key);
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('neufood_token'));
+  const [token, setToken] = useState<string | null>(() => readStoredAuth('neufood_token'));
   const [user, setUser] = useState<User | null>(() => {
     try {
-      const stored = localStorage.getItem('neufood_user');
+      const stored = readStoredAuth('neufood_user');
       return stored ? JSON.parse(stored) : null;
     } catch {
       return null;
@@ -33,6 +37,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = useCallback((newToken: string, newUser: User, newRefreshToken?: string) => {
+    ['neufood_token', 'neufood_refresh_token', 'neufood_user'].forEach((key) => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    });
     localStorage.setItem('neufood_token', newToken);
     if (newRefreshToken) {
       localStorage.setItem('neufood_refresh_token', newRefreshToken);
@@ -50,9 +58,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const currentUser = await authService.getMe();
       setUser(currentUser);
-      localStorage.setItem('neufood_user', JSON.stringify(currentUser));
+      const storage = localStorage.getItem('neufood_token') ? localStorage : sessionStorage;
+      storage.setItem('neufood_user', JSON.stringify(currentUser));
     } catch (err) {
       console.warn('Failed to load user info:', err);
+      if ((err as any)?.response?.status === 401) {
+        ['neufood_token', 'neufood_refresh_token', 'neufood_user'].forEach((key) => {
+          localStorage.removeItem(key);
+          sessionStorage.removeItem(key);
+        });
+        setToken(null);
+        setUser(null);
+      }
     }
   }, [token]);
 

@@ -1,302 +1,159 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getDishById, suggestedDishes } from '../../data/dishes'
-import { computeListedReviewStats, getReviewsForDish, starStepsFromAvg, subscribeDishReviews } from '../../lib/dishReviews'
+import { useCart } from '../../contexts/CartContext'
+import { useDishes } from '../../contexts/DishesContext'
+import { reviewService } from '../../services/reviewService'
+import { DishReview } from '../../types/dish'
+import { getDishImageUrl, handleDishImageError } from '../../utils/dishImages'
+import Footer from '../../components/layout/Footer'
 import styles from './ChiTietMonPage.module.css'
 
-function formatPrice(vnd) {
-  return `${vnd.toLocaleString('vi-VN')}đ`
+function formatPrice(value: number) {
+  return `${Number(value || 0).toLocaleString('vi-VN')}đ`
 }
 
-const PLACEHOLDER_REVIEWS = [
-  {
-    id: 'p1',
-    name: 'Hoàng Anh',
-    role: 'Sinh viên Kinh tế',
-    stars: 5,
-    text: 'Gà giòn đúng điệu, da gà xối mỡ mặn mặn ngọt ngọt rất bắt miệng. Cơm không bị khô quá. Suất ăn khá nhiều, đủ no cho cả buổi chiều lên giảng đường.',
-    avatar:
-      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop&crop=face',
-  },
-  {
-    id: 'p2',
-    name: 'Minh Anh',
-    role: 'Giảng viên',
-    stars: 4,
-    text: 'Dịch vụ giao hàng nhanh, cơm vẫn còn nóng hổi khi nhận. Nước mắm tỏi ớt là linh hồn của món này, rất đậm đà. Sẽ tiếp tục ủng hộ NEUFood.',
-    avatar:
-      'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&h=150&fit=crop&crop=face',
-  },
-]
-
-const REVIEWS_INITIAL = 4
-
-function AvgStarRow({ avg }) {
-  return (
-    <div className={styles.reviewsStars}>
-      {starStepsFromAvg(avg).map((kind, i) => (
-        <span
-          key={i}
-          className={`material-symbols-outlined ${kind === 'empty' ? styles.avgStarEmpty : styles.avgStarFill}`}
-        >
-          {kind === 'half' ? 'star_half' : 'star'}
-        </span>
-      ))}
-    </div>
-  )
+function StarRow({ value }: { value: number }) {
+  const rating = Math.max(0, Math.min(5, Math.round(value)))
+  return <div className={styles.reviewsStars} aria-label={`${value.toFixed(1)} trên 5 sao`}>
+    {[1, 2, 3, 4, 5].map((number) => <span key={number} className={`material-symbols-outlined ${number <= rating ? styles.avgStarFill : styles.avgStarEmpty}`}>star</span>)}
+  </div>
 }
 
-function CardStars({ value }) {
-  return (
-    <div className={styles.reviewStars}>
-      {[1, 2, 3, 4, 5].map((n) => (
-        <span
-          key={n}
-          className={`material-symbols-outlined ${styles.starSm} ${n <= value ? styles.cardStarFill : styles.cardStarEmpty}`}
-        >
-          star
-        </span>
-      ))}
-    </div>
-  )
+function ReviewStars({ value }: { value: number }) {
+  return <div className={styles.reviewStars} aria-label={`${value} sao`}>
+    {[1, 2, 3, 4, 5].map((number) => <span key={number} className={`material-symbols-outlined ${styles.starSm} ${number <= value ? styles.cardStarFill : styles.cardStarEmpty}`}>star</span>)}
+  </div>
 }
 
 export default function ChiTietMonPage() {
   const { id } = useParams()
-  const dish = getDishById(id)
+  const { dishes, getById, isLoading, error, refresh } = useDishes()
+  const dish = getById(id)
+  const { add, getQty, maxDishQuantity } = useCart()
   const [qty, setQty] = useState(1)
-  const [reviewsTick, setReviewsTick] = useState(0)
-
-  useEffect(() => {
-    return subscribeDishReviews(() => setReviewsTick((t) => t + 1))
-  }, [])
-
-  const userReviews = useMemo(() => getReviewsForDish(dish.id), [dish.id, reviewsTick])
-  const listedStats = useMemo(
-    () => computeListedReviewStats(PLACEHOLDER_REVIEWS, userReviews),
-    [userReviews],
-  )
+  const [added, setAdded] = useState(false)
+  const [reviews, setReviews] = useState<DishReview[]>([])
+  const [reviewsLoading, setReviewsLoading] = useState(false)
+  const [reviewsError, setReviewsError] = useState('')
   const [reviewsExpanded, setReviewsExpanded] = useState(false)
 
-  const allDisplayReviews = useMemo(() => {
-    const samples = PLACEHOLDER_REVIEWS.map((r) => ({ kind: 'sample', key: r.id, data: r }))
-    const yours = userReviews.map((r, idx) => ({
-      kind: 'yours',
-      key: `u-${r.orderId}-${r.savedAt}-${idx}`,
-      data: r,
-    }))
-    return [...samples, ...yours]
-  }, [userReviews])
-
-  const visibleReviews = reviewsExpanded ? allDisplayReviews : allDisplayReviews.slice(0, REVIEWS_INITIAL)
-  const hiddenCount = Math.max(0, allDisplayReviews.length - REVIEWS_INITIAL)
-  const showMoreToggle = allDisplayReviews.length > REVIEWS_INITIAL
+  useEffect(() => {
+    setQty(1)
+    setAdded(false)
+    setReviewsExpanded(false)
+  }, [id])
 
   useEffect(() => {
-    setReviewsExpanded(false)
-  }, [dish.id])
+    if (!id) return
+    let active = true
+    setReviewsLoading(true)
+    reviewService.getDishReviews(id)
+      .then((result) => { if (active) { setReviews(result); setReviewsError('') } })
+      .catch((requestError: any) => { if (active) setReviewsError(requestError?.response?.data?.message || 'Không thể tải đánh giá.') })
+      .finally(() => { if (active) setReviewsLoading(false) })
+    return () => { active = false }
+  }, [id])
 
-  const detailImg = dish.detailImage ?? dish.image
-  const ingredients = dish.ingredients ?? []
-  const oldPrice = dish.oldPrice
+  const suggestedDishes = useMemo(() => {
+    const ids = new Set(dish?.categoryIds ?? dish?.category_ids ?? [])
+    return dishes
+      .filter((item) => item.id !== dish?.id && (item.categoryIds ?? item.category_ids ?? []).some((categoryId) => ids.has(categoryId)))
+      .slice(0, 6)
+  }, [dishes, dish])
+
+  if (isLoading) return <main className={styles.detail}><div className="wrap"><p role="status">Đang tải món ăn…</p></div><Footer /></main>
+  if (error) return <main className={styles.detail}><div className="wrap"><p role="alert">{error}</p><button type="button" onClick={() => void refresh()}>Thử tải lại</button></div><Footer /></main>
+  if (!dish) {
+    return <main className={styles.detail}><div className="wrap" style={{ textAlign: 'center', padding: '4rem 0' }}><h2>Không tìm thấy món ăn</h2><Link to="/menu">Quay lại thực đơn</Link></div><Footer /></main>
+  }
+
+  const reviewCount = Number(dish.reviewCount ?? dish.review_count ?? 0)
+  const rating = reviewCount > 0 ? Number(dish.rating || 0) : 0
+  const visibleReviews = reviewsExpanded ? reviews : reviews.slice(0, 4)
+  const canAdd = dish.is_available !== false
+  const reachedCartLimit = getQty(dish.id) >= maxDishQuantity
+
+  function handleAddToCart() {
+    if (!canAdd) return
+    const remaining = Math.max(0, maxDishQuantity - getQty(dish.id))
+    const quantityToAdd = Math.min(qty, remaining)
+    if (quantityToAdd > 0 && add(dish.id, quantityToAdd)) {
+      setQty(quantityToAdd)
+      setAdded(true)
+      window.setTimeout(() => setAdded(false), 1500)
+    }
+  }
 
   return (
     <>
-      <main class={styles.detail}>
-        <div class="wrap">
-          <nav class={styles.crumb}>
-            <Link class={styles.crumbLink} to="/">
-              Trang chủ
-            </Link>
-            <span class={`material-symbols-outlined ${styles.crumbSep}`}>chevron_right</span>
-            <Link class={styles.crumbLink} to="/menu">
-              Menu
-            </Link>
-            <span class={`material-symbols-outlined ${styles.crumbSep}`}>chevron_right</span>
-            <span class={styles.crumbHere}>{dish.name}</span>
+      <main className={styles.detail}>
+        <div className="wrap">
+          <nav className={styles.crumb} aria-label="Đường dẫn">
+            <Link className={styles.crumbLink} to="/">Trang chủ</Link>
+            <span className={`material-symbols-outlined ${styles.crumbSep}`}>chevron_right</span>
+            <Link className={styles.crumbLink} to="/menu">Menu</Link>
+            <span className={`material-symbols-outlined ${styles.crumbSep}`}>chevron_right</span>
+            <span className={styles.crumbHere}>{dish.name}</span>
           </nav>
 
-          <section class={styles.detailMain}>
-            <div class={styles.detailShot}>
-              <div class={styles.detailFrame}>
-                <img class={styles.detailPhoto} src={detailImg} alt={dish.name} />
-              </div>
-              <div class={styles.detailRate}>
-                <span class={`material-symbols-outlined material-symbols-fill ${styles.starSm}`}>star</span>
-                {listedStats.count > 0 ? `${listedStats.avg.toFixed(1)}/5` : `${Number(dish.rating).toFixed(1)}/5`}
-                {' '}
-                ({listedStats.count.toLocaleString('vi-VN')} đánh giá)
-              </div>
+          <section className={styles.detailMain}>
+            <div className={styles.detailShot}>
+              <div className={styles.detailFrame}><img className={styles.detailPhoto} src={getDishImageUrl(dish)} alt={dish.name} onError={handleDishImageError} /></div>
+              <div className={styles.detailRate}>{reviewCount > 0 ? <><span className={`material-symbols-outlined material-symbols-fill ${styles.starSm}`}>star</span>{rating.toFixed(1)}/5 ({reviewCount.toLocaleString('vi-VN')} đánh giá)</> : 'Chưa có đánh giá'}</div>
             </div>
 
-            <div class={styles.detailInfo}>
+            <div className={styles.detailInfo}>
               <div>
-                <h1 class={styles.detailName}>{dish.name}</h1>
-                <div class={styles.detailPrices}>
-                  <span class={styles.detailPrice}>{formatPrice(dish.price)}</span>
-                  {oldPrice ? <span class={styles.detailOld}>{formatPrice(oldPrice)}</span> : null}
-                </div>
+                <h1 className={styles.detailName}>{dish.name}</h1>
+                <div className={styles.detailPrices}><span className={styles.detailPrice}>{formatPrice(dish.price)}</span></div>
+                {dish.is_available === false ? <p role="status">Món hiện đã hết.</p> : null}
               </div>
-              <div class={styles.detailBlock}>
-                <h3 class={styles.detailH}>Mô tả món ăn</h3>
-                <p class={styles.detailQuote}>&quot;{dish.description}&quot;</p>
-              </div>
-              {ingredients.length > 0 ? (
-                <div class={styles.detailIngredients}>
-                  <h4 class={styles.detailIngTitle}>Thành phần chính</h4>
-                  <ul class={styles.detailIngList}>
-                    {ingredients.map((item) => (
-                      <li key={item} class={styles.detailIngItem}>
-                        <span class={styles.detailDot} />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
+              <div className={styles.detailBlock}><h3 className={styles.detailH}>Mô tả món ăn</h3><p className={styles.detailQuote}>{dish.description || dish.shortDescription || 'Chưa có mô tả cho món ăn này.'}</p></div>
+              <div className={styles.detailBuy}>
+                <div className={styles.qty}>
+                  <button type="button" className={styles.qtyBtn} onClick={() => setQty((value) => Math.max(1, value - 1))} disabled={qty <= 1} aria-label="Giảm số lượng"><span className="material-symbols-outlined">remove</span></button>
+                  <span className={styles.qtyNum}>{qty}</span>
+                  <button type="button" className={styles.qtyBtn} onClick={() => setQty((value) => Math.min(maxDishQuantity, value + 1))} disabled={qty >= maxDishQuantity || !canAdd || reachedCartLimit} aria-label="Tăng số lượng"><span className="material-symbols-outlined">add</span></button>
                 </div>
-              ) : null}
-              <div class={styles.detailBuy}>
-                <div class={styles.qty}>
-                  <button type="button" class={styles.qtyBtn} onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Giảm số lượng">
-                    <span class="material-symbols-outlined">remove</span>
-                  </button>
-                  <span class={styles.qtyNum}>{qty}</span>
-                  <button type="button" class={styles.qtyBtn} onClick={() => setQty((q) => q + 1)} aria-label="Tăng số lượng">
-                    <span class="material-symbols-outlined">add</span>
-                  </button>
-                </div>
-                <Link class={styles.detailCart} to="/gio-hang">
-                  <span class="material-symbols-outlined">shopping_bag</span>
-                  Thêm vào giỏ hàng
-                </Link>
-              </div>
-            </div>
-          </section>
-
-          <section class={styles.reviewsSection}>
-            <div class={styles.reviewsHead}>
-              <div>
-                <h2 class={styles.reviewsTitle}>Đánh giá khách hàng</h2>
-                <div class={styles.reviewsMeta}>
-                  <AvgStarRow avg={listedStats.count > 0 ? listedStats.avg : Number(dish.rating) || 0} />
-                  <span class={styles.metaBold}>
-                    {(listedStats.count > 0 ? listedStats.avg : Number(dish.rating) || 0).toFixed(1)}
-                  </span>
-                  <span class={styles.metaMuted}>({listedStats.count.toLocaleString('vi-VN')} đánh giá)</span>
-                </div>
-              </div>
-            </div>
-            <div class={styles.reviewsGrid}>
-              {visibleReviews.map((entry) =>
-                entry.kind === 'sample' ? (
-                  <div key={entry.key} class={styles.review}>
-                    <div class={styles.reviewTop}>
-                      <div class={styles.reviewUser}>
-                        <div class={styles.reviewAvatar}>
-                          <img alt="" src={entry.data.avatar} />
-                        </div>
-                        <div>
-                          <h4 class={styles.metaBold}>{entry.data.name}</h4>
-                          <p class={styles.reviewRole}>{entry.data.role}</p>
-                        </div>
-                      </div>
-                      <CardStars value={entry.data.stars} />
-                    </div>
-                    <p class={styles.reviewText}>{entry.data.text}</p>
-                  </div>
-                ) : (
-                  <div key={entry.key} class={`${styles.review} ${styles.reviewYours}`}>
-                    <div class={styles.reviewTop}>
-                      <div class={styles.reviewUser}>
-                        <div class={`${styles.reviewAvatar} ${styles.reviewAvatarYou}`} aria-hidden>
-                          <span class={styles.avatarLetter}>{(entry.data.authorLabel || 'B').charAt(0)}</span>
-                        </div>
-                        <div>
-                          <h4 class={styles.metaBold}>{entry.data.authorLabel || 'Bạn'}</h4>
-                          <p class={styles.reviewRole}>Đã mua qua NEUFood</p>
-                        </div>
-                      </div>
-                      <CardStars value={entry.data.stars} />
-                    </div>
-                    {entry.data.photo ? (
-                      <div class={styles.reviewPhotoBox}>
-                        <img class={styles.reviewPhoto} src={entry.data.photo} alt="Ảnh món ăn khách hàng chia sẻ" />
-                      </div>
-                    ) : null}
-                    {entry.data.comment ? <p class={styles.reviewText}>{entry.data.comment}</p> : null}
-                  </div>
-                ),
-              )}
-            </div>
-            {showMoreToggle ? (
-              <div class={styles.reviewsMore}>
-                <button
-                  type="button"
-                  class={styles.reviewsMoreBtn}
-                  onClick={() => setReviewsExpanded((v) => !v)}
-                  aria-expanded={reviewsExpanded}
-                >
-                  {reviewsExpanded ? (
-                    <>
-                      Thu gọn
-                      <span class={`material-symbols-outlined ${styles.reviewsMoreIco}`}>expand_less</span>
-                    </>
-                  ) : (
-                    <>
-                      Xem thêm đánh giá ({hiddenCount.toLocaleString('vi-VN')})
-                      <span class={`material-symbols-outlined ${styles.reviewsMoreIco}`}>expand_more</span>
-                    </>
-                  )}
+                <button type="button" className={styles.detailCart} onClick={handleAddToCart} disabled={!canAdd || reachedCartLimit} style={added ? { backgroundColor: '#16A34A', color: '#fff' } : undefined}>
+                  <span className="material-symbols-outlined">{added ? 'check' : 'shopping_bag'}</span>{!canAdd ? 'Tạm hết món' : reachedCartLimit ? 'Đã đạt giới hạn trong giỏ' : added ? `Đã thêm ${qty} món vào giỏ!` : 'Thêm vào giỏ hàng'}
                 </button>
+                <Link to="/gio-hang" className={styles.detailCart} style={{ backgroundColor: 'var(--color-brand)', color: '#fff' }}><span className="material-symbols-outlined">shopping_cart_checkout</span>Xem giỏ hàng</Link>
+                <p className={styles.purchaseLimit}>Mỗi món tối đa {maxDishQuantity} phần theo cấu hình hiện hành.</p>
               </div>
-            ) : null}
-          </section>
-
-          <section>
-            <h2 class={styles.suggestTitle}>Gợi ý món liên quan</h2>
-            <div class={`${styles.suggestRow} scrollbar-hide`}>
-              {suggestedDishes.map((s) => (
-                <div key={s.id} class={styles.suggestCard}>
-                  <div class={styles.suggestImgBox}>
-                    <img class={styles.suggestImg} src={s.image} alt={s.name} />
-                  </div>
-                  <div class={styles.suggestBody}>
-                    <h4 class={styles.suggestName}>{s.name}</h4>
-                    <div class={styles.suggestFoot}>
-                      <span class={styles.suggestPrice}>{formatPrice(s.price)}</span>
-                      <Link class={styles.suggestAdd} to={`/mon/${s.id}`} aria-label={`Thêm ${s.name}`}>
-                        <span class={`material-symbols-outlined ${styles.suggestAddIcon}`}>add</span>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              ))}
             </div>
           </section>
+
+          <section className={styles.reviewsSection}>
+            <div className={styles.reviewsHead}>
+              <div><h2 className={styles.reviewsTitle}>Đánh giá khách hàng</h2>{reviewCount > 0 ? <div className={styles.reviewsMeta}><StarRow value={rating} /><span className={styles.metaBold}>{rating.toFixed(1)}</span><span className={styles.metaMuted}>({reviews.length.toLocaleString('vi-VN')} đánh giá)</span></div> : null}</div>
+            </div>
+            {reviewsError ? <p role="alert">{reviewsError}</p> : null}
+            {reviewsLoading ? <p role="status">Đang tải đánh giá…</p> : null}
+            {!reviewsLoading && reviews.length === 0 ? <p className={styles.reviewText}>Món này chưa có đánh giá.</p> : null}
+            <div className={styles.reviewsGrid}>
+              {visibleReviews.map((review) => <ReviewCard key={review.id} review={review} />)}
+            </div>
+            {reviews.length > 4 ? <div className={styles.reviewsMore}><button type="button" className={styles.reviewsMoreBtn} onClick={() => setReviewsExpanded((value) => !value)} aria-expanded={reviewsExpanded}>{reviewsExpanded ? 'Thu gọn' : `Xem thêm đánh giá (${reviews.length - 4})`}<span className={`material-symbols-outlined ${styles.reviewsMoreIco}`}>{reviewsExpanded ? 'expand_less' : 'expand_more'}</span></button></div> : null}
+          </section>
+
+          {suggestedDishes.length > 0 ? <section><h2 className={styles.suggestTitle}>Gợi ý món liên quan</h2><div className={`${styles.suggestRow} scrollbar-hide`}>
+            {suggestedDishes.map((suggestion) => <div key={suggestion.id} className={styles.suggestCard}><div className={styles.suggestImgBox}><img className={styles.suggestImg} src={getDishImageUrl(suggestion)} alt={suggestion.name} onError={handleDishImageError} /></div><div className={styles.suggestBody}><h4 className={styles.suggestName}>{suggestion.name}</h4><div className={styles.suggestFoot}><span className={styles.suggestPrice}>{formatPrice(suggestion.price)}</span><Link className={styles.suggestAdd} to={`/mon/${suggestion.id}`} aria-label={`Xem ${suggestion.name}`}><span className={`material-symbols-outlined ${styles.suggestAddIcon}`}>arrow_forward</span></Link></div></div></div>)}
+          </div></section> : null}
         </div>
       </main>
-
-      <footer class={styles.detailFoot}>
-        <div class={`wrap ${styles.detailFootInner}`}>
-          <div class={styles.detailFootBrand}>
-            <div class={styles.detailFootName}>NEUFood Campus Dining</div>
-            <div class={styles.detailFootCopy}>© 2024 NEUFood Campus Dining. All rights reserved.</div>
-          </div>
-          <div class={styles.detailFootLinks}>
-            <a class={styles.detailFootA} href="#">
-              Support
-            </a>
-            <a class={styles.detailFootA} href="#">
-              Privacy Policy
-            </a>
-            <a class={styles.detailFootA} href="#">
-              Terms of Service
-            </a>
-            <a class={styles.detailFootA} href="#">
-              Campus Map
-            </a>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </>
   )
+}
+
+function ReviewCard({ review }: { review: DishReview }) {
+  const author = review.user_name || 'Sinh viên NEU'
+  return <article className={styles.review}>
+    <div className={styles.reviewTop}>
+      <div className={styles.reviewUser}><div className={`${styles.reviewAvatar} ${styles.reviewAvatarYou}`} aria-hidden><span className={styles.avatarLetter}>{author.charAt(0)}</span></div><div><h3 className={styles.metaBold}>{author}</h3><p className={styles.reviewRole}>{review.created_at ? new Date(review.created_at).toLocaleDateString('vi-VN') : 'Đã mua qua NEUFood'}</p></div></div>
+      <ReviewStars value={review.rating} />
+    </div>
+    {review.comment ? <p className={styles.reviewText}>{review.comment}</p> : null}
+  </article>
 }

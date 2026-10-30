@@ -1,46 +1,62 @@
 import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAdminAuth } from '../../contexts/AdminAuthContext'
+import { useAuth } from '../../contexts/AuthContext'
 import styles from './AdminLoginPage.module.css'
 
 export default function AdminLoginPage() {
-  const { isAdmin, login } = useAdminAuth()
+  const { isAdmin, isLoading: authLoading, login } = useAdminAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const { state } = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [err, setErr] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
-  if (isAdmin) {
-    return <Navigate to="/quan-ly" replace />
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-[#003f87] border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
   }
 
-  function onSubmit(e) {
+  if (isAdmin) {
+    return <Navigate to={user?.role === 'staff' ? '/nhan-vien' : '/quan-ly'} replace />
+  }
+
+  async function onSubmit(e) {
     e.preventDefault()
     setErr('')
-    if (login(email, password)) {
-      const to = state?.from && state.from.startsWith('/quan-ly') ? state.from : '/quan-ly'
+    setSubmitting(true)
+    try {
+      const signedInUser = await login(email, password)
+      const roleHome = signedInUser.role === 'staff' ? '/nhan-vien' : '/quan-ly'
+      const to = state?.from && state.from.startsWith(roleHome) ? state.from : roleHome
       navigate(to, { replace: true })
-    } else {
-      setErr('Email hoặc mật khẩu không đúng.')
+    } catch (error: any) {
+      setErr(error?.response?.data?.message || error?.message || 'Đăng nhập không thành công.')
+    } finally {
+      setSubmitting(false)
     }
   }
 
   return (
-    <main class={styles.page}>
-      <div class={styles.card}>
+    <main className={styles.page}>
+      <div className={styles.card}>
         <div>
-          <h1 class={styles.title}>Đăng nhập quản trị</h1>
-          <p class={styles.hint}>Chỉ tài khoản quản lý được phép vào khu vực này.</p>
+          <h1 className={styles.title}>Đăng nhập khu vực Canteen</h1>
+          <p className={styles.hint}>Đăng nhập bằng tài khoản nhân viên, quản lý hoặc admin để vào đúng khu vực nghiệp vụ.</p>
         </div>
-        <form class={styles.form} onSubmit={onSubmit}>
-          <div class={styles.field}>
-            <label class={styles.lbl} htmlFor="adm-email">
+        <form className={styles.form} onSubmit={onSubmit}>
+          <div className={styles.field}>
+            <label className={styles.lbl} htmlFor="adm-email">
               Email
             </label>
             <input
               id="adm-email"
-              class={styles.inp}
+              className={styles.inp}
               type="email"
               autoComplete="username"
               value={email}
@@ -48,13 +64,13 @@ export default function AdminLoginPage() {
               required
             />
           </div>
-          <div class={styles.field}>
-            <label class={styles.lbl} htmlFor="adm-pass">
+          <div className={styles.field}>
+            <label className={styles.lbl} htmlFor="adm-pass">
               Mật khẩu
             </label>
             <input
               id="adm-pass"
-              class={styles.inp}
+              className={styles.inp}
               type="password"
               autoComplete="current-password"
               value={password}
@@ -62,12 +78,12 @@ export default function AdminLoginPage() {
               required
             />
           </div>
-          {err ? <p class={styles.err}>{err}</p> : null}
-          <button type="submit" class={styles.btn}>
-            Đăng nhập
+          {err ? <p className={styles.err}>{err}</p> : null}
+          <button type="submit" className={styles.btn} disabled={submitting}>
+            {submitting ? 'Đang xác thực…' : 'Đăng nhập'}
           </button>
         </form>
-        <Link class={styles.back} to="/">
+        <Link className={styles.back} to="/">
           ← Về trang chủ
         </Link>
       </div>

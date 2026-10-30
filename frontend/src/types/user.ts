@@ -3,8 +3,8 @@ export interface User {
   email: string;
   full_name: string;
   phone_number?: string;
-  student_id?: string;
-  role: 'user' | 'admin';
+  student_id?: string | null;
+  role: 'customer' | 'staff' | 'manager' | 'admin' | 'user';
   avatar_url?: string;
   is_active?: boolean;
   created_at?: string;
@@ -13,6 +13,6 @@ export interface User {
 export interface UserProfileUpdate {
   full_name?: string;
   phone_number?: string;
-  student_id?: string;
+  student_id?: string | null;
   avatar_url?: string;
 }

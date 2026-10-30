@@ -344,10 +344,36 @@
   transform: scale(0.96);
 }
 
+.fab:focus-visible,
+.iconBtn:focus-visible,
+.sendBtn:focus-visible,
+.quickBtn:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
 .fabImg {
   display: block;
   height: 4.5rem;
   width: 4.5rem;
   object-fit: contain;
   pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .root {
+    right: 0.75rem;
+  }
+  .fab {
+    height: 3.25rem;
+    width: 3.25rem;
+  }
+  .fabImg {
+    height: 3.25rem;
+    width: 3.25rem;
+  }
+  .panel {
+    width: min(calc(100vw - 1.5rem), 22rem);
+    max-height: min(65vh, 26rem);
+  }
 }

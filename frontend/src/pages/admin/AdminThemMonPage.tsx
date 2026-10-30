@@ -1,129 +1,147 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { FormEvent, useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAdminDishes } from '../../contexts/AdminDishesContext'
 import f from './AdminForm.module.css'
 
-const CATS = ['Cơm', 'Đồ uống', 'Ăn vặt', 'Healthy', 'Món khác']
-
 export default function AdminThemMonPage() {
   const navigate = useNavigate()
-  const { addDish } = useAdminDishes()
+  const { pathname } = useLocation()
+  const basePath = pathname.startsWith('/admin') ? '/admin' : '/quan-ly'
+  const { addDish, categories, isLoading } = useAdminDishes()
   const [name, setName] = useState('')
-  const [category, setCategory] = useState('Cơm')
+  const [categoryId, setCategoryId] = useState('')
   const [price, setPrice] = useState('')
   const [shortDescription, setShortDescription] = useState('')
   const [description, setDescription] = useState('')
   const [image, setImage] = useState('')
   const [signature, setSignature] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
-  function onSubmit(e) {
+  useEffect(() => {
+    if (!categoryId && categories.length) setCategoryId(categories[0].id)
+  }, [categoryId, categories])
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const p = Number(String(price).replace(/\D/g, '')) || 0
-    addDish({
-      name: name.trim() || 'Món mới',
-      category,
-      price: p,
-      shortDescription: shortDescription.trim(),
-      description: description.trim() || shortDescription.trim(),
-      image: image.trim() || 'https://placehold.co/400x300/e2e8f0/64748b?text=NEUFood',
-      signature,
-      active: true,
-      stock: 'in',
-    })
-    navigate('/quan-ly/mon')
+    setSaving(true)
+    setError('')
+    try {
+      const basePrice = Number(String(price).replace(/\D/g, ''))
+      await addDish({
+        name: name.trim(),
+        categoryIds: categoryId ? [categoryId] : [],
+        basePrice,
+        shortDescription: shortDescription.trim(),
+        description: description.trim() || shortDescription.trim(),
+        image: image.trim(),
+        signature,
+        available: true,
+      })
+      navigate(`${basePath}/mon`)
+    } catch (requestError: any) {
+      setError(requestError?.response?.data?.message || 'Không thể tạo món. Vui lòng kiểm tra dữ liệu và quyền quản lý.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
-    <div class={f.page}>
-      <Link class={f.back} to="/quan-ly/mon">
-        <span class="material-symbols-outlined" style={{ fontSize: '18px' }}>
+    <div className={f.page}>
+      <Link className={f.back} to={`${basePath}/mon`}>
+        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
           arrow_back
         </span>
         Về danh sách món
       </Link>
-      <h2 class={f.cardHd} style={{ marginBottom: 0 }}>
-        <span class="material-symbols-outlined" style={{ color: 'var(--color-brand)' }}>
+      <h2 className={f.cardHd} style={{ marginBottom: 0 }}>
+        <span className="material-symbols-outlined" style={{ color: 'var(--color-brand)' }}>
           add_circle
         </span>
         Thêm món mới
       </h2>
       <p style={{ margin: '0 0 1rem', color: 'var(--color-muted)', fontSize: '0.875rem' }}>
-        Điền thông tin món — dữ liệu lưu cục bộ trên trình duyệt (demo).
+        Nhập giá gốc tại quầy. Hệ thống sẽ áp dụng phụ phí theo cấu hình khi tính giá niêm yết.
       </p>
 
+      {error ? <p role="alert">{error}</p> : null}
+
       <form onSubmit={onSubmit}>
-        <div class={f.grid}>
-          <div class={f.col}>
-            <div class={f.card} style={{ boxShadow: 'none', border: '1px solid var(--color-edge)' }}>
-              <div class={f.field}>
-                <label class={f.lbl} htmlFor="tm-name">
+        <div className={f.grid}>
+          <div className={f.col}>
+            <div className={f.card} style={{ boxShadow: 'none', border: '1px solid var(--color-edge)' }}>
+              <div className={f.field}>
+                <label className={f.lbl} htmlFor="tm-name">
                   Tên món
                 </label>
                 <input
                   id="tm-name"
-                  class={f.inp}
+                  className={f.inp}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Ví dụ: Phở bò tái"
                   required
                 />
               </div>
-              <div class={f.row2}>
-                <div class={f.field}>
-                  <label class={f.lbl} htmlFor="tm-cat">
+              <div className={f.row2}>
+                <div className={f.field}>
+                  <label className={f.lbl} htmlFor="tm-cat">
                     Danh mục
                   </label>
-                  <div class={f.selWrap}>
+                  <div className={f.selWrap}>
                     <select
                       id="tm-cat"
-                      class={f.sel}
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
+                      className={f.sel}
+                      value={categoryId}
+                      onChange={(e) => setCategoryId(e.target.value)}
+                      disabled={isLoading || categories.length === 0}
                     >
-                      {CATS.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.label || category.name || category.id}
                         </option>
                       ))}
                     </select>
-                    <span class={`material-symbols-outlined ${f.selChev}`}>expand_more</span>
+                    <span className={`material-symbols-outlined ${f.selChev}`}>expand_more</span>
                   </div>
                 </div>
-                <div class={f.field}>
-                  <label class={f.lbl} htmlFor="tm-price">
-                    Giá (VNĐ)
+                <div className={f.field}>
+                  <label className={f.lbl} htmlFor="tm-price">
+                    Giá gốc tại quầy (VNĐ)
                   </label>
-                  <div class={f.priceWrap}>
+                  <div className={f.priceWrap}>
                     <input
                       id="tm-price"
-                      class={f.inp}
+                      className={f.inp}
                       value={price}
                       onChange={(e) => setPrice(e.target.value)}
-                      placeholder="45000"
+                      placeholder="40000"
+                      inputMode="numeric"
+                      required
                     />
-                    <span class={f.priceSuf}>đ</span>
+                    <span className={f.priceSuf}>đ</span>
                   </div>
                 </div>
               </div>
-              <div class={f.field}>
-                <label class={f.lbl} htmlFor="tm-short">
+              <div className={f.field}>
+                <label className={f.lbl} htmlFor="tm-short">
                   Mô tả ngắn
                 </label>
                 <input
                   id="tm-short"
-                  class={f.inp}
+                  className={f.inp}
                   value={shortDescription}
                   onChange={(e) => setShortDescription(e.target.value)}
                   placeholder="Hiển thị trên thẻ món"
                 />
               </div>
-              <div class={f.field}>
-                <label class={f.lbl} htmlFor="tm-desc">
+              <div className={f.field}>
+                <label className={f.lbl} htmlFor="tm-desc">
                   Mô tả chi tiết
                 </label>
                 <textarea
                   id="tm-desc"
-                  class={f.area}
+                  className={f.area}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={4}
@@ -132,29 +150,29 @@ export default function AdminThemMonPage() {
               </div>
             </div>
           </div>
-          <div class={f.col}>
-            <div class={f.card} style={{ boxShadow: 'none', border: '1px solid var(--color-edge)' }}>
-              <div class={f.field}>
-                <label class={f.lbl} htmlFor="tm-img">
+          <div className={f.col}>
+            <div className={f.card} style={{ boxShadow: 'none', border: '1px solid var(--color-edge)' }}>
+              <div className={f.field}>
+                <label className={f.lbl} htmlFor="tm-img">
                   URL ảnh món
                 </label>
                 <input
                   id="tm-img"
-                  class={f.inp}
+                  className={f.inp}
                   value={image}
                   onChange={(e) => setImage(e.target.value)}
                   placeholder="https://..."
                 />
               </div>
-              <label class={f.drop}>
-                <span class={`material-symbols-outlined ${f.dropIco}`}>add_photo_alternate</span>
-                <span class={f.dropTit}>Ảnh minh họa</span>
-                <span class={f.dropSub}>Dán URL ở trên hoặc dùng ảnh mặc định khi để trống</span>
+              <label className={f.drop}>
+                <span className={`material-symbols-outlined ${f.dropIco}`}>add_photo_alternate</span>
+                <span className={f.dropTit}>Ảnh minh họa</span>
+                <span className={f.dropSub}>Dán URL ảnh món. Có thể để trống.</span>
               </label>
-              <label class={f.chkRow}>
+              <label className={f.chkRow}>
                 <input
                   type="checkbox"
-                  class={f.chk}
+                  className={f.chk}
                   checked={signature}
                   onChange={(e) => setSignature(e.target.checked)}
                 />
@@ -163,12 +181,12 @@ export default function AdminThemMonPage() {
             </div>
           </div>
         </div>
-        <div class={f.act}>
-          <Link class={f.btnGhost} to="/quan-ly/mon">
+        <div className={f.act}>
+          <Link className={f.btnGhost} to={`${basePath}/mon`}>
             Huỷ
           </Link>
-          <button type="submit" class={f.btnPri}>
-            Tạo món
+          <button type="submit" className={f.btnPri} disabled={saving || isLoading || categories.length === 0}>
+            {saving ? 'Đang lưu…' : 'Tạo món'}
           </button>
         </div>
       </form>

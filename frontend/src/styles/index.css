@@ -6,29 +6,47 @@
     --font-headline: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
     --font-label: 'Inter', ui-sans-serif, system-ui, sans-serif;
-    --color-brand: #003f87;
-    --color-brand-2: #0056b3;
+
+    /* Brand — NEU Deep Navy */
+    --color-brand: #003F87;
+    --color-brand-2: #002D62;
+    --color-brand-hover: #002D62;
     --color-on-brand: #ffffff;
-    --color-brand-soft: #bbd0ff;
-    --color-ink: #191c1d;
-    --color-muted: #424752;
-    --color-page: #f8f9fa;
+    --color-brand-soft: #EFF6FF;
+
+    /* Accent — Food Orange (CTA, price, add-to-cart badges) */
+    --color-accent: #EA580C;
+    --color-accent-2: #C2410C;
+    --color-accent-soft: #FFF7ED;
+    --color-on-accent: #ffffff;
+
+    /* Neutrals */
+    --color-ink: #0F172A;
+    --color-muted: #475569;
+    --color-page: #F8FAFC;
     --color-panel: #ffffff;
-    --color-soft: #e7e8e9;
-    --color-well: #edeeef;
-    --color-skin: #f3f4f5;
-    --color-edge: #e1e3e4;
-    --color-line: #727784;
-    --color-line-soft: #c2c6d4;
-    --color-accent: #623700;
-    --color-accent-2: #834c00;
-    --color-warm: #ffdcbe;
-    --color-warm-ink: #2c1600;
-    --color-warm-muted: #693c00;
-    --color-tint: #dfe0e0;
-    --color-stone: #5d5f5f;
-    --color-danger: #ba1a1a;
+    --color-soft: #F1F5F9;
+    --color-well: #E2E8F0;
+    --color-skin: #F8FAFC;
+    --color-edge: #E2E8F0;
+    --color-line: #94A3B8;
+    --color-line-soft: #CBD5E1;
+
+    /* Warm (backward compat with FoodCard badge) */
+    --color-warm: #FFF7ED;
+    --color-warm-ink: #9A3412;
+    --color-warm-muted: #C2410C;
+    --color-tint: #F1F5F9;
+    --color-stone: #64748B;
+
+    /* Status */
+    --color-danger: #DC2626;
     --color-on-danger: #ffffff;
+    --color-success: #16A34A;
+
+    /* Footer */
+    --color-footer: #0B192C;
+    --color-footer-text: #CBD5E1;
 }
 
 *,
@@ -49,7 +67,7 @@ body {
     margin: 0;
     padding: 0;
     min-height: 100vh;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    font-family: var(--font-body);
     background: none;
     background-color: var(--color-page);
 }
@@ -80,24 +98,58 @@ body.page-background {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 0.5rem;
     border-radius: 0.75rem;
-    background: linear-gradient(to right, var(--color-brand), var(--color-brand-2));
-    padding: 1rem 2rem;
-    font-size: 1.125rem;
-    line-height: 1.75rem;
+    border: none;
+    background: var(--color-accent);
+    padding: 0.875rem 2rem;
+    font-family: var(--font-headline);
+    font-size: 1rem;
+    line-height: 1.5rem;
     font-weight: 700;
-    color: var(--color-on-brand);
+    color: var(--color-on-accent);
     text-decoration: none;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
 .btn-brand:hover {
-    transform: translateY(-0.25rem);
-    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 63 135 / 0.2);
+    background-color: var(--color-accent-2);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgb(234 88 12 / 0.3);
 }
 
 .btn-brand:active {
-    transform: scale(0.95);
+    transform: scale(0.97);
+}
+
+.btn-brand:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
+.btn-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.75rem;
+    border: 2px solid var(--color-on-brand);
+    background: transparent;
+    padding: 0.75rem 1.75rem;
+    font-family: var(--font-headline);
+    font-size: 1rem;
+    line-height: 1.5rem;
+    font-weight: 600;
+    color: var(--color-on-brand);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.btn-outline:hover {
+    background-color: rgb(255 255 255 / 0.15);
+    transform: translateY(-2px);
 }
 
 .btn-chip {
@@ -212,4 +264,13 @@ body.page-background {
     left: 0;
     pointer-events: none;
     z-index: 9999;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }

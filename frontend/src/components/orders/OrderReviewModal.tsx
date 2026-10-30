@@ -1,148 +1,76 @@
 import { useCallback, useState } from 'react'
 import styles from './OrderReviewModal.module.css'
 
-export default function OrderReviewModal({ orderId, items, onClose, onSubmitReview }) {
+interface ReviewItem {
+  dishId: string;
+  name: string;
+  qty: number;
+}
+
+interface OrderReviewModalProps {
+  orderId: string;
+  items: ReviewItem[];
+  onClose: () => void;
+  onSubmitReview: (data: { starsByLine: number[]; comment: string }) => Promise<void> | void;
+}
+
+export default function OrderReviewModal({ orderId, items, onClose, onSubmitReview }: OrderReviewModalProps) {
   const [starsByLine, setStarsByLine] = useState(() => items.map(() => 0))
-  const [photosByLine, setPhotosByLine] = useState(() => items.map(() => ''))
   const [comment, setComment] = useState('')
-  const [err, setErr] = useState('')
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
-  const setStar = useCallback((lineIdx, value) => {
-    setStarsByLine((prev) => {
-      const next = [...prev]
-      next[lineIdx] = value
+  const setStar = useCallback((lineIndex: number, value: number) => {
+    setStarsByLine((previous) => {
+      const next = [...previous]
+      next[lineIndex] = value
       return next
     })
-    setErr('')
+    setError('')
   }, [])
 
-  const handlePickPhoto = useCallback((lineIdx, e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (!file.type.startsWith('image/')) {
-      setErr('Vui lòng chọn file ảnh hợp lệ.')
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (starsByLine.some((stars) => stars < 1)) {
+      setError('Vui lòng chọn số sao cho từng món.')
       return
     }
-    if (file.size > 2 * 1024 * 1024) {
-      setErr('Ảnh tối đa 2MB để đảm bảo tải nhanh.')
-      return
+    setSubmitting(true)
+    setError('')
+    try {
+      await onSubmitReview({ starsByLine, comment })
+      onClose()
+    } catch (submitError: any) {
+      setError(submitError?.message || 'Không gửi được đánh giá. Vui lòng thử lại.')
+    } finally {
+      setSubmitting(false)
     }
-
-    const reader = new FileReader()
-    reader.onload = () => {
-      const dataUrl = typeof reader.result === 'string' ? reader.result : ''
-      setPhotosByLine((prev) => {
-        const next = [...prev]
-        next[lineIdx] = dataUrl
-        return next
-      })
-      setErr('')
-    }
-    reader.readAsDataURL(file)
-  }, [])
-
-  const removePhoto = useCallback((lineIdx) => {
-    setPhotosByLine((prev) => {
-      const next = [...prev]
-      next[lineIdx] = ''
-      return next
-    })
-  }, [])
-
-  function handleSubmit(e) {
-    e.preventDefault()
-    const missing = starsByLine.findIndex((s) => s < 1)
-    if (missing !== -1) {
-      setErr('Vui lòng chọn số sao cho từng món.')
-      return
-    }
-    onSubmitReview({ starsByLine, photosByLine, comment })
-    onClose()
   }
 
   return (
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="review-title">
       <div className={styles.panel}>
         <header className={styles.head}>
-          <h2 id="review-title" className={styles.title}>
-            Đánh giá món ăn
-          </h2>
+          <h2 id="review-title" className={styles.title}>Đánh giá món ăn</h2>
           <p className={styles.sub}>Mã đơn #{orderId}</p>
-          <button type="button" className={styles.close} onClick={onClose} aria-label="Đóng">
-            <span className="material-symbols-outlined">close</span>
-          </button>
+          <button type="button" className={styles.close} onClick={onClose} disabled={submitting} aria-label="Đóng"><span className="material-symbols-outlined">close</span></button>
         </header>
-
         <form className={styles.form} onSubmit={handleSubmit}>
           <ul className={styles.list}>
-            {items.map((item, idx) => (
-              <li key={`${item.name}-${idx}`} className={styles.row}>
-                <div className={styles.rowInfo}>
-                  <span className={styles.dishName}>{item.name}</span>
-                  <span className={styles.dishMeta}>x{item.qty}</span>
-                </div>
-                <div className={styles.stars} role="group" aria-label={`Đánh giá ${item.name}`}>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      className={n <= starsByLine[idx] ? styles.starOn : styles.starOff}
-                      onClick={() => setStar(idx, n)}
-                      aria-label={`${n} sao`}
-                    >
-                      <span className={`material-symbols-outlined ${styles.starIco}`}>star</span>
-                    </button>
-                  ))}
-                </div>
-                <div className={styles.photoRow}>
-                  <label className={styles.photoBtn} htmlFor={`photo-${idx}`}>
-                    <span className="material-symbols-outlined">add_a_photo</span>
-                    Thêm ảnh món ăn
-                  </label>
-                  <input
-                    id={`photo-${idx}`}
-                    className={styles.photoInp}
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handlePickPhoto(idx, e)}
-                  />
-                  {photosByLine[idx] ? (
-                    <button type="button" className={styles.photoRemove} onClick={() => removePhoto(idx)}>
-                      Bỏ ảnh
-                    </button>
-                  ) : null}
-                </div>
-                {photosByLine[idx] ? (
-                  <img className={styles.photoPreview} src={photosByLine[idx]} alt={`Ảnh đánh giá ${item.name}`} />
-                ) : null}
-              </li>
-            ))}
+            {items.map((item, index) => <li key={`${item.dishId}-${index}`} className={styles.row}>
+              <div className={styles.rowInfo}><span className={styles.dishName}>{item.name}</span><span className={styles.dishMeta}>×{item.qty}</span></div>
+              <div className={styles.stars} role="group" aria-label={`Đánh giá ${item.name}`}>
+                {[1, 2, 3, 4, 5].map((number) => <button key={number} type="button" className={number <= starsByLine[index] ? styles.starOn : styles.starOff} onClick={() => setStar(index, number)} aria-label={`${number} sao`} aria-pressed={starsByLine[index] === number}><span className={`material-symbols-outlined ${styles.starIco}`}>star</span></button>)}
+              </div>
+            </li>)}
           </ul>
-
-          <label className={styles.lbl}>
-            Nhận xét thêm (tuỳ chọn)
-            <textarea
-              className={styles.area}
-              rows={3}
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder="Ví dụ: Giao nhanh, đóng gói cẩn thận…"
-            />
+          <label className={styles.lbl}>Nhận xét thêm (tuỳ chọn)
+            <textarea className={styles.area} rows={3} value={comment} onChange={(event) => setComment(event.target.value)} maxLength={1000} placeholder="Chia sẻ trải nghiệm của bạn…" />
           </label>
-
-          {err ? (
-            <p className={styles.err} role="alert">
-              {err}
-            </p>
-          ) : null}
-
+          {error ? <p className={styles.err} role="alert">{error}</p> : null}
           <div className={styles.actions}>
-            <button type="button" className={styles.btnGhost} onClick={onClose}>
-              Huỷ
-            </button>
-            <button type="submit" className={styles.btnPri}>
-              Gửi đánh giá
-            </button>
+            <button type="button" className={styles.btnGhost} onClick={onClose} disabled={submitting}>Huỷ</button>
+            <button type="submit" className={styles.btnPri} disabled={submitting}>{submitting ? 'Đang gửi…' : 'Gửi đánh giá'}</button>
           </div>
         </form>
       </div>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, UtensilsCrossed, ShoppingCart, User, Clock, MapPin, X } from 'lucide-react';
+import { Home, UtensilsCrossed, ShoppingCart, User, Clock, X } from 'lucide-react';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -11,7 +11,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
   const navItems = [
     { label: 'Trang chủ', path: '/', icon: Home },
     { label: 'Thực đơn', path: '/menu', icon: UtensilsCrossed },
-    { label: 'Gần NEU', path: '/gan-neu', icon: MapPin },
     { label: 'Giỏ hàng', path: '/gio-hang', icon: ShoppingCart },
     { label: 'Lịch sử đơn', path: '/lich-su-don', icon: Clock },
     { label: 'Tài khoản', path: '/tai-khoan', icon: User },
