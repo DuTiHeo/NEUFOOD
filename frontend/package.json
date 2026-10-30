@@ -5,6 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test:auth": "node --test scripts/auth-navigation.test.mjs",
+    "test:manager": "node --test scripts/manager-rules.test.mjs",
+    "test:staff": "node --test scripts/staff-rules.test.mjs",
+    "test:requests": "node --test scripts/request-coalescing.test.mjs",
     "build": "vite build",
     "preview": "vite preview"
   },
