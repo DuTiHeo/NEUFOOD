@@ -19,7 +19,7 @@ export const orderService = {
   },
 
   async getAllOrdersAdmin(params?: OrderListParams): Promise<{ items: Order[]; total: number }> {
-    const res = await api.get<ApiResponse<{ items: Order[]; total: number }>>('/orders/admin/all', { params });
+    const res = await api.get<ApiResponse<{ items: Order[]; total: number }>>('/orders/admin/all', { params, timeout: 30000 });
     return res.data.data;
   },
 
