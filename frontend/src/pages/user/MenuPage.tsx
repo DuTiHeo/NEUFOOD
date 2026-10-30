@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Star, Minus, Plus, ShoppingBag, SlidersHorizontal, ChevronDown, Check, Trash2 } from 'lucide-react'
 import { useCart } from '../../contexts/CartContext'
 import { useDishes } from '../../contexts/DishesContext'
@@ -257,7 +257,12 @@ const SCROLL_DELTA_PX = 10
 export default function MenuPage() {
   const { add, lines, totalCount, subtotal } = useCart()
   const { dishes, categories, isLoading, error, refresh } = useDishes()
-  const { menuSearch: search } = useMenuSearch()
+  const { menuSearch: search, setMenuSearch } = useMenuSearch()
+  const [searchParams] = useSearchParams()
+  const query = searchParams.get('q')
+  useEffect(() => {
+    if (query !== null) setMenuSearch(query)
+  }, [query, setMenuSearch])
   const menuCategories = useMemo(
     () => [
       { id: 'all', label: 'Tất cả' },
@@ -289,12 +294,13 @@ export default function MenuPage() {
       })
     }
 
-    const q = search.trim().toLowerCase()
+    const normalize = (value: string) => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').trim()
+    const q = normalize(search)
     if (q) {
       list = list.filter(
         (d) =>
-          d.name.toLowerCase().includes(q) ||
-          (d.shortDescription && d.shortDescription.toLowerCase().includes(q)),
+          normalize(d.name).includes(q) ||
+          (d.shortDescription && normalize(d.shortDescription).includes(q)),
       )
     }
 

@@ -190,18 +190,18 @@ export default function ForgotPasswordPage() {
           <div className="p-4 bg-green-50 text-green-800 rounded-xl border border-green-200 text-sm text-center" role="status">
             Mật khẩu đã được cập nhật thành công.
             <div className="mt-4">
-              <Link to="/dang-nhap" className="font-semibold text-[#003f87] hover:underline">
+              <a href="/DANGNHAP.html" className="font-semibold text-[#003f87] hover:underline">
                 Quay lại đăng nhập
-              </Link>
+              </a>
             </div>
           </div>
         ) : null}
 
         <div className="text-center text-sm text-gray-600">
           Nhớ mật khẩu?{' '}
-          <Link to="/dang-nhap" className="font-semibold text-[#003f87] hover:underline">
+          <a href="/DANGNHAP.html" className="font-semibold text-[#003f87] hover:underline">
             Đăng nhập
-          </Link>
+          </a>
         </div>
       </section>
     </main>

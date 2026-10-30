@@ -105,6 +105,7 @@
             <a class="pageFooterLink" href="CaiDatCookie.html">Cài đặt Cookie</a>
         </div>
     </footer>
+    <script src="/auth-navigation.js"></script>
     <script>
         const API_URL = '/api/v1';
         const AUTH_KEYS = ['neufood_token', 'neufood_refresh_token', 'neufood_user'];
@@ -135,7 +136,7 @@
         // Keep already authenticated visitors from seeing the login form again.
         try {
             const existing = localStorage.getItem('neufood_token') || sessionStorage.getItem('neufood_token');
-            if (existing) window.location.href = '/';
+            if (existing) window.location.replace(window.authDestination);
         } catch {}
 
         document.getElementById('login-form')?.addEventListener('submit', async (e) => {
@@ -165,8 +166,8 @@
                 if (!auth?.access_token || !auth?.user) throw new Error('Máy chủ trả về dữ liệu đăng nhập không hợp lệ.');
 
                 saveAuth(auth, remember);
-                setMessage('Đăng nhập thành công! Đang chuyển về trang chủ…', 'success');
-                window.setTimeout(() => window.location.assign('/'), 350);
+                setMessage('Đăng nhập thành công! Đang chuyển trang…', 'success');
+                window.setTimeout(() => window.location.assign(window.authDestination), 350);
             } catch (error) {
                 setMessage(error instanceof Error ? error.message : 'Không thể kết nối máy chủ. Vui lòng thử lại.', 'error');
             } finally {

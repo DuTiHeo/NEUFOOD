@@ -309,10 +309,6 @@
     gap: 1.25rem;
 }
 
-.registerForm .input {
-    padding: 1.125rem 1.25rem;
-}
-
 .inputGroup {
     display: flex;
     flex-direction: column;
@@ -335,8 +331,8 @@
 
 .input {
     width: 100%;
-    background: rgba(231, 238, 255, 0.5);
-    border: 2px solid transparent;
+    background: #ffffff;
+    border: 2px solid #94a3b8;
     border-radius: 1rem;
     padding: 1.5rem 1.5rem;
     color: #003266;

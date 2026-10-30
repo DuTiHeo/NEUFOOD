@@ -3,7 +3,7 @@ import { createContext, useContext, useMemo, useState } from 'react'
 const MenuSearchContext = createContext(null)
 
 export function MenuSearchProvider({ children }) {
-  const [menuSearch, setMenuSearch] = useState('')
+  const [menuSearch, setMenuSearch] = useState(() => new URLSearchParams(window.location.search).get('q') || '')
 
   const value = useMemo(() => ({ menuSearch, setMenuSearch }), [menuSearch])
 

@@ -60,7 +60,7 @@ export default function HomePage() {
                 Năng lượng tức thì cho những giờ học căng thẳng. Giao nhanh tận giảng đường, thư viện & KTX.
               </p>
               <div className={styles.heroCtas}>
-                <Link className="btn-brand" to="/menu">
+                <Link className="btn-brand" to="/thanh-toan">
                   <ShoppingBag size={18} />
                   Đặt món ngay
                 </Link>

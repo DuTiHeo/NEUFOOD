@@ -119,7 +119,7 @@ export default function ChiTietMonPage() {
                   <span className="material-symbols-outlined">{added ? 'check' : 'shopping_bag'}</span>{!canAdd ? 'Tạm hết món' : reachedCartLimit ? 'Đã đạt giới hạn trong giỏ' : added ? `Đã thêm ${qty} món vào giỏ!` : 'Thêm vào giỏ hàng'}
                 </button>
                 <Link to="/gio-hang" className={styles.detailCart} style={{ backgroundColor: 'var(--color-brand)', color: '#fff' }}><span className="material-symbols-outlined">shopping_cart_checkout</span>Xem giỏ hàng</Link>
-                <p>Mỗi món tối đa {maxDishQuantity} phần theo cấu hình hiện hành.</p>
+                <p className={styles.purchaseLimit}>Mỗi món tối đa {maxDishQuantity} phần theo cấu hình hiện hành.</p>
               </div>
             </div>
           </section>

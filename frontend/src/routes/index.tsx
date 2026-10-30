@@ -15,13 +15,11 @@ import ThanhToanPage from '../pages/user/ThanhToanPage'
 import DonHangPage from '../pages/user/DonHangPage'
 import LichSuDonHangPage from '../pages/user/LichSuDonHangPage'
 import TaiKhoanPage from '../pages/user/TaiKhoanPage'
-import GanNeuPage from '../pages/user/GanNeuPage'
 import StoryPage from '../pages/user/StoryPage'
 import RecruitPage from '../pages/user/RecruitPage'
 
 // Auth Pages
-import LoginPage from '../pages/auth/LoginPage'
-import RegisterPage from '../pages/auth/RegisterPage'
+import AuthRedirect from './AuthRedirect'
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
 import OAuthCallbackPage from '../pages/auth/OAuthCallbackPage'
 
@@ -54,6 +52,10 @@ function StaffAliasRedirect() {
 
 export const AppRoutes: React.FC = () => (
   <Routes>
+    <Route path="/dang-nhap" element={<AuthRedirect />} />
+    <Route path="/dang-ky" element={<AuthRedirect register />} />
+    <Route path="/DANGNHAP.html" element={<AuthRedirect />} />
+    <Route path="/DANGKY.html" element={<AuthRedirect register />} />
     {/* Staff Canteen: cả hai đường dẫn giữ nguyên màn hình và các mục con */}
     <Route path="/nhan-vien" element={<StaffSuite />}>
       <Route index element={<StaffDashboardPage />} />
@@ -102,7 +104,6 @@ export const AppRoutes: React.FC = () => (
       <Route index element={<HomePage />} />
       <Route path="khach-hang" element={<HomePage />} />
       <Route path="menu" element={<MenuPage />} />
-      <Route path="gan-neu" element={<GanNeuPage />} />
       <Route path="story" element={<StoryPage />} />
       <Route path="recruit" element={<RecruitPage />} />
       <Route path="mon/:id" element={<ChiTietMonPage />} />
@@ -112,8 +113,6 @@ export const AppRoutes: React.FC = () => (
       <Route path="don-hang/:orderId" element={<ProtectedRoute requiredRole="customer"><DonHangPage /></ProtectedRoute>} />
       <Route path="don-hang" element={<Navigate to="/lich-su-don" replace />} />
       <Route path="tai-khoan" element={<ProtectedRoute><TaiKhoanPage /></ProtectedRoute>} />
-      <Route path="dang-nhap" element={<LoginPage />} />
-      <Route path="dang-ky" element={<RegisterPage />} />
       <Route path="quen-mat-khau" element={<ForgotPasswordPage />} />
       <Route path="oauth/callback" element={<OAuthCallbackPage />} />
       <Route path="*" element={<NotFoundPage />} />

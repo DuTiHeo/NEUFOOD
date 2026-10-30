@@ -8,19 +8,20 @@ const CartContext = createContext(null)
 
 export function CartProvider({ children }) {
   const { dishes, isLoading: menuLoading, error: menuError, maxDishQuantity } = useDishes()
-  const [quantities, setQuantities] = useState({})
-
-  useEffect(() => {
+  const [quantities, setQuantities] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
       if (raw) {
         const parsed = JSON.parse(raw)
-        if (parsed && typeof parsed === 'object') setQuantities(parsed)
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed
       }
     } catch {
       /* ignore */
     }
+    return {}
+  })
 
+  useEffect(() => {
     // Merge any pending additions coming from static pages (e.g. RANDOM.html)
     try {
       const pendingRaw = sessionStorage.getItem(PENDING_KEY)

@@ -19,7 +19,6 @@ export const ROUTES = {
   HOME: '/',
   MENU: '/menu',
   DISH_DETAIL: (id: string | number = ':id') => `/mon/${id}`,
-  NEAR_NEU: '/gan-neu',
   CART: '/gio-hang',
   CHECKOUT: '/thanh-toan',
   ORDERS: '/lich-su-don',
@@ -29,8 +28,8 @@ export const ROUTES = {
   RECRUIT: '/recruit',
   
   // Auth
-  LOGIN: '/dang-nhap',
-  REGISTER: '/dang-ky',
+  LOGIN: '/DANGNHAP.html',
+  REGISTER: '/DANGKY.html',
   FORGOT_PASSWORD: '/quen-mat-khau',
   OAUTH_CALLBACK: '/oauth/callback',
 

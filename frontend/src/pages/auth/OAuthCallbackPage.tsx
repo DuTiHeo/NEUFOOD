@@ -34,13 +34,12 @@ export default function OAuthCallbackPage() {
               : 'Đăng nhập từ nhà cung cấp ngoài chưa được kết nối. Bạn có thể tiếp tục bằng email và mật khẩu.'}
           </p>
         </div>
-        <Link
-          to="/dang-nhap"
-          state={{ from: returnLocation }}
+        <a
+          href={`/DANGNHAP.html?next=${encodeURIComponent(returnLocation.pathname + returnLocation.search + returnLocation.hash)}`}
           className="w-full py-3 px-4 bg-[#003f87] hover:bg-[#002b5e] text-white font-semibold rounded-xl text-sm transition-colors"
         >
           Đăng nhập bằng email
-        </Link>
+        </a>
         <Link to="/" className="text-sm font-medium text-[#003f87] hover:underline">
           Về trang chủ
         </Link>

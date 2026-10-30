@@ -13,6 +13,10 @@ type SeedImageCorrection = { from: string; to: string }
 // Correct only the known seed URLs. If a manager changes a dish image in the API,
 // the new URL is used as-is and remains editable from the management screen.
 const seedImageCorrections: Record<string, SeedImageCorrection> = {
+  'bun-cha': {
+    from: 'https://www.seriouseats.com/thmb/J0g7JWjk9r6CHESo1CIrD1BfGd0=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/20231204-SEA-VyTran-BunChaHanoi-19-f623913c6ef34a9185bcd6e5680c545f.jpg',
+    to: '/bun-cha.png',
+  },
   'pho-bo-tai-lan': {
     from: 'https://live2makan.com/wp-content/uploads/2022/08/l2m-vn-2207-pho10-05.jpg',
     to: 'https://crm.vespaadventures.com/uploads/images/image-20260325125052-2.png',
