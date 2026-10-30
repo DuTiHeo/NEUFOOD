@@ -1,10 +1,15 @@
 import React from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import MainLayout from '../components/layout/MainLayout'
-import AdminLayout from '../components/admin/AdminLayout'
+import ManagerLayout from '../components/manager/ManagerLayout'
 import StaffLayout from '../components/staff/StaffLayout'
-import { AdminDishesProvider } from '../contexts/AdminDishesContext'
 import ProtectedRoute from './ProtectedRoute'
+import { useAuth } from '../contexts/AuthContext'
+import { roleDestination } from './roleDestination'
+import { CartProvider } from '../contexts/CartContext'
+import { OrderHistoryProvider } from '../contexts/OrderHistoryContext'
+import { MenuSearchProvider } from '../contexts/MenuSearchContext'
+import { DishesProvider } from '../contexts/DishesContext'
 
 // User Pages
 import HomePage from '../pages/user/HomePage'
@@ -24,24 +29,33 @@ import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
 import OAuthCallbackPage from '../pages/auth/OAuthCallbackPage'
 
 // Staff and shared manager/admin pages
-import AdminLoginPage from '../pages/admin/AdminLoginPage'
+import SystemAdminLayout from '../components/admin/SystemAdminLayout'
+import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
 import AdminBaoCaoPage from '../pages/admin/AdminBaoCaoPage'
-import AdminMonPage from '../pages/admin/AdminMonPage'
-import AdminThemMonPage from '../pages/admin/AdminThemMonPage'
-import AdminSuaMonPage from '../pages/admin/AdminSuaMonPage'
-import AdminDonPage from '../pages/admin/AdminDonPage'
 import AdminSystemPage from '../pages/admin/AdminSystemPage'
-import ManagementDashboardPage from '../pages/admin/ManagementDashboardPage'
+import ManagerDashboardPage from '../pages/manager/ManagerDashboardPage'
+import ManagerOrdersPage from '../pages/manager/ManagerOrdersPage'
+import ManagerMenuPage from '../pages/manager/ManagerMenuPage'
+import ManagerDishFormPage from '../pages/manager/ManagerDishFormPage'
+import ManagerShiftsPage from '../pages/manager/ManagerShiftsPage'
+import ManagerReviewsPage from '../pages/manager/ManagerReviewsPage'
+import ManagerReportsPage from '../pages/manager/ManagerReportsPage'
 import StaffDashboardPage from '../pages/staff/StaffDashboardPage'
 import StaffShiftPage from '../pages/staff/StaffShiftPage'
+import StaffMenuPage from '../pages/staff/StaffMenuPage'
 import NotFoundPage from '../pages/not-found/NotFoundPage'
 
-function AdminSuite() {
-  return <AdminDishesProvider><AdminLayout /></AdminDishesProvider>
+function StaffSuite() {
+  return <StaffLayout />
 }
 
-function StaffSuite() {
-  return <AdminDishesProvider><StaffLayout /></AdminDishesProvider>
+function CustomerSuite() {
+  const { user, isAuthenticated, isLoading } = useAuth()
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center" role="status">Đang tải phiên đăng nhập…</div>
+  if (isAuthenticated && ['admin', 'manager', 'staff'].includes(user?.role || '')) {
+    return <Navigate to={roleDestination(user?.role)} replace />
+  }
+  return <DishesProvider><CartProvider><OrderHistoryProvider><MenuSearchProvider><MainLayout /></MenuSearchProvider></OrderHistoryProvider></CartProvider></DishesProvider>
 }
 
 function StaffAliasRedirect() {
@@ -56,51 +70,42 @@ export const AppRoutes: React.FC = () => (
     <Route path="/dang-ky" element={<AuthRedirect register />} />
     <Route path="/DANGNHAP.html" element={<AuthRedirect />} />
     <Route path="/DANGKY.html" element={<AuthRedirect register />} />
-    {/* Staff Canteen: cả hai đường dẫn giữ nguyên màn hình và các mục con */}
-    <Route path="/nhan-vien" element={<StaffSuite />}>
+    <Route path="/nhan-vien" element={<ProtectedRoute requiredRole="staff"><StaffSuite /></ProtectedRoute>}>
       <Route index element={<StaffDashboardPage />} />
-      <Route path="don" element={<AdminDonPage />} />
-      <Route path="mon" element={<AdminMonPage />} />
+      <Route path="don" element={<ManagerOrdersPage audience="staff" />} />
+      <Route path="mon" element={<StaffMenuPage />} />
       <Route path="ca" element={<StaffShiftPage />} />
+      <Route path="*" element={<Navigate to="/nhan-vien" replace />} />
     </Route>
     <Route path="/nhanvien/*" element={<StaffAliasRedirect />} />
 
-    {/* Login is optional for viewing FE pages; API responses handle authorization. */}
-    <Route path="/quan-ly/dang-nhap" element={<AdminLoginPage />} />
-    <Route path="/admin/dang-nhap" element={<AdminLoginPage />} />
+    {/* Legacy sign-in URLs use the same static authentication screen. */}
+    <Route path="/quan-ly/dang-nhap" element={<AuthRedirect />} />
+    <Route path="/admin/dang-nhap" element={<AuthRedirect />} />
 
-    {/* Manager and Admin share every screen and route. */}
-    <Route path="/quan-ly" element={<AdminSuite />}>
-      <Route index element={<ManagementDashboardPage />} />
-      <Route path="don" element={<AdminDonPage />} />
-      <Route path="mon" element={<AdminMonPage />} />
-      <Route path="mon/them" element={<AdminThemMonPage />} />
-      <Route path="mon/sua/:id" element={<AdminSuaMonPage />} />
-      <Route path="bao-cao" element={<AdminBaoCaoPage />} />
-      <Route path="ca" element={<AdminSystemPage section="shifts" />} />
-      <Route path="danh-gia" element={<AdminSystemPage section="reviews" />} />
-      <Route path="tai-khoan" element={<AdminSystemPage section="users" />} />
-      <Route path="dia-diem" element={<AdminSystemPage section="locations" />} />
-      <Route path="cau-hinh" element={<AdminSystemPage section="settings" />} />
-      <Route path="khieu-nai" element={<AdminSystemPage section="complaints" />} />
+    <Route path="/quan-ly" element={<ProtectedRoute requiredRole="manager"><ManagerLayout /></ProtectedRoute>}>
+      <Route index element={<ManagerDashboardPage />} />
+      <Route path="don" element={<ManagerOrdersPage />} />
+      <Route path="mon" element={<ManagerMenuPage />} />
+      <Route path="mon/them" element={<ManagerDishFormPage />} />
+      <Route path="mon/sua/:id" element={<ManagerDishFormPage />} />
+      <Route path="bao-cao" element={<ManagerReportsPage />} />
+      <Route path="ca" element={<ManagerShiftsPage />} />
+      <Route path="danh-gia" element={<ManagerReviewsPage />} />
+      <Route path="*" element={<Navigate to="/quan-ly" replace />} />
     </Route>
-    <Route path="/admin" element={<AdminSuite />}>
-      <Route index element={<ManagementDashboardPage />} />
-      <Route path="don" element={<AdminDonPage />} />
-      <Route path="mon" element={<AdminMonPage />} />
-      <Route path="mon/them" element={<AdminThemMonPage />} />
-      <Route path="mon/sua/:id" element={<AdminSuaMonPage />} />
+    <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><SystemAdminLayout /></ProtectedRoute>}>
+      <Route index element={<AdminDashboardPage />} />
       <Route path="bao-cao" element={<AdminBaoCaoPage />} />
-      <Route path="ca" element={<AdminSystemPage section="shifts" />} />
-      <Route path="danh-gia" element={<AdminSystemPage section="reviews" />} />
       <Route path="tai-khoan" element={<AdminSystemPage section="users" />} />
       <Route path="dia-diem" element={<AdminSystemPage section="locations" />} />
       <Route path="cau-hinh" element={<AdminSystemPage section="settings" />} />
       <Route path="khieu-nai" element={<AdminSystemPage section="complaints" />} />
+      <Route path="*" element={<Navigate to="/admin" replace />} />
     </Route>
 
     {/* Guest and customer dashboard use the same completed HomePage. */}
-    <Route element={<MainLayout />}>
+    <Route element={<CustomerSuite />}>
       <Route index element={<HomePage />} />
       <Route path="khach-hang" element={<HomePage />} />
       <Route path="menu" element={<MenuPage />} />
