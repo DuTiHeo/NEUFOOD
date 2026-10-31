@@ -1,11 +1,11 @@
 import React from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { useAdminAuth } from '../contexts/AdminAuthContext'
+import { roleDestination } from './roleDestination'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
-  requiredRole?: 'user' | 'customer' | 'admin'
+  requiredRole?: 'user' | 'customer' | 'admin' | 'manager' | 'staff'
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
@@ -13,7 +13,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requiredRole,
 }) => {
   const { user, isAuthenticated, isLoading } = useAuth()
-  const { isAdmin } = useAdminAuth()
   const location = useLocation()
 
   if (isLoading) {
@@ -24,25 +23,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     )
   }
 
-  if (requiredRole === 'customer') {
-    if (!isAuthenticated) {
-      return <Navigate to={`/DANGNHAP.html?next=${encodeURIComponent(location.pathname + location.search + location.hash)}`} replace />
-    }
-    if (user?.role !== 'customer') {
-      return <Navigate to="/quan-ly" replace />
-    }
-    return <>{children}</>
-  }
-
-  if (requiredRole === 'admin') {
-    if (!isAdmin && user?.role !== 'admin') {
-      return <Navigate to="/quan-ly/dang-nhap" replace state={{ from: location }} />
-    }
-    return <>{children}</>
-  }
-
-  if (!isAuthenticated && !isAdmin) {
+  if (!isAuthenticated || !user) {
     return <Navigate to={`/DANGNHAP.html?next=${encodeURIComponent(location.pathname + location.search + location.hash)}`} replace />
+  }
+
+  if (requiredRole && user.role !== requiredRole) {
+    return <Navigate to={roleDestination(user.role)} replace />
   }
 
   return <>{children}</>

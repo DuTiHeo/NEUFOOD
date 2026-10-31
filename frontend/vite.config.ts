@@ -4,7 +4,7 @@ import { fileURLToPath, URL } from 'node:url'
 import fs from 'node:fs'
 
 const isDocker = fs.existsSync('/.dockerenv')
-const backendTarget = process.env.BACKEND_URL || (isDocker ? 'http://backend:5000' : 'http://localhost:5000')
+const backendTarget = process.env.VITE_API_PROXY_TARGET || process.env.BACKEND_URL || (isDocker ? 'http://backend:5000' : 'http://localhost:5000')
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -23,11 +23,11 @@ export default defineConfig({
       interval: 100,
     },
     proxy: {
-      '/api': {
+      '/uploads': {
         target: backendTarget,
         changeOrigin: true,
       },
-      '/uploads': {
+      '/api': {
         target: backendTarget,
         changeOrigin: true,
       },

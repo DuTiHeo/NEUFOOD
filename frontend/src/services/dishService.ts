@@ -35,6 +35,12 @@ function normalizeDish(dish: Dish): Dish {
 }
 
 export const dishService = {
+  async uploadImage(file: File): Promise<string> {
+    const body = new FormData();
+    body.append('file', file);
+    const res = await api.post<ApiResponse<{ image_url: string }>>('/dishes/upload-image', body, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 30000 });
+    return res.data.data.image_url;
+  },
   async getCategories(): Promise<Category[]> {
     const res = await api.get<ApiResponse<Category[]>>('/dishes/categories');
     return (res.data.data ?? []).map((category) => ({

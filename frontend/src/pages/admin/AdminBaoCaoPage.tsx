@@ -73,7 +73,7 @@ export default function AdminBaoCaoPage() {
       <header className={styles.hd}>
         <div>
           <h1 className={styles.h1}>Báo cáo doanh thu</h1>
-          <p className={styles.sub}>Số liệu đơn hàng và COD do API tổng hợp theo thời gian bàn giao.</p>
+          <p className={styles.sub}>Theo dõi đơn hàng và doanh thu COD theo thời gian bàn giao.</p>
         </div>
         <div className={styles.range} aria-label="Khoảng thời gian báo cáo">
           <button type="button" className={`${styles.rngBtn} ${quickRange === 30 ? styles.rngOn : ''}`} onClick={() => chooseDays(30)}>30 ngày</button>
@@ -89,7 +89,7 @@ export default function AdminBaoCaoPage() {
       {error ? <p role="alert" className={styles.reportError}>{error}</p> : null}
       {isLoading ? <p role="status" className={styles.reportNotice}>Đang tải báo cáo…</p> : null}
 
-      {!isLoading ? <>
+      {!isLoading && report ? <>
         <section className={styles.metrics} aria-label="Chỉ số tổng hợp">
           <article className={styles.mc}><div className={styles.mcTop}><span className={`material-symbols-outlined ${styles.mcIco}`} style={{ background: '#eff6ff', color: '#2563eb' }}>payments</span></div><p className={styles.mcLbl}>Tổng doanh thu đã thu</p><p className={styles.mcVal}>{money(reportForDisplay.gross_revenue)}</p></article>
           <article className={styles.mc}><div className={styles.mcTop}><span className={`material-symbols-outlined ${styles.mcIco}`} style={{ background: '#eef2ff', color: '#4f46e5' }}>receipt_long</span></div><p className={styles.mcLbl}>Tổng đơn trong kỳ</p><p className={styles.mcVal}>{reportForDisplay.total_orders.toLocaleString('vi-VN')}</p></article>
