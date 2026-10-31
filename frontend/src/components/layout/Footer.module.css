@@ -1,5 +1,11 @@
 .foot {
-  width: 100%;
+  position: relative;
+  z-index: 6;
+  width: 100vw;
+  max-width: 100vw;
+  margin-top: 4rem;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
   background-color: #0B192C;
   color: #CBD5E1;
   padding-top: 3.5rem;
@@ -57,7 +63,7 @@
 .brandSlogan {
   font-size: 0.875rem;
   line-height: 1.55;
-  color: #94A3B8;
+  color: #CBD5E1;
   margin: 0;
   max-width: 26rem;
 }
@@ -71,6 +77,8 @@
 }
 
 .right {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
@@ -114,7 +122,7 @@
 }
 
 .link {
-  color: #CBD5E1;
+  color: #E2E8F0;
   text-decoration: none;
   transition: color 0.15s ease;
   word-break: break-word;
@@ -141,7 +149,7 @@
   justify-content: space-between;
   gap: 0.75rem;
   font-size: 0.8125rem;
-  color: #64748B;
+  color: #94A3B8;
   text-align: center;
 }
 
@@ -158,12 +166,14 @@
 
 .footerLinks {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
   gap: 0.625rem;
 }
 
 .footerLink {
-  color: #94A3B8;
+  color: #CBD5E1;
   text-decoration: none;
   transition: color 0.15s ease;
 }

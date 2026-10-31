@@ -258,8 +258,9 @@ export default function MenuPage() {
   const { add, lines, totalCount, subtotal } = useCart()
   const { dishes, categories, isLoading, error, refresh } = useDishes()
   const { menuSearch: search, setMenuSearch } = useMenuSearch()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const query = searchParams.get('q')
+  const categoryQuery = searchParams.get('cat') || ''
   useEffect(() => {
     if (query !== null) setMenuSearch(query)
   }, [query, setMenuSearch])
@@ -278,11 +279,28 @@ export default function MenuPage() {
   })
   const [compactMobilePanelOpen, setCompactMobilePanelOpen] = useState(false)
 
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([])
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(() =>
+    categoryQuery.split(',').map((id) => id.trim()).filter(Boolean),
+  )
   const [sort, setSort] = useState('popular')
   const [priceFilter, setPriceFilter] = useState('all')
   const [ratingFilter, setRatingFilter] = useState('all')
   const [showFilters, setShowFilters] = useState(false)
+
+  useEffect(() => {
+    if (categories.length === 0) return
+    const availableIds = new Set(categories.map((category) => category.id))
+    const nextIds = categoryQuery
+      .split(',')
+      .map((id) => id.trim())
+      .filter((id, index, values) => id && availableIds.has(id) && values.indexOf(id) === index)
+
+    setSelectedCategoryIds((currentIds) =>
+      currentIds.length === nextIds.length && currentIds.every((id, index) => id === nextIds[index])
+        ? currentIds
+        : nextIds,
+    )
+  }, [categories, categoryQuery])
 
   const filtered = useMemo(() => {
     let list = [...dishes]
@@ -357,13 +375,17 @@ export default function MenuPage() {
     .filter((l): l is string => Boolean(l))
 
   function toggleCategory(id: string) {
-    if (id === 'all') {
-      setSelectedCategoryIds([])
-      return
-    }
-    setSelectedCategoryIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    )
+    const nextIds = id === 'all'
+      ? []
+      : selectedCategoryIds.includes(id)
+        ? selectedCategoryIds.filter((categoryId) => categoryId !== id)
+        : [...selectedCategoryIds, id]
+
+    setSelectedCategoryIds(nextIds)
+    const nextParams = new URLSearchParams(searchParams)
+    if (nextIds.length > 0) nextParams.set('cat', nextIds.join(','))
+    else nextParams.delete('cat')
+    setSearchParams(nextParams, { replace: true })
   }
 
   const stickyDockClass = [
