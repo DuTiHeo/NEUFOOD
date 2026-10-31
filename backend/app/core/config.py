@@ -58,7 +58,10 @@ class Settings(BaseSettings):
 
     # 5. Phân quyền chia sẻ tài nguyên (CORS Allowed Origins)
     CORS_ORIGINS: str = Field(
-        default_factory=lambda: os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
+        default_factory=lambda: os.getenv(
+            "CORS_ORIGINS",
+            "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000"
+        )
     )
 
     # 6. Giới hạn tần suất gọi API (Rate Limiting)

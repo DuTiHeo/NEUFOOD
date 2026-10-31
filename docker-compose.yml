@@ -51,7 +51,7 @@ services:
       DATABASE_URL: postgresql://${DB_USER:-neufood_user}:${DB_PASSWORD:-neufood_password}@database:5432/${DB_NAME:-neufood_db}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       SECRET_KEY: ${SECRET_KEY:-neufood_jwt_secret_key_change_in_production}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000}
     volumes:
       - ./backend:/app
       - backend_uploads:/app/app/uploads
