@@ -469,29 +469,3 @@
   text-align: center;
   color: var(--color-muted);
 }
-
-@media (prefers-color-scheme: dark) {
-  .card {
-    background-color: rgb(15 23 42 / 0.85);
-    box-shadow: none;
-  }
-
-  .card:hover {
-    background-color: rgb(30 41 59 / 0.5);
-  }
-
-  .searchInp:focus,
-  .sel:focus {
-    background-color: rgb(15 23 42);
-  }
-
-  .oid,
-  .name {
-    color: #f1f5f9;
-  }
-
-  .when,
-  .sub {
-    color: #94a3b8;
-  }
-}

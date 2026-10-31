@@ -212,7 +212,7 @@ export default function DonHangPage() {
           <div className={styles.act2}>
             {canCancel ? <button type="button" className={`${styles.actBtn} ${styles.actGhost}`} disabled={isWorking} onClick={() => window.confirm('Bạn muốn hủy đơn hàng này?') && void runOrderAction(() => orderService.cancelOrder(order.id))}>Hủy đơn</button> : null}
             {canConfirmReceipt ? <button type="button" className={`${styles.actBtn} ${styles.actPri}`} disabled={isWorking} onClick={() => void runOrderAction(() => orderService.confirmReceipt(order.id))}>{isWorking ? 'Đang cập nhật…' : 'Xác nhận đã nhận món'}</button> : null}
-            <Link to="/menu" className={`${styles.actBtn} ${styles.actGhost}`}>Đặt món khác</Link>
+            <Link to="/menu" className={`${styles.actBtn} ${styles.actGhost} ${styles.reorderAction}`}>Đặt món khác</Link>
             {canReview ? <button type="button" className={`${styles.actBtn} ${styles.actPri}`} disabled={isWorking} onClick={() => setReviewOpen(true)}>Đánh giá món</button> : null}
             {DELIVERED_STATUSES.has(order.status) && reviewItems.length === 0 ? <span>Đã đánh giá các món trong đơn.</span> : null}
           </div>
