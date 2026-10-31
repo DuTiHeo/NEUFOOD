@@ -190,7 +190,7 @@ erDiagram
 ## 2. Chi Tiết Các Tệp Trong Thư Mục `database/`
 
 - [`init_db.sql`](./init_db.sql): Định nghĩa DDL hoàn chỉnh cho 12 bảng, Khóa chính, Khóa ngoại, Ràng buộc `CHECK`, Trigger tự động cập nhật `updated_at`, và hệ thống Indexes.
-- [`sample_data.sql`](./sample_data.sql): Dữ liệu mẫu chuẩn nghiệp vụ gồm 6 tài khoản (4 roles + tài khoản Blacklist COD), 8 tòa nhà nội khu NEU, 6 danh mục, 10 món ăn, 11 tham số hệ thống, 6 đơn hàng trải rộng các trạng thái, đánh giá, khiếu nại và biên bản chốt ca COD.
+- [`sample_data.sql`](./sample_data.sql): Dữ liệu mẫu chuẩn nghiệp vụ gồm 6 tài khoản (4 roles + tài khoản Blacklist COD), 8 tòa nhà nội khu NEU, 8 danh mục, 65 món ăn & combo (đồng bộ đầy đủ từ giao diện frontend cũ), 11 tham số hệ thống, 6 đơn hàng trải rộng các trạng thái, đánh giá, khiếu nại và biên bản chốt ca COD.
 - [`erd.html`](./erd.html): Sơ đồ ERD tương tác trực quan mở trực tiếp trên trình duyệt.
 
 ---

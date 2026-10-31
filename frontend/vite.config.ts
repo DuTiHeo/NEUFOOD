@@ -1,6 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { fileURLToPath, URL } from 'node:url'
+import fs from 'node:fs'
+
+const isDocker = fs.existsSync('/.dockerenv')
+const backendTarget = process.env.VITE_API_PROXY_TARGET || process.env.BACKEND_URL || (isDocker ? 'http://backend:5000' : 'http://localhost:5000')
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -20,11 +24,11 @@ export default defineConfig({
     },
     proxy: {
       '/uploads': {
-        target: process.env.VITE_API_PROXY_TARGET || 'http://localhost:5000',
+        target: backendTarget,
         changeOrigin: true,
       },
       '/api': {
-        target: process.env.VITE_API_PROXY_TARGET || 'http://localhost:5000',
+        target: backendTarget,
         changeOrigin: true,
       },
     },
