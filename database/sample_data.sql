@@ -100,7 +100,7 @@ VALUES
 ('bun-rieu', 'Bún Riêu', 'Bún riêu cua đồng thanh mát.', 'Bún riêu cua đồng với nước dùng chua thanh từ cà chua, gạch cua béo ngậy, đậu hũ chiên và chả.', 35000, 5000, 40000, 4.5, 180, 'https://i.ytimg.com/vi/C1P1Cw9J1-I/maxresdefault.jpg', TRUE, TRUE, FALSE),
 
 -- Món 14: Hủ Tiếu (hu-tieu)
-('hu-tieu', 'Hủ Tiếu', 'Hủ tiếu Nam Vang nước dùng ngọt thanh.', 'Sợi hủ tiếu dai ngon ăn kèm tôm, thịt băm, gan heo và trứng cút, nước dùng thanh ngọt từ xương.', 40000, 5000, 45000, 4.7, 210, 'https://media.cooky.vn/recipe/g3/22522/s800x500/recipe22522-636439367069081450.jpg', TRUE, TRUE, FALSE),
+('hu-tieu', 'Hủ Tiếu', 'Hủ tiếu Nam Vang nước dùng ngọt thanh.', 'Sợi hủ tiếu dai ngon ăn kèm tôm, thịt băm, gan heo và trứng cút, nước dùng thanh ngọt từ xương.', 40000, 5000, 45000, 4.7, 210, 'https://cdn2.fptshop.com.vn/unsafe/1920x0/filters:format(webp):quality(75)/2023_10_26_638339340847153253_hu-tieu-go.jpg', TRUE, TRUE, FALSE),
 
 -- Món 15: Miến Gà (mien-ga)
 ('mien-ga', 'Miến Gà', 'Miến dong mộc nhĩ, thịt gà ta dai ngon.', 'Sợi miến dai mềm kết hợp cùng nước luộc gà ngọt thanh và thịt gà ta xé phay, thêm nấm hương thơm lừng.', 35000, 5000, 40000, 4.4, 120, 'https://cdn.tgdd.vn/Files/2017/03/22/963778/bi-quyet-nau-mien-ga-thom-ngon-da-ga-vang-gion-202208261323269332.jpg', TRUE, TRUE, FALSE),
@@ -210,8 +210,8 @@ VALUES
 -- Món 50: Chân Gà Sả Tắc (chan-ga-sa-tac)
 ('chan-ga-sa-tac', 'Chân Gà Sả Tắc', 'Chân gà rút xương ngâm sả tắc chua ngọt.', 'Chân gà rút xương giòn sần sật ngâm trong nước mắm sả tắc ớt chua ngọt siêu cuốn.', 45000, 5000, 50000, 4.8, 310, 'https://i.ytimg.com/vi/MVmtMJ3ILME/maxresdefault.jpg', TRUE, TRUE, FALSE),
 
--- Món 51: Xiên Bẩn (Xiên Nướng/Chiên) (xien-ban)
-('xien-ban', 'Xiên Bẩn (Xiên Nướng/Chiên)', 'Combo xiên chiên cổng trường các loại.', 'Các loại cá viên, bò viên, xúc xích, lạp xưởng chiên ngập dầu chấm tương ớt.', 15000, 5000, 20000, 4.5, 280, 'https://tse3.mm.bing.net/th/id/OIP.vWFL1HTrGW3b8d6XNgsGcAHaEn?pid=Api&P=0&h=180', TRUE, TRUE, FALSE),
+-- Món 51: Xiên Bẩn (Chiên) (xien-ban)
+('xien-ban', 'Xiên Bẩn (Chiên)', 'Combo xiên chiên cổng trường các loại.', 'Các loại cá viên, bò viên, xúc xích, lạp xưởng chiên ngập dầu chấm tương ớt.', 15000, 5000, 20000, 4.5, 280, 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR2rXlwk6Dh-nCnN8ZpP3CbAdhdL2ZAYr7OthFdjfO7CQD17DtKNMBCX3A5&s=10', TRUE, TRUE, FALSE),
 
 -- Món 52: Chè Anh Đẹp Trai (che-anh-dep-trai)
 ('che-anh-dep-trai', 'Chè Anh Đẹp Trai', 'Ly chè thập cẩm cốt dừa mát lạnh.', 'Món chè thập cẩm thanh mát với các loại thạch, đậu đỏ, trân châu và nước cốt dừa.', 15000, 5000, 20000, 4.4, 120, 'https://mms.img.susercontent.com/vn-11134513-7r98o-lt4u34allm6x4a@resize_ss640x400!@crop_w640_h400_cT', TRUE, TRUE, FALSE),
@@ -241,7 +241,7 @@ VALUES
 ('tra-tac', 'Trà Tắc (Quất)', 'Trà tắc xí muội siêu to khổng lồ.', 'Trà lài pha cùng nước cốt tắc (quất), thơm mùi vỏ tắc tinh dầu chua ngọt hài hòa.', 10000, 5000, 15000, 4.7, 260, 'https://tse2.mm.bing.net/th/id/OIP.g5WWRyhVoreZbTyolhFtdQHaEK?pid=Api&P=0&h=180', TRUE, TRUE, FALSE),
 
 -- Món 61: Cá Viên Chiên Mắm (ca-vien-chien-mam)
-('ca-vien-chien-mam', 'Cá Viên Chiên Mắm', 'Cá viên chiên giòn chấm mắm chua ngọt.', 'Cá viên dai giòn chiên vàng rụm, chấm cùng mắm chua ngọt pha ớt tỏi thơm lừng.', 20000, 5000, 25000, 4.6, 175, 'https://tse3.mm.bing.net/th/id/OIP.vWFL1HTrGW3b8d6XNgsGcAHaEn?pid=Api&P=0&h=180', TRUE, TRUE, FALSE),
+('ca-vien-chien-mam', 'Cá Viên Chiên Mắm', 'Cá viên chiên giòn chấm mắm chua ngọt.', 'Cá viên dai giòn chiên vàng rụm, chấm cùng mắm chua ngọt pha ớt tỏi thơm lừng.', 20000, 5000, 25000, 4.6, 175, 'https://i.ytimg.com/vi/7J8XY6mgSqc/maxresdefault.jpg', TRUE, TRUE, FALSE),
 
 -- Món 62: Combo 2 Người (combo-2-nguoi)
 ('combo-2-nguoi', 'Combo 2 Người', '2 Cơm tấm (hoặc Bún chả) + Cá viên chiên mắm + 2 Sữa đậu.', 'Combo dành cho 2 người với 2 phần cơm tấm hoặc bún chả tùy chọn, 1 phần cá viên chiên mắm chua ngọt và 2 ly sữa đậu nành thơm béo.', 140000, 5000, 145000, 4.8, 95, 'https://statics.vinwonders.com/com-tam-ngon-o-sai-gon-0_1630562640.jpg', TRUE, TRUE, FALSE),
@@ -254,7 +254,16 @@ VALUES
 
 -- Món 65: Combo Nhóm Ăn Nhẹ Tối (5 người) (combo-nhom-an-nhe-toi)
 ('combo-nhom-an-nhe-toi', 'Combo Nhóm Ăn Nhẹ Tối (5 người)', '5 Bánh bao + 5 Bánh mì + 5 Trà đá + 2 Bánh tráng phơi sương.', 'Combo ăn nhẹ buổi tối cho 5 người với bánh bao nóng hổi, bánh mì giòn rụm, trà đá thanh mát và bánh tráng phơi sương dẻo dai muối tôm. Nhẹ nhàng, tiện lợi, đủ no.', 190000, 5000, 195000, 4.6, 44, 'https://tse2.mm.bing.net/th/id/OIP.d0gK8bLS9Ix7SbiT_hhhJwHaE7?pid=Api&P=0&h=180', TRUE, TRUE, FALSE)
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    short_description = EXCLUDED.short_description,
+    description = EXCLUDED.description,
+    base_price = EXCLUDED.base_price,
+    system_fee = EXCLUDED.system_fee,
+    price = EXCLUDED.price,
+    image_url = EXCLUDED.image_url,
+    is_available = EXCLUDED.is_available,
+    is_active = EXCLUDED.is_active;
 
 -- 5. DISH_CATEGORIES MAPPING
 INSERT INTO dish_categories (dish_id, category_id)

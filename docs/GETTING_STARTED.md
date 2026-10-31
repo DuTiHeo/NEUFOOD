@@ -33,6 +33,18 @@ Sau khi các container báo Ready:
 docker compose down
 ```
 
+### Lưu ý khi làm việc với Database trong Docker:
+
+- **Nếu bạn sửa `sample_data.sql` và muốn nạp ngay vào DB đang chạy**, hãy chạy lệnh:
+  ```bash
+  docker compose exec database psql -U neufood_user -d neufood_db -f /docker-entrypoint-initdb.d/02_sample.sql
+  ```
+
+- **Nếu bạn muốn xóa sạch toàn bộ DB để Docker chạy lại từ đầu**, hãy thêm cờ `-v` để xóa volume:
+  ```bash
+  docker compose down -v && docker compose up -d
+  ```
+
 ---
 
 ## 3. Cài Đặt Thủ Công Từng Phần (Cách 2)
