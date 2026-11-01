@@ -2,6 +2,8 @@ from flask import Blueprint, request
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 
+from app.core.cache import cache_get, cache_set, cache_delete, cache_delete_pattern
+from app.core.limiter import limiter
 from app.core.security import role_required
 from app.crud.dish import (
     UnknownCategoryIds,
@@ -83,7 +85,12 @@ def _json_object_or_error():
 
 
 @dish_bp.route("/categories", methods=["GET"])
+@limiter.exempt
 def list_categories():
+    cached = cache_get("neufood:categories:all")
+    if cached is not None:
+        return api_response(data=cached)
+
     with get_db() as db:
         data = [
             {
@@ -94,10 +101,12 @@ def list_categories():
             }
             for category in get_categories(db)
         ]
+        cache_set("neufood:categories:all", data, ttl=600)
         return api_response(data=data)
 
 
 @dish_bp.route("", methods=["GET"])
+@limiter.exempt
 def list_dishes():
     try:
         page = int(request.args.get("page", "1"))
@@ -118,6 +127,14 @@ def list_dishes():
 
     category_id = request.args.get("category")
     search = request.args.get("search")
+
+    cache_key = None
+    if not category_id and not search:
+        cache_key = f"neufood:dishes:{page}:{limit}"
+        cached = cache_get(cache_key)
+        if cached is not None:
+            return api_response(data=cached)
+
     with get_db() as db:
         dishes, total = get_dishes(
             db,
@@ -126,14 +143,15 @@ def list_dishes():
             page=page,
             limit=limit,
         )
-        return api_response(
-            data={
-                "items": [_serialize_dish(dish) for dish in dishes],
-                "total": total,
-                "page": page,
-                "limit": limit,
-            }
-        )
+        result_data = {
+            "items": [_serialize_dish(dish) for dish in dishes],
+            "total": total,
+            "page": page,
+            "limit": limit,
+        }
+        if cache_key:
+            cache_set(cache_key, result_data, ttl=300)
+        return api_response(data=result_data)
 
 
 @dish_bp.route("/validate-cart", methods=["POST"])
@@ -209,6 +227,7 @@ def update_dish_availability(dish_id: str):
                 success=False,
             )
         updated = set_dish_availability(db, dish, data.is_available)
+        cache_delete_pattern("neufood:dishes:*")
         return api_response(
             data=_serialize_dish(updated),
             message="Đã cập nhật trạng thái còn/hết món",
@@ -216,6 +235,7 @@ def update_dish_availability(dish_id: str):
 
 
 @dish_bp.route("/<dish_id>", methods=["GET"])
+@limiter.exempt
 def get_dish(dish_id: str):
     with get_db() as db:
         dish = get_dish_by_id(db, dish_id)
@@ -255,6 +275,8 @@ def add_dish():
             )
         try:
             created = create_dish(db, data.model_dump())
+            cache_delete_pattern("neufood:dishes:*")
+            cache_delete("neufood:categories:all")
         except UnknownCategoryIds as error:
             return api_response(
                 message="Có danh mục không tồn tại hoặc đã ngừng hoạt động",
@@ -310,6 +332,8 @@ def edit_dish(dish_id: str):
                 )
         try:
             updated = update_dish(db, dish, update_data)
+            cache_delete_pattern("neufood:dishes:*")
+            cache_delete("neufood:categories:all")
         except UnknownCategoryIds as error:
             return api_response(
                 message="Có danh mục không tồn tại hoặc đã ngừng hoạt động",
@@ -334,6 +358,8 @@ def remove_dish(dish_id: str):
                 success=False,
             )
         was_soft_deleted = delete_dish(db, dish)
+        cache_delete_pattern("neufood:dishes:*")
+        cache_delete("neufood:categories:all")
         if was_soft_deleted:
             return api_response(
                 data={"id": dish_id, "soft_deleted": True},

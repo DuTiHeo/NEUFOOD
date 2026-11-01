@@ -1,5 +1,6 @@
 import api from './api'
 import type { ApiResponse } from '../types/auth'
+import { settingsService } from './settingsService'
 
 export interface ManagedUser {
   id: number
@@ -79,6 +80,7 @@ export const managementService = {
   },
   async updateSettings(settings: Array<Pick<ManagedSetting, 'setting_key' | 'setting_value' | 'description'>>) {
     const res = await api.put<ApiResponse<ManagedSetting[]>>('/settings/bulk', { settings })
+    settingsService.clearCache()
     return res.data.data ?? []
   },
   async getComplaints() {
