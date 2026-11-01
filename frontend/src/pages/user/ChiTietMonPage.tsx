@@ -61,10 +61,10 @@ export default function ChiTietMonPage() {
       .slice(0, 6)
   }, [dishes, dish])
 
-  if (isLoading) return <main className={styles.detail}><div className="wrap"><p role="status">Đang tải món ăn…</p></div><Footer /></main>
-  if (error) return <main className={styles.detail}><div className="wrap"><p role="alert">{error}</p><button type="button" onClick={() => void refresh()}>Thử tải lại</button></div><Footer /></main>
+  if (isLoading) return <><main className={styles.detail}><div className="wrap"><p role="status">Đang tải món ăn…</p></div></main><Footer /></>
+  if (error) return <><main className={styles.detail}><div className="wrap"><p role="alert">{error}</p><button type="button" onClick={() => void refresh()}>Thử tải lại</button></div></main><Footer /></>
   if (!dish) {
-    return <main className={styles.detail}><div className="wrap" style={{ textAlign: 'center', padding: '4rem 0' }}><h2>Không tìm thấy món ăn</h2><Link to="/menu">Quay lại thực đơn</Link></div><Footer /></main>
+    return <><main className={styles.detail}><div className="wrap" style={{ textAlign: 'center', padding: '4rem 0' }}><h2>Không tìm thấy món ăn</h2><Link to="/menu">Quay lại thực đơn</Link></div></main><Footer /></>
   }
 
   const reviewCount = Number(dish.reviewCount ?? dish.review_count ?? 0)

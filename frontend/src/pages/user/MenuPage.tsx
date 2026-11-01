@@ -399,7 +399,8 @@ export default function MenuPage() {
     .join(' ')
 
   return (
-    <main className={styles.menu}>
+    <>
+      <main className={styles.menu}>
       <div className={styles.wrapOuter}>
         <div className={stickyDockClass}>
           <div className={`wrap ${styles.stickyDockInner}`}>
@@ -663,7 +664,8 @@ export default function MenuPage() {
           </div>
         </div>
       </div>
-      <Footer />
     </main>
-  )
+    <Footer />
+  </>
+)
 }

@@ -12,7 +12,8 @@ export default function GioHangPage() {
   const visibleItems = useMemo(() => lines.map((l) => ({ ...l.dish, qty: l.qty, key: l.dish.id, isMissing: l.isMissing })), [lines])
 
   return (
-    <main className={styles.cart}>
+    <>
+      <main className={styles.cart}>
       <div className={`wrap ${styles.cartWrap}`}>
         <header className={styles.cartHead}>
           <h1 className={styles.cartTitle}>Giỏ hàng của bạn</h1>
@@ -119,7 +120,8 @@ export default function GioHangPage() {
           </aside>
         </div>
       </div>
-      <Footer />
     </main>
+    <Footer />
+  </>
   )
 }

@@ -152,92 +152,105 @@ export default function DonHangPage() {
   }
 
   if (isLoading) {
-    return <main className={styles.page}><div className="wrap"><p role="status">Đang tải đơn hàng…</p></div><Footer /></main>
+    return (
+      <div className={styles.pageWrapper}>
+        <main className={styles.page}><div className="wrap"><p role="status">Đang tải đơn hàng…</p></div></main>
+        <Footer />
+      </div>
+    )
   }
   if (!order || error) {
-    return <main className={styles.page}><div className="wrap"><p role="alert">{error || 'Không tìm thấy đơn hàng.'}</p><Link to="/lich-su-don">Về lịch sử đơn</Link></div><Footer /></main>
+    return (
+      <div className={styles.pageWrapper}>
+        <main className={styles.page}><div className="wrap"><p role="alert">{error || 'Không tìm thấy đơn hàng.'}</p><Link to="/lich-su-don">Về lịch sử đơn</Link></div></main>
+        <Footer />
+      </div>
+    )
   }
 
   const isPickup = order.order_type === 'pickup'
   const [title, lead] = STATUS_COPY[order.status] || [order.status, 'Trạng thái đơn hàng được cập nhật từ Canteen.']
   const isCancelled = ['DA_HUY_KHACH', 'TU_CHOI', 'TU_DONG_HUY', 'BO_DON_BLACKLIST'].includes(order.status)
-  const progress = isCancelled ? 0 : DELIVERED_STATUSES.has(order.status) ? 100 : order.status === 'CHO_XAC_NHAN' ? 25 : order.status === 'DANG_CHUAN_BI' ? 50 : 75
+  const progress = isCancelled ? 0 : DELIVERED_STATUSES.has(order.status) ? 100 : order.status === 'CHO_XAC_NHAN' ? 0 : order.status === 'DANG_CHUAN_BI' ? 33.33 : 66.67
   const canCancel = order.status === 'CHO_XAC_NHAN'
   const canConfirmReceipt = ['DA_GIAO', 'DA_BAN_GIAO'].includes(order.status)
   const canReview = DELIVERED_STATUSES.has(order.status) && reviewItems.length > 0
+  const hasPartnerAction = canCancel || canConfirmReceipt || canReview
   const displayItems = order.items || []
 
   return (
-    <main className={styles.page}>
-      {reviewToast ? <div className={styles.reviewToast} role="status">Đánh giá của bạn đã được gửi.</div> : null}
-      {reviewOpen && canReview ? <OrderReviewModal orderId={order.id} items={reviewItems} onClose={() => setReviewOpen(false)} onSubmitReview={submitReviews} /> : null}
-      <div className={`wrap ${styles.layout}`}>
-        <div className={styles.main}>
-          <Link className={styles.back} to="/lich-su-don">← Lịch sử đơn</Link>
-          <header className={styles.head}>
-            {!TERMINAL_STATUSES.has(order.status) ? <div className={styles.live}><span className={styles.ping}><span className={styles.pingDot} /></span>Cập nhật từ Canteen</div> : null}
-            <h1 className={styles.title}>{title}</h1>
-            <p className={styles.lead}>{lead}</p>
-            <p>Mã đơn <strong>#{order.id}</strong> · Mã bàn giao <strong>{order.order_code_suffix}</strong></p>
-          </header>
+    <div className={styles.pageWrapper}>
+      <main className={styles.page}>
+        {reviewToast ? <div className={styles.reviewToast} role="status">Đánh giá của bạn đã được gửi.</div> : null}
+        {reviewOpen && canReview ? <OrderReviewModal orderId={order.id} items={reviewItems} onClose={() => setReviewOpen(false)} onSubmitReview={submitReviews} /> : null}
+        <div className={`wrap ${styles.layout}`}>
+          <div className={styles.main}>
+            <Link className={styles.back} to="/lich-su-don">← Lịch sử đơn</Link>
+            <header className={styles.head}>
+              {!TERMINAL_STATUSES.has(order.status) ? <div className={styles.live}><span className={styles.ping}><span className={styles.pingDot} /></span>Cập nhật từ Canteen</div> : null}
+              <h1 className={styles.title}>{title}</h1>
+              <p className={styles.lead}>{lead}</p>
+              <p>Mã đơn <strong>#{order.id}</strong> · Mã bàn giao <strong>{order.order_code_suffix}</strong></p>
+            </header>
 
-          {actionError ? <p role="alert" className={styles.cancelTxt}>{actionError}</p> : null}
+            {actionError ? <p role="alert" className={styles.cancelTxt}>{actionError}</p> : null}
 
-          <section className={styles.track} aria-label="Tiến trình đơn hàng">
-            <div className={styles.steps}>
-              <div className={styles.line}><div className={styles.fill} style={{ width: `${progress}%` }} /></div>
-              {[
-                { label: 'Đã đặt', icon: 'receipt_long', active: true },
-                { label: 'Đang chuẩn bị', icon: 'restaurant', active: ['DANG_CHUAN_BI', 'DANG_GIAO', 'SAN_SANG_LAY', 'GIAO_THAT_BAI', ...DELIVERED_STATUSES].includes(order.status) },
-                { label: isPickup ? 'Sẵn sàng lấy' : 'Đang giao', icon: isPickup ? 'storefront' : 'delivery_dining', active: ['DANG_GIAO', 'SAN_SANG_LAY', 'GIAO_THAT_BAI', ...DELIVERED_STATUSES].includes(order.status) },
-                { label: isPickup ? 'Đã bàn giao' : 'Đã giao', icon: 'check_circle', active: DELIVERED_STATUSES.has(order.status) },
-              ].map((step) => (
-                <div key={step.label} className={styles.step}>
-                  <div className={`${styles.dot} ${step.active ? styles.dotOn : ''}`}><span className={`material-symbols-outlined ${styles.ico}`}>{step.icon}</span></div>
-                  <span className={step.active ? styles.lbl : styles.lblOff}>{step.label}</span>
-                </div>
-              ))}
+            <section className={styles.track} aria-label="Tiến trình đơn hàng">
+              <div className={styles.steps}>
+                <div className={styles.line}><div className={styles.fill} style={{ width: `${progress}%` }} /></div>
+                {[
+                  { label: 'Đã đặt', icon: 'receipt_long', active: true },
+                  { label: 'Đang chuẩn bị', icon: 'restaurant', active: ['DANG_CHUAN_BI', 'DANG_GIAO', 'SAN_SANG_LAY', 'GIAO_THAT_BAI', ...DELIVERED_STATUSES].includes(order.status) },
+                  { label: isPickup ? 'Sẵn sàng lấy' : 'Đang giao', icon: isPickup ? 'storefront' : 'delivery_dining', active: ['DANG_GIAO', 'SAN_SANG_LAY', 'GIAO_THAT_BAI', ...DELIVERED_STATUSES].includes(order.status) },
+                  { label: isPickup ? 'Đã bàn giao' : 'Đã giao', icon: 'check_circle', active: DELIVERED_STATUSES.has(order.status) },
+                ].map((step) => (
+                  <div key={step.label} className={styles.step}>
+                    <div className={`${styles.dot} ${step.active ? styles.dotOn : ''}`}><span className={`material-symbols-outlined ${styles.ico}`}>{step.icon}</span></div>
+                    <span className={step.active ? styles.lbl : styles.lblOff}>{step.label}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className={styles.info}>
+              <h2 className={styles.cardTitle}>Thông tin nhận món</h2>
+              <div className={styles.infoList}>
+                <div className={styles.infoRow}><span className="material-symbols-outlined">{isPickup ? 'storefront' : 'location_on'}</span><div><p className={styles.infoLbl}>{isPickup ? 'Địa điểm nhận' : 'Địa điểm giao'}</p><p className={styles.infoTxt}>{isPickup ? 'Quầy trả món Canteen A2' : order.delivery_address || 'Khuôn viên NEU'}</p>{order.room_detail ? <p className={styles.infoSub}>{order.room_detail}</p> : null}</div></div>
+                <div className={styles.infoRow}><span className="material-symbols-outlined">payments</span><div><p className={styles.infoLbl}>COD</p><p className={styles.infoTxt}>{order.payment_method === 'cod_vietqr' ? 'VietQR khi nhận món' : 'Tiền mặt khi nhận món'} · {order.payment_status === 'da_thanh_toan' ? 'Đã thanh toán' : 'Chưa thanh toán'}</p></div></div>
+                {order.pickup_deadline ? <div className={styles.infoRow}><span className="material-symbols-outlined">schedule</span><div><p className={styles.infoLbl}>Thời hạn nhận</p><p className={styles.infoTxt}>{new Date(order.pickup_deadline).toLocaleString('vi-VN')}</p></div></div> : null}
+              </div>
+            </section>
+
+            <div className={styles.act2}>
+              <Link to="/menu" className={`${styles.actBtn} ${styles.actGhost} ${hasPartnerAction ? '' : styles.reorderFull}`}>Đặt món khác</Link>
+              {canCancel ? <button type="button" className={`${styles.actBtn} ${styles.actDanger}`} disabled={isWorking} onClick={() => window.confirm('Bạn muốn hủy đơn hàng này?') && void runOrderAction(() => orderService.cancelOrder(order.id))}>Hủy đơn</button> : null}
+              {canConfirmReceipt ? <button type="button" className={`${styles.actBtn} ${styles.actPri}`} disabled={isWorking} onClick={() => void runOrderAction(() => orderService.confirmReceipt(order.id))}>{isWorking ? 'Đang cập nhật…' : 'Xác nhận đã nhận món'}</button> : null}
+              {canReview ? <button type="button" className={`${styles.actBtn} ${styles.actPri}`} disabled={isWorking} onClick={() => setReviewOpen(true)}>Đánh giá món</button> : null}
+              {DELIVERED_STATUSES.has(order.status) && reviewItems.length === 0 ? <div className={styles.reviewedBadge}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check_circle</span><span>Đã đánh giá các món trong đơn hàng.</span></div> : null}
             </div>
-          </section>
-
-          <section className={styles.info}>
-            <h2 className={styles.cardTitle}>Thông tin nhận món</h2>
-            <div className={styles.infoList}>
-              <div className={styles.infoRow}><span className="material-symbols-outlined">{isPickup ? 'storefront' : 'location_on'}</span><div><p className={styles.infoLbl}>{isPickup ? 'Địa điểm nhận' : 'Địa điểm giao'}</p><p className={styles.infoTxt}>{isPickup ? 'Quầy trả món Canteen A2' : order.delivery_address || 'Khuôn viên NEU'}</p>{order.room_detail ? <p className={styles.infoSub}>{order.room_detail}</p> : null}</div></div>
-              <div className={styles.infoRow}><span className="material-symbols-outlined">payments</span><div><p className={styles.infoLbl}>COD</p><p className={styles.infoTxt}>{order.payment_method === 'cod_vietqr' ? 'VietQR khi nhận món' : 'Tiền mặt khi nhận món'} · {order.payment_status === 'da_thanh_toan' ? 'Đã thanh toán' : 'Chưa thanh toán'}</p></div></div>
-              {order.pickup_deadline ? <div className={styles.infoRow}><span className="material-symbols-outlined">schedule</span><div><p className={styles.infoLbl}>Thời hạn nhận</p><p className={styles.infoTxt}>{new Date(order.pickup_deadline).toLocaleString('vi-VN')}</p></div></div> : null}
-            </div>
-          </section>
-
-          <div className={styles.act2}>
-            {canCancel ? <button type="button" className={`${styles.actBtn} ${styles.actGhost}`} disabled={isWorking} onClick={() => window.confirm('Bạn muốn hủy đơn hàng này?') && void runOrderAction(() => orderService.cancelOrder(order.id))}>Hủy đơn</button> : null}
-            {canConfirmReceipt ? <button type="button" className={`${styles.actBtn} ${styles.actPri}`} disabled={isWorking} onClick={() => void runOrderAction(() => orderService.confirmReceipt(order.id))}>{isWorking ? 'Đang cập nhật…' : 'Xác nhận đã nhận món'}</button> : null}
-            <Link to="/menu" className={`${styles.actBtn} ${styles.actGhost} ${styles.reorderAction}`}>Đặt món khác</Link>
-            {canReview ? <button type="button" className={`${styles.actBtn} ${styles.actPri}`} disabled={isWorking} onClick={() => setReviewOpen(true)}>Đánh giá món</button> : null}
-            {DELIVERED_STATUSES.has(order.status) && reviewItems.length === 0 ? <span>Đã đánh giá các món trong đơn.</span> : null}
           </div>
-        </div>
 
-        <aside className={styles.aside}>
-          <div className={styles.card}>
-            <h2 className={styles.cardTitle}>Chi tiết đơn hàng</h2>
-            <div className={styles.items}>
-              {displayItems.map((item, index) => {
-                const dish = getById(item.dish_id)
-                const quantity = item.quantity || item.qty || 0
-                const price = item.unit_price ?? item.price ?? 0
-                return <div key={`${item.dish_id || item.id}-${index}`} className={styles.row}><div className={styles.thumb}><img src={getDishImageUrl(dish || { id: String(item.dish_id || item.id || '') })} alt="" onError={handleDishImageError} /></div><div className={styles.rowBody}><h3 className={styles.rowName}>{item.dish_name || item.name}</h3>{item.note ? <p className={styles.rowNote}>{item.note}</p> : null}<div className={styles.rowFoot}><span className={styles.qty}>×{quantity}</span><span className={styles.price}>{formatPrice(price * quantity)}</span></div></div></div>
-              })}
-              <div className={styles.bill}>
-                <div className={styles.billRow}><span>Tạm tính</span><span>{formatPrice(order.subtotal_amount || 0)}</span></div>
-                <div className={styles.billRow}><span>Phí giao hàng</span><span>{formatPrice(order.ship_fee || 0)}</span></div>
-                <div className={styles.billTotal}><span>Tổng cộng</span><span className={styles.billSum}>{formatPrice(order.total_amount || 0)}</span></div>
+          <aside className={styles.aside}>
+            <div className={styles.card}>
+              <h2 className={styles.cardTitle}>Chi tiết đơn hàng</h2>
+              <div className={styles.items}>
+                {displayItems.map((item, index) => {
+                  const dish = getById(item.dish_id)
+                  const quantity = item.quantity || item.qty || 0
+                  const price = item.unit_price ?? item.price ?? 0
+                  return <div key={`${item.dish_id || item.id}-${index}`} className={styles.row}><div className={styles.thumb}><img src={getDishImageUrl(dish || { id: String(item.dish_id || item.id || '') })} alt="" onError={handleDishImageError} /></div><div className={styles.rowBody}><h3 className={styles.rowName}>{item.dish_name || item.name}</h3>{item.note ? <p className={styles.rowNote}>{item.note}</p> : null}<div className={styles.rowFoot}><span className={styles.qty}>×{quantity}</span><span className={styles.price}>{formatPrice(price * quantity)}</span></div></div></div>
+                })}
+                <div className={styles.bill}>
+                  <div className={styles.billRow}><span>Tạm tính</span><span>{formatPrice(order.subtotal_amount || 0)}</span></div>
+                  <div className={styles.billRow}><span>Phí giao hàng</span><span>{formatPrice(order.ship_fee || 0)}</span></div>
+                  <div className={styles.billTotal}><span>Tổng cộng</span><span className={styles.billSum}>{formatPrice(order.total_amount || 0)}</span></div>
+                </div>
               </div>
             </div>
-          </div>
-        </aside>
-      </div>
+          </aside>
+        </div>
+      </main>
       <Footer />
-    </main>
+    </div>
   )
 }

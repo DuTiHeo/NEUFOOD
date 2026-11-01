@@ -1,7 +1,15 @@
-.page {
+.pageWrapper {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   background-color: var(--color-page);
-  padding: 7rem 1rem calc(6.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+.page {
+  flex: 1;
+  background-color: var(--color-page);
+  padding: 7rem 1rem 3rem;
   font-family: var(--font-body);
   color: var(--color-ink);
 }
