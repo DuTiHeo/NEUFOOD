@@ -33,6 +33,7 @@ from app.schemas.auth import (
     RefreshTokenRequest,
     LogoutRequest,
 )
+from app.core.limiter import limiter
 from app.utils.helpers import api_response
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
@@ -76,6 +77,7 @@ def _is_locked(locked_until: Optional[datetime], now: datetime) -> bool:
 
 
 @auth_bp.route("/login", methods=["POST"])
+@limiter.limit("5/minute")
 def login():
     """
     Đăng nhập hệ thống & Bảo vệ chống dò mật khẩu (UC02, BR-01, BR-02, EX-02).

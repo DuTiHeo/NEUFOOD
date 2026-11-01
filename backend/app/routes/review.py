@@ -3,6 +3,7 @@ from pydantic import ValidationError
 
 from app.db.session import get_db
 from app.crud.review import get_reviews_by_dish, create_review, ReviewError
+from app.core.limiter import limiter
 from app.core.security import role_required
 from app.schemas.review import ReviewCreateRequest
 from app.utils.helpers import api_response
@@ -24,6 +25,7 @@ def _serialize_review(r) -> dict:
 
 
 @review_bp.route("/dish/<dish_id>", methods=["GET"])
+@limiter.exempt
 def list_dish_reviews(dish_id: str):
     """
     Lấy danh sách đánh giá theo món ăn (UC14).
