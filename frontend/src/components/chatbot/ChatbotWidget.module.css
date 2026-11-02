@@ -377,3 +377,111 @@
     max-height: min(65vh, 26rem);
   }
 }
+
+/* Action Cards */
+.actionCard {
+  margin-top: 0.65rem;
+  padding: 0.65rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-edge);
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .actionCard {
+    background: rgba(15, 23, 42, 0.85);
+    border-color: #334155;
+  }
+}
+
+.orderSuccessCard {
+  border-color: rgba(34, 197, 94, 0.4);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(16, 185, 129, 0.03));
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.badgeSuccess {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #15803d;
+  background: rgba(34, 197, 94, 0.15);
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.4rem;
+}
+
+.suffixBadge {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-brand);
+  background: rgba(0, 63, 135, 0.08);
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.4rem;
+}
+
+.suffixNum {
+  font-size: 0.95rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  color: #b91c1c;
+}
+
+.cardRow {
+  font-size: 0.75rem;
+  color: var(--color-ink);
+  line-height: 1.35;
+}
+
+.actionBtn {
+  margin-top: 0.3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: 0.5rem;
+  border: none;
+  background-color: var(--color-brand);
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+  text-decoration: none;
+}
+
+.actionBtn:hover {
+  opacity: 0.9;
+}
+
+.actionBtnSecondary {
+  background-color: var(--color-soft);
+  color: var(--color-brand);
+  border: 1px solid rgba(0, 63, 135, 0.2);
+}
+
+.cartList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.cartItemRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 600;
+}

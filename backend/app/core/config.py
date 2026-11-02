@@ -77,6 +77,20 @@ class Settings(BaseSettings):
         default_factory=lambda: int(os.getenv("MAX_CONTENT_LENGTH", str(16 * 1024 * 1024)))
     )
 
+    # 8. Cấu hình Trợ lý ảo AI Chatbot (Google Gemini API)
+    GEMINI_API_KEY: str = Field(
+        default_factory=lambda: os.getenv("GEMINI_API_KEY", "").strip()
+    )
+    GEMINI_MODEL: str = Field(
+        default_factory=lambda: os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite").strip() or "gemini-3.5-flash-lite"
+    )
+    CHAT_HISTORY_TTL_SECONDS: int = Field(
+        default_factory=lambda: int(os.getenv("CHAT_HISTORY_TTL_SECONDS", "1800"))
+    )
+    CHAT_MAX_HISTORY_MESSAGES: int = Field(
+        default_factory=lambda: int(os.getenv("CHAT_MAX_HISTORY_MESSAGES", "10"))
+    )
+
     @property
     def cors_origins_list(self) -> List[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]

@@ -12,5 +12,7 @@ limiter = Limiter(
     key_func=get_remote_address,
     default_limits=settings.rate_limit_list or ["5000 per hour", "50000 per day"],
     storage_uri=storage_uri,
-    strategy="fixed-window"
+    strategy="fixed-window",
+    in_memory_fallback_enabled=True,
+    swallow_errors=True,
 )

@@ -1924,3 +1924,97 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
   - `400 Bad Request`: `INVALID_DATE_RANGE` (`from_date` lớn hơn `to_date`).
   - `422 Unprocessable Entity`: Định dạng tham số ngày sai chuẩn `YYYY-MM-DD`.
 
+---
+
+## 10. Trợ Lý Ảo AI Chatbot (`/api/v1/chat`)
+
+### 10.1. Gửi tin nhắn tới Trợ lý AI (`POST /api/v1/chat/message`)
+- **Mục đích**: Giải đáp câu hỏi của sinh viên/khách vãng lai về thực đơn Canteen A2 theo thời gian thực, gợi ý món theo ngân sách, hướng dẫn quy định đặt hàng/phí ship/địa điểm nội khu NEU, và tra cứu trạng thái đơn hàng cá nhân (khi có đính kèm JWT).
+- **Quyền truy cập**: Công khai (`guest`, `customer`, `staff`, `manager`, `admin`). Hỗ trợ **Optional JWT Bearer Token** trong header `Authorization`.
+- **Giới hạn tần suất (Rate Limit)**: `30 requests / minute`.
+- **Request Body (`application/json`)**:
+```json
+{
+  "message": "Gợi ý món ngon cho bữa trưa dưới 50k",
+  "session_id": "a1b2c3d4e5f6",
+  "history": [
+    {
+      "role": "user",
+      "text": "Chào trợ lý"
+    },
+    {
+      "role": "bot",
+      "text": "Chào bạn! Mình có thể giúp gì cho bữa ăn hôm nay?"
+    }
+  ]
+}
+```
+- **Ràng buộc dữ liệu đầu vào (Validation)**:
+  - `message`: Bắt buộc, từ 1 đến 500 ký tự sau khi `strip()`.
+  - `session_id`: Tùy chọn, tối đa 64 ký tự.
+  - `history`: Tùy chọn, danh sách tối đa 20 lượt tin nhắn gần nhất.
+- **Response thành công (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Phản hồi thành công",
+  "data": {
+    "reply": "Chào bạn! Với ngân sách dưới 50.000đ cho bữa trưa tại Canteen A2, bạn có thể thử **Cơm Gà Xối Mỡ Da Giòn** (**45.000đ**, 4.9★) hoặc **Phở Bò Tái Lăn** (**50.000đ**, 4.8★) nhé!",
+    "session_id": "a1b2c3d4e5f6",
+    "provider": "gemini",
+    "action": {
+      "type": "ORDER_CREATED",
+      "order": {
+        "id": "NF2611024914",
+        "order_code_suffix": "4914",
+        "status": "CHO_XAC_NHAN",
+        "status_label": "Đang chờ Canteen A2 xác nhận",
+        "order_type": "delivery",
+        "delivery_address": "P.502, Tòa nhà Thế Kỷ A1, Đại học Kinh tế Quốc dân",
+        "total_amount": 50000,
+        "eta": "15 - 25 phút",
+        "payment_method": "Tiền mặt COD"
+      }
+    },
+    "suggested_dishes": [
+      {
+        "id": "com-ga-xoi-mo",
+        "name": "Cơm Gà Xối Mỡ Da Giòn",
+        "price": 45000,
+        "rating": 4.9,
+        "image_url": "https://cdn.tgdd.vn/2021/01/CookRecipe/GalleryStep/thanh-pham-362.jpg",
+        "short_description": "Đùi gà chiên da giòn rụm, cơm rang thơm béo."
+      }
+    ]
+  }
+}
+```
+
+- **Các loại Action có cấu trúc (`data.action`)**:
+  - `ORDER_CREATED`: AI tự động tạo đơn hàng trực tiếp trong DB khi sinh viên yêu cầu đặt món và có đủ thông tin.
+  - `ADD_TO_CART`: AI nhặt món vào giỏ hàng giúp người dùng trên Frontend.
+  - `NEED_LOGIN`: Nhắc nhở và điều hướng đăng nhập khi khách vãng lai yêu cầu đặt đơn.
+  - `ORDER_FAILED`: Báo lỗi nghiệp vụ từ `OrderError` nếu đơn vi phạm quy định (ví dụ đang có đơn chưa hoàn tất, vượt quá 500k).
+
+### 10.2. Xóa lịch sử hội thoại (`POST /api/v1/chat/reset`)
+- **Mục đích**: Xóa bộ nhớ ngữ cảnh hội thoại trên Redis của phiên chat hiện tại và cấp `session_id` mới.
+- **Quyền truy cập**: Công khai (Hỗ trợ Optional JWT Bearer Token).
+- **Request Body (`application/json`)**:
+```json
+{
+  "session_id": "a1b2c3d4e5f6"
+}
+```
+- **Response thành công (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Đã xóa lịch sử trò chuyện",
+  "data": {
+    "session_id": "9f8e7d6c5b4a",
+    "previous_session_id": "a1b2c3d4e5f6",
+    "cleared": true
+  }
+}
+```
+
