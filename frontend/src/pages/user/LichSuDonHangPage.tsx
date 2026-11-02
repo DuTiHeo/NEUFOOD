@@ -93,7 +93,8 @@ export default function LichSuDonHangPage() {
   const rowsToRender = showAll ? rows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE) : rows.slice(0, INITIAL_VISIBLE)
 
   return (
-    <main className={styles.page}>
+    <div className={styles.pageWrapper}>
+      <main className={styles.page}>
       <div className={styles.inner}>
         <header className={styles.hd}>
           <h1 className={styles.title}>Lịch sử đơn hàng</h1>
@@ -209,7 +210,8 @@ export default function LichSuDonHangPage() {
           </div>
         ) : null}
       </div>
-      <Footer />
     </main>
-  )
+    <Footer />
+  </div>
+)
 }

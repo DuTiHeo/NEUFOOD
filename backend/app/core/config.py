@@ -66,7 +66,7 @@ class Settings(BaseSettings):
 
     # 6. Giới hạn tần suất gọi API (Rate Limiting)
     RATELIMIT_DEFAULT: str = Field(
-        default_factory=lambda: os.getenv("RATELIMIT_DEFAULT", "200/day;50/hour")
+        default_factory=lambda: os.getenv("RATELIMIT_DEFAULT", "5000/hour;50000/day")
     )
 
     # 7. Quản lý thư mục tệp tải lên (File Uploads)

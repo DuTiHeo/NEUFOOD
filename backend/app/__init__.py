@@ -30,11 +30,13 @@ def create_app() -> Flask:
     # Route phục vụ file uploads tĩnh
     os.makedirs(settings.UPLOAD_FOLDER, exist_ok=True)
     @app.route("/uploads/<path:filename>")
+    @limiter.exempt
     def uploaded_file(filename):
         return send_from_directory(settings.UPLOAD_FOLDER, filename)
 
     # Health check route
     @app.route("/health", methods=["GET"])
+    @limiter.exempt
     def health_check():
         return jsonify({"status": "healthy", "service": "neufood-backend"}), 200
 

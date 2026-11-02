@@ -9,6 +9,7 @@ from app.core.security import jwt_required, role_required
 from app.schemas.order import (
     OrderCreateRequest, OrderStatusUpdateRequest, OrderProcessRequest, OrderHandoverRequest, OrderIssueRequest,
 )
+from app.core.limiter import limiter
 from app.utils.helpers import api_response
 
 order_bp = Blueprint("orders", __name__, url_prefix="/orders")
@@ -113,6 +114,7 @@ def cancel_my_order(order_id: str):
 
 
 @order_bp.route("", methods=["GET"])
+@limiter.exempt
 @jwt_required
 def get_my_orders():
     user_id = int(g.current_user["sub"])
@@ -138,6 +140,7 @@ def confirm_receipt(order_id: str):
 
 
 @order_bp.route("/<order_id>", methods=["GET"])
+@limiter.exempt
 @jwt_required
 def get_order_details(order_id: str):
     user_id = int(g.current_user["sub"])

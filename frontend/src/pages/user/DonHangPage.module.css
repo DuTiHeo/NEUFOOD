@@ -1,6 +1,15 @@
-.page {
+.pageWrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   background-color: var(--color-page);
-  padding: 7rem 1.5rem calc(6rem + env(safe-area-inset-bottom, 0px));
+}
+
+.page {
+  flex: 1;
+  background-color: var(--color-page);
+  padding: 7rem 1.5rem 3rem;
   font-family: var(--font-body);
   color: var(--color-ink);
 }
@@ -202,7 +211,8 @@
   align-self: center;
   z-index: 0;
   height: 0.25rem;
-  width: 100%;
+  margin-left: 12.5%;
+  margin-right: 12.5%;
   border-radius: 9999px;
   background-color: var(--color-edge);
 }
@@ -414,6 +424,14 @@
   gap: 1.5rem;
 }
 
+@media (min-width: 1024px) {
+  .aside {
+    position: sticky;
+    top: 6.5rem;
+    align-self: flex-start;
+  }
+}
+
 .card {
   border-radius: 0.75rem;
   background-color: var(--color-panel);
@@ -568,6 +586,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
+  width: 100%;
 }
 
 .actBtn {
@@ -577,19 +596,23 @@
   gap: 0.5rem;
   border: none;
   border-radius: 0.75rem;
-  padding: 1rem;
+  min-height: 3.25rem;
+  height: 3.25rem;
+  padding: 0.875rem 1.25rem;
   font-weight: 700;
   font-family: inherit;
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   cursor: pointer;
   text-decoration: none;
+  box-sizing: border-box;
   transition:
     background-color 0.15s ease,
-    transform 0.15s ease;
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .actBtn:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 
 .actGhost {
@@ -599,6 +622,47 @@
 
 .actGhost:hover {
   background-color: var(--color-edge);
+}
+
+.actDanger {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.actDanger:hover {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.reorderFull {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.reviewedBadge {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.25rem;
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 0.75rem;
+  color: #166534;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .act2 {
+    grid-template-columns: 1fr;
+  }
+
+  .reorderFull {
+    grid-column: auto;
+  }
 }
 
 .actPri {
@@ -709,27 +773,4 @@
 .reviewToastIco {
   font-size: 1.25rem;
   font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-}
-
-@media (prefers-color-scheme: dark) {
-  .glass {
-    border-color: rgb(255 255 255 / 0.08);
-    background-color: rgb(15 23 42 / 0.75);
-  }
-
-  .drvName,
-  .title,
-  .rowName,
-  .infoTxt,
-  .cardTitle,
-  .billTotal {
-    color: #f1f5f9;
-  }
-
-  .lead,
-  .rowNote,
-  .infoSub,
-  .billRow {
-    color: #94a3b8;
-  }
 }

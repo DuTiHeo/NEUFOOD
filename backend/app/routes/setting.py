@@ -2,6 +2,8 @@ from typing import Optional
 from flask import Blueprint, g, request
 from pydantic import ValidationError
 
+from app.core.cache import cache_get, cache_set, cache_delete
+from app.core.limiter import limiter
 from app.core.security import role_required
 from app.crud.setting import (
     bulk_upsert_settings,
@@ -40,12 +42,23 @@ def _parse_json_body() -> Optional[dict]:
 
 
 @setting_bp.route("", methods=["GET"])
+@limiter.exempt
 def list_settings():
-    """Lấy danh sách toàn bộ tham số vận hành hệ thống (UC23, Mục 2.10 API Docs)."""
+    """Lấy danh sách toàn bộ tham số vận hành hệ thống (UC23, Mục 2.10 API Docs). Hỗ trợ tầng cache Redis."""
+    cached = cache_get("neufood:settings:all")
+    if cached is not None:
+        return api_response(
+            data=cached,
+            message="Lấy danh sách tham số cấu hình thành công",
+            status_code=200,
+        )
+
     with get_db() as db:
         settings = get_all_settings(db)
+        data = [_serialize_setting(s) for s in settings]
+        cache_set("neufood:settings:all", data, ttl=600)
         return api_response(
-            data=[_serialize_setting(s) for s in settings],
+            data=data,
             message="Lấy danh sách tham số cấu hình thành công",
             status_code=200,
         )
@@ -138,6 +151,7 @@ def update_settings_bulk():
                 )
 
         updated_settings = bulk_upsert_settings(db, items_to_update)
+        cache_delete("neufood:settings:all")
         return api_response(
             data=[_serialize_setting(s) for s in updated_settings],
             message="Cập nhật danh sách cấu hình hệ thống thành công",
@@ -241,6 +255,7 @@ def update_setting(setting_key: str):
                 )
 
         updated = upsert_setting(db, setting_key, data.setting_value, data.description)
+        cache_delete("neufood:settings:all")
         return api_response(
             data=_serialize_setting(updated),
             message="Cập nhật tham số hệ thống thành công",

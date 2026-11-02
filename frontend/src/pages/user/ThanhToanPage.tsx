@@ -182,13 +182,15 @@ export default function ThanhToanPage() {
 
   if (totalCount === 0) {
     return (
-      <main className={styles.pay}>
-        <div className="wrap">
-          <h1 className={styles.billTitle}>Giỏ hàng đang trống</h1>
-          <Link to="/menu" className={styles.billGo}>Quay lại thực đơn</Link>
-        </div>
+      <>
+        <main className={styles.pay}>
+          <div className="wrap">
+            <h1 className={styles.billTitle}>Giỏ hàng đang trống</h1>
+            <Link to="/menu" className={styles.billGo}>Quay lại thực đơn</Link>
+          </div>
+        </main>
         <Footer />
-      </main>
+      </>
     )
   }
 

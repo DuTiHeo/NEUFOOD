@@ -1,7 +1,15 @@
-.page {
+.pageWrapper {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   background-color: var(--color-page);
-  padding: 7rem 1rem calc(6.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+.page {
+  flex: 1;
+  background-color: var(--color-page);
+  padding: 7rem 1rem 3rem;
   font-family: var(--font-body);
   color: var(--color-ink);
 }
@@ -468,30 +476,4 @@
   padding: 2rem;
   text-align: center;
   color: var(--color-muted);
-}
-
-@media (prefers-color-scheme: dark) {
-  .card {
-    background-color: rgb(15 23 42 / 0.85);
-    box-shadow: none;
-  }
-
-  .card:hover {
-    background-color: rgb(30 41 59 / 0.5);
-  }
-
-  .searchInp:focus,
-  .sel:focus {
-    background-color: rgb(15 23 42);
-  }
-
-  .oid,
-  .name {
-    color: #f1f5f9;
-  }
-
-  .when,
-  .sub {
-    color: #94a3b8;
-  }
 }

@@ -2,6 +2,8 @@ from flask import Blueprint, request
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 
+from app.core.cache import cache_get, cache_set, cache_delete
+from app.core.limiter import limiter
 from app.core.security import role_required
 from app.crud.location import (
     create_location,
@@ -54,15 +56,22 @@ def _list_all_locations():
 
 
 @location_bp.route("", methods=["GET"])
+@limiter.exempt
 def list_campus_locations():
     """List active campus locations; only admins may include inactive entries."""
     include_inactive = request.args.get("all", "false").strip().lower() == "true"
     if include_inactive:
         return _list_all_locations()
 
+    cached = cache_get("neufood:locations:active")
+    if cached is not None:
+        return api_response(data=cached)
+
     with get_db() as db:
         locations = get_locations(db, active_only=True)
-        return api_response(data=[_serialize_location(item) for item in locations])
+        data = [_serialize_location(item) for item in locations]
+        cache_set("neufood:locations:active", data, ttl=600)
+        return api_response(data=data)
 
 
 @location_bp.route("", methods=["POST"])
@@ -92,6 +101,7 @@ def add_location():
             )
         try:
             location = create_location(db, location_data)
+            cache_delete("neufood:locations:active")
         except IntegrityError:
             db.rollback()
             return api_response(
@@ -163,6 +173,7 @@ def edit_location(location_id: int):
             )
         try:
             updated = update_location(db, location, update_data)
+            cache_delete("neufood:locations:active")
         except IntegrityError:
             db.rollback()
             return api_response(
@@ -188,6 +199,7 @@ def remove_location(location_id: int):
             )
 
         location_data = _serialize_location(location)
+        cache_delete("neufood:locations:active")
         deactivated = delete_or_deactivate_location(db, location)
         if deactivated:
             return api_response(
