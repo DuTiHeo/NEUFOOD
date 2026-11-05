@@ -8,6 +8,11 @@ export interface ComplaintCreatePayload {
   proof_image_url: string
 }
 
+export interface ComplaintSupplementPayload {
+  proof_image_url?: string
+  description?: string
+}
+
 export interface Complaint {
   id: number
   order_id: string
@@ -30,6 +35,14 @@ export const complaintService = {
    */
   async createComplaint(payload: ComplaintCreatePayload): Promise<Complaint> {
     const res = await api.post<ApiResponse<Complaint>>('/complaints', payload)
+    return res.data.data
+  },
+
+  /**
+   * UC15, EX-15: Khách hàng bổ sung hình ảnh minh chứng hoặc giải trình theo yêu cầu của Admin.
+   */
+  async supplementComplaint(complaintId: number, payload: ComplaintSupplementPayload): Promise<Complaint> {
+    const res = await api.post<ApiResponse<Complaint>>(`/complaints/${complaintId}/supplement`, payload)
     return res.data.data
   },
 

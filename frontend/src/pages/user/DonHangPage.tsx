@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import OrderReviewModal from '../../components/orders/OrderReviewModal'
 import OrderComplaintModal from '../../components/orders/OrderComplaintModal'
+import OrderComplaintSupplementModal from '../../components/orders/OrderComplaintSupplementModal'
 import { useOrderHistory } from '../../contexts/OrderHistoryContext'
 import { useDishes } from '../../contexts/DishesContext'
 import { orderService } from '../../services/orderService'
@@ -51,6 +52,8 @@ export default function DonHangPage() {
   const [reviewToast, setReviewToast] = useState(false)
   const [complaintOpen, setComplaintOpen] = useState(false)
   const [complaintToast, setComplaintToast] = useState(false)
+  const [supplementOpen, setSupplementOpen] = useState(false)
+  const [supplementToast, setSupplementToast] = useState(false)
   const [complaintData, setComplaintData] = useState<Complaint | null>(null)
   const [loadingComplaint, setLoadingComplaint] = useState(false)
   const reviewFetchKey = useRef('')
@@ -103,25 +106,29 @@ export default function DonHangPage() {
   }, [order])
 
   // UC15 / BR-23: Lấy thông tin khiếu nại nếu đơn hàng đang ở trạng thái KHIEU_NAI hoặc DA_GIAI_QUYET
+  const loadComplaint = useCallback(async () => {
+    if (!orderId) {
+      setComplaintData(null)
+      return
+    }
+    setLoadingComplaint(true)
+    try {
+      const res = await complaintService.getComplaintByOrderId(orderId)
+      setComplaintData(res)
+    } catch {
+      setComplaintData(null)
+    } finally {
+      setLoadingComplaint(false)
+    }
+  }, [orderId])
+
   useEffect(() => {
     if (!order || !['KHIEU_NAI', 'DA_GIAI_QUYET'].includes(order.status)) {
       setComplaintData(null)
       return
     }
-    let active = true
-    setLoadingComplaint(true)
-    complaintService.getComplaintByOrderId(order.id)
-      .then((res) => {
-        if (active) setComplaintData(res)
-      })
-      .catch(() => {
-        if (active) setComplaintData(null)
-      })
-      .finally(() => {
-        if (active) setLoadingComplaint(false)
-      })
-    return () => { active = false }
-  }, [order?.id, order?.status])
+    void loadComplaint()
+  }, [order?.id, order?.status, loadComplaint])
 
   useEffect(() => {
     if (!order || TERMINAL_STATUSES.has(order.status)) return
@@ -140,6 +147,12 @@ export default function DonHangPage() {
     const timer = window.setTimeout(() => setComplaintToast(false), 4000)
     return () => window.clearTimeout(timer)
   }, [complaintToast])
+
+  useEffect(() => {
+    if (!supplementToast) return
+    const timer = window.setTimeout(() => setSupplementToast(false), 4000)
+    return () => window.clearTimeout(timer)
+  }, [supplementToast])
 
   const reviewItems = useMemo(
     () => (order?.items || [])
@@ -330,7 +343,8 @@ export default function DonHangPage() {
     order.status !== 'KHIEU_NAI' &&
     order.status !== 'DA_GIAI_QUYET'
 
-  const hasPartnerAction = canCancel || canConfirmReceipt || canReview || canComplain
+  const canSupplement = complaintData?.status === 'YEU_CAU_BO_SUNG'
+  const hasPartnerAction = canCancel || canConfirmReceipt || canReview || canComplain || canSupplement
   const displayItems = order.items || []
 
   return (
@@ -338,6 +352,7 @@ export default function DonHangPage() {
       <main className={styles.page}>
         {reviewToast ? <div className={styles.reviewToast} role="status">Đánh giá của bạn đã được gửi.</div> : null}
         {complaintToast ? <div className={styles.reviewToast} role="status">Khiếu nại của bạn đã được gửi tới Canteen.</div> : null}
+        {supplementToast ? <div className={styles.reviewToast} role="status">Minh chứng bổ sung đã được gửi tới Ban Quản lý.</div> : null}
         {reviewOpen && canReview ? <OrderReviewModal orderId={order.id} items={reviewItems} onClose={() => setReviewOpen(false)} onSubmitReview={submitReviews} /> : null}
         {complaintOpen && canComplain ? (
           <OrderComplaintModal
@@ -346,6 +361,19 @@ export default function DonHangPage() {
             onSuccess={() => {
               setComplaintToast(true)
               void loadOrder()
+              void loadComplaint()
+              void refreshHistory()
+            }}
+          />
+        ) : null}
+        {supplementOpen && complaintData ? (
+          <OrderComplaintSupplementModal
+            complaint={complaintData}
+            onClose={() => setSupplementOpen(false)}
+            onSuccess={() => {
+              setSupplementToast(true)
+              void loadOrder()
+              void loadComplaint()
               void refreshHistory()
             }}
           />
@@ -448,6 +476,18 @@ export default function DonHangPage() {
                           Phản hồi từ Ban Quản lý NEUFood
                         </h3>
                         <p className={styles.adminResponseTxt}>{complaintData.admin_response}</p>
+                        {complaintData.status === 'YEU_CAU_BO_SUNG' ? (
+                          <div className={styles.supplementActionWrap}>
+                            <button
+                              type="button"
+                              className={styles.supplementBtn}
+                              onClick={() => setSupplementOpen(true)}
+                            >
+                              <span className="material-symbols-outlined">add_photo_alternate</span>
+                              Bổ sung minh chứng theo yêu cầu
+                            </button>
+                          </div>
+                        ) : null}
                         {complaintData.resolved_at && (
                           <p className={styles.adminResponseTime}>
                             Thời gian giải quyết: {new Date(complaintData.resolved_at).toLocaleString('vi-VN')}
@@ -467,6 +507,17 @@ export default function DonHangPage() {
               {canCancel ? <button type="button" className={`${styles.actBtn} ${styles.actDanger}`} disabled={isWorking} onClick={() => window.confirm('Bạn muốn hủy đơn hàng này?') && void runOrderAction(() => orderService.cancelOrder(order.id))}>Hủy đơn</button> : null}
               {canConfirmReceipt ? <button type="button" className={`${styles.actBtn} ${styles.actPri}`} disabled={isWorking} onClick={() => void runOrderAction(() => orderService.confirmReceipt(order.id))}>{isWorking ? 'Đang cập nhật…' : 'Xác nhận đã nhận món'}</button> : null}
               {canReview ? <button type="button" className={`${styles.actBtn} ${styles.actPri}`} disabled={isWorking} onClick={() => setReviewOpen(true)}>Đánh giá món</button> : null}
+              {canSupplement ? (
+                <button
+                  type="button"
+                  className={`${styles.actBtn} ${styles.actSupplement}`}
+                  disabled={isWorking}
+                  onClick={() => setSupplementOpen(true)}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add_photo_alternate</span>
+                  Bổ sung minh chứng
+                </button>
+              ) : null}
               {canComplain ? (
                 <button
                   type="button"

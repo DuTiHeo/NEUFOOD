@@ -1815,6 +1815,57 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
   - `400 Bad Request`: `EX-14` (quá hạn hoặc đơn chưa giao), `EX-15` (đã có khiếu nại), `COMPLAINT_ALREADY_RESOLVED` (đã giải quyết trước đó với `CHAP_NHAN`/`TU_CHOI`), `INVALID_ORDER_STATUS` (đơn không ở trạng thái khiếu nại).
   - `422 Unprocessable Entity`: Body sai định dạng schema (status không thuộc `CHAP_NHAN`, `TU_CHOI`, `YEU_CAU_BO_SUNG`).
 
+#### 5.2.5. Khách Hàng Bổ Sung Minh Chứng Khiếu Nại (`UC15`, `EX-15`)
+- **Endpoint**: `POST /api/v1/complaints/<int:complaint_id>/supplement`
+- **Quyền hạn**: Độc quyền Khách hàng (`@role_required("customer")`)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: application/json`
+- **Request Body**:
+```json
+{
+  "proof_image_url": "/uploads/new_proof_evidence.jpg",
+  "description": "Em gửi thêm hình ảnh tem niêm phong và hóa đơn theo yêu cầu của Quản trị viên ạ."
+}
+```
+- **Ràng buộc Schema (`ComplaintSupplementRequest`)**:
+  - `proof_image_url` (Tùy chọn): Chuỗi từ 5 đến 1000 ký tự định dạng URL hoặc upload path.
+  - `description` (Tùy chọn): Chuỗi từ 3 đến 2000 ký tự.
+  - *Ít nhất 1 trong 2 trường phải có giá trị.*
+- **Quy tắc nghiệp vụ (`crud/complaint.py`)**:
+  - Kiểm tra quyền sở hữu ticket: `complaint.user_id == user_id` (`403 Forbidden` nếu không phải người tạo khiếu nại).
+  - Kiểm tra trạng thái ticket: Bắt buộc đang ở trạng thái `YEU_CAU_BO_SUNG` (`400 Bad Request` nếu ticket đang ở trạng thái khác).
+  - Cập nhật ảnh minh chứng mới nếu có; ghép thêm nội dung giải trình bổ sung vào `description` kèm mốc thời gian `[Bổ sung HH:mm dd/MM/yyyy]`.
+  - Chuyển trạng thái ticket từ `YEU_CAU_BO_SUNG` về lại `DANG_XU_LY` để Admin tiếp tục kiểm tra và phân xử.
+- **Response thành công (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Bổ sung minh chứng khiếu nại thành công",
+  "data": {
+    "id": 6,
+    "order_id": "NF2611051520",
+    "user_id": 4,
+    "user_name": "Nguyễn Sinh Viên",
+    "reason": "Món bị nguội / không đảm bảo nhiệt độ",
+    "description": "Nội dung ban đầu...\n\n[Bổ sung 17:23 05/11/2026]: Em gửi thêm hình ảnh tem niêm phong...",
+    "proof_image_url": "/uploads/new_proof_evidence.jpg",
+    "status": "DANG_XU_LY",
+    "admin_response": "Vui lòng cung cấp thêm hình ảnh tem niêm phong và hóa đơn",
+    "resolved_by": 5,
+    "resolved_at": null,
+    "created_at": "2026-11-05T17:15:00+00:00",
+    "updated_at": "2026-11-05T17:23:45+00:00"
+  }
+}
+```
+- **Mã lỗi thường gặp**:
+  - `400 Bad Request`: `INVALID_INPUT` (không cung cấp ảnh lẫn mô tả), `INVALID_STATUS` (ticket không ở trạng thái `YEU_CAU_BO_SUNG`).
+  - `401 Unauthorized`: Chưa đăng nhập hoặc token hết hạn.
+  - `403 Forbidden`: Người gọi không sở hữu khiếu nại này.
+  - `404 Not Found`: Không tìm thấy khiếu nại tương ứng.
+
+
 
 ### 5.3. Chốt Ca & Đối Soát Tiền COD Cuối Ca (`UC20`, `BR-25`, `EX-20`)
 

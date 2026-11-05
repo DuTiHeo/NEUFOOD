@@ -7,10 +7,15 @@ from app.crud.complaint import (
     get_complaint_by_id,
     create_complaint,
     resolve_complaint,
+    supplement_complaint,
     ComplaintError,
 )
 from app.core.security import jwt_required, role_required
-from app.schemas.complaint import ComplaintCreateRequest, ComplaintResolveRequest
+from app.schemas.complaint import (
+    ComplaintCreateRequest,
+    ComplaintResolveRequest,
+    ComplaintSupplementRequest,
+)
 from app.utils.helpers import api_response, save_upload_file
 
 complaint_bp = Blueprint("complaints", __name__, url_prefix="/complaints")
@@ -212,4 +217,45 @@ def resolve_complaint_endpoint(complaint_id: int):
             )
     except ComplaintError as e:
         return api_response(message=str(e), errors=[{"code": e.code}], status_code=e.status_code, success=False)
+
+
+@complaint_bp.route("/<int(max=2147483647):complaint_id>/supplement", methods=["POST"])
+@role_required("customer")
+def supplement_complaint_endpoint(complaint_id: int):
+    """
+    Khách hàng bổ sung hình ảnh hoặc mô tả khiếu nại theo yêu cầu của Admin (UC15, EX-15).
+    Chuyển ticket từ YEU_CAU_BO_SUNG về DANG_XU_LY để Admin tiếp tục kiểm tra.
+    """
+    try:
+        user_id = int(g.current_user["sub"])
+    except (KeyError, TypeError, ValueError):
+        return api_response(message="Phiên đăng nhập không hợp lệ", status_code=401, success=False)
+
+    try:
+        data = ComplaintSupplementRequest.model_validate(request.get_json(silent=True))
+    except ValidationError as e:
+        return api_response(
+            message="Dữ liệu bổ sung khiếu nại không hợp lệ",
+            errors=e.errors(include_context=False),
+            status_code=422,
+            success=False,
+        )
+
+    try:
+        with get_db() as db:
+            complaint = supplement_complaint(
+                db=db,
+                user_id=user_id,
+                complaint_id=complaint_id,
+                proof_image_url=data.proof_image_url,
+                description=data.description,
+            )
+            return api_response(
+                data=_serialize_complaint(complaint),
+                message="Bổ sung minh chứng khiếu nại thành công",
+                status_code=200,
+            )
+    except ComplaintError as e:
+        return api_response(message=str(e), errors=[{"code": e.code}], status_code=e.status_code, success=False)
+
 
