@@ -204,9 +204,116 @@ export default function DonHangPage() {
   }
 
   const isPickup = order.order_type === 'pickup'
-  const [title, lead] = STATUS_COPY[order.status] || [order.status, 'Trạng thái đơn hàng được cập nhật từ Canteen.']
   const isCancelled = ['DA_HUY_KHACH', 'TU_CHOI', 'TU_DONG_HUY', 'BO_DON_BLACKLIST'].includes(order.status)
-  const progress = isCancelled ? 0 : DELIVERED_STATUSES.has(order.status) ? 100 : order.status === 'CHO_XAC_NHAN' ? 0 : order.status === 'DANG_CHUAN_BI' ? 33.33 : 66.67
+  const isComplaintFlow = ['KHIEU_NAI', 'DA_GIAI_QUYET'].includes(order.status) || Boolean(complaintData)
+
+  let title = STATUS_COPY[order.status]?.[0] || order.status
+  let lead = STATUS_COPY[order.status]?.[1] || 'Trạng thái đơn hàng được cập nhật từ Canteen.'
+
+  if (order.status === 'DA_GIAI_QUYET' && complaintData) {
+    if (complaintData.status === 'CHAP_NHAN') {
+      lead = 'Canteen đã chấp thuận khiếu nại của bạn và tiến hành giải quyết.'
+    } else if (complaintData.status === 'TU_CHOI') {
+      lead = 'Khiếu nại đã bị từ chối. Vui lòng xem phản hồi chi tiết từ Ban Quản lý bên dưới.'
+    }
+  }
+
+  // Cấu hình các bước trong thanh tiến trình (4 bước thông thường, 5 bước khi có khiếu nại)
+  let trackingSteps: Array<{
+    label: string
+    icon: string
+    active: boolean
+    variant?: 'brand' | 'success' | 'danger' | 'warning'
+  }> = []
+
+  let progress = 0
+
+  if (isComplaintFlow) {
+    // Với đơn có khiếu nại: 4 bước giao hàng trước đó đã hoàn thành
+    const complaintStatus = complaintData?.status
+    let complaintStep: {
+      label: string
+      icon: string
+      active: boolean
+      variant: 'brand' | 'success' | 'danger' | 'warning'
+    }
+
+    if (complaintStatus === 'CHAP_NHAN') {
+      complaintStep = {
+        label: 'Khiếu nại thành công',
+        icon: 'verified',
+        active: true,
+        variant: 'success',
+      }
+    } else if (complaintStatus === 'TU_CHOI') {
+      complaintStep = {
+        label: 'Khiếu nại không thành công',
+        icon: 'cancel',
+        active: true,
+        variant: 'danger',
+      }
+    } else if (complaintStatus === 'YEU_CAU_BO_SUNG') {
+      complaintStep = {
+        label: 'Cần bổ sung minh chứng',
+        icon: 'pending_actions',
+        active: true,
+        variant: 'warning',
+      }
+    } else if (order.status === 'DA_GIAI_QUYET') {
+      complaintStep = {
+        label: 'Khiếu nại đã xử lý',
+        icon: 'task_alt',
+        active: true,
+        variant: 'success',
+      }
+    } else {
+      complaintStep = {
+        label: 'Đang xử lý khiếu nại',
+        icon: 'report_problem',
+        active: true,
+        variant: 'warning',
+      }
+    }
+
+    trackingSteps = [
+      { label: 'Đã đặt', icon: 'receipt_long', active: true },
+      { label: 'Đang chuẩn bị', icon: 'restaurant', active: true },
+      { label: isPickup ? 'Sẵn sàng lấy' : 'Đang giao', icon: isPickup ? 'storefront' : 'delivery_dining', active: true },
+      { label: isPickup ? 'Đã bàn giao' : 'Đã giao', icon: 'check_circle', active: true },
+      complaintStep,
+    ]
+    progress = 100
+  } else {
+    progress = isCancelled
+      ? 0
+      : DELIVERED_STATUSES.has(order.status)
+      ? 100
+      : order.status === 'CHO_XAC_NHAN'
+      ? 0
+      : order.status === 'DANG_CHUAN_BI'
+      ? 33.33
+      : 66.67
+
+    trackingSteps = [
+      { label: 'Đã đặt', icon: 'receipt_long', active: true },
+      {
+        label: 'Đang chuẩn bị',
+        icon: 'restaurant',
+        active: ['DANG_CHUAN_BI', 'DANG_GIAO', 'SAN_SANG_LAY', 'GIAO_THAT_BAI', ...DELIVERED_STATUSES].includes(order.status),
+      },
+      {
+        label: isPickup ? 'Sẵn sàng lấy' : 'Đang giao',
+        icon: isPickup ? 'storefront' : 'delivery_dining',
+        active: ['DANG_GIAO', 'SAN_SANG_LAY', 'GIAO_THAT_BAI', ...DELIVERED_STATUSES].includes(order.status),
+      },
+      {
+        label: isPickup ? 'Đã bàn giao' : 'Đã giao',
+        icon: 'check_circle',
+        active: DELIVERED_STATUSES.has(order.status),
+      },
+    ]
+  }
+
   const canCancel = order.status === 'CHO_XAC_NHAN'
   const canConfirmReceipt = ['DA_GIAO', 'DA_BAN_GIAO'].includes(order.status)
 
@@ -256,19 +363,30 @@ export default function DonHangPage() {
             {actionError ? <p role="alert" className={styles.cancelTxt}>{actionError}</p> : null}
 
             <section className={styles.track} aria-label="Tiến trình đơn hàng">
-              <div className={styles.steps}>
+              <div className={`${styles.steps} ${trackingSteps.length === 5 ? styles.steps5 : ''}`}>
                 <div className={styles.line}><div className={styles.fill} style={{ width: `${progress}%` }} /></div>
-                {[
-                  { label: 'Đã đặt', icon: 'receipt_long', active: true },
-                  { label: 'Đang chuẩn bị', icon: 'restaurant', active: ['DANG_CHUAN_BI', 'DANG_GIAO', 'SAN_SANG_LAY', 'GIAO_THAT_BAI', ...DELIVERED_STATUSES].includes(order.status) },
-                  { label: isPickup ? 'Sẵn sàng lấy' : 'Đang giao', icon: isPickup ? 'storefront' : 'delivery_dining', active: ['DANG_GIAO', 'SAN_SANG_LAY', 'GIAO_THAT_BAI', ...DELIVERED_STATUSES].includes(order.status) },
-                  { label: isPickup ? 'Đã bàn giao' : 'Đã giao', icon: 'check_circle', active: DELIVERED_STATUSES.has(order.status) },
-                ].map((step) => (
-                  <div key={step.label} className={styles.step}>
-                    <div className={`${styles.dot} ${step.active ? styles.dotOn : ''}`}><span className={`material-symbols-outlined ${styles.ico}`}>{step.icon}</span></div>
-                    <span className={step.active ? styles.lbl : styles.lblOff}>{step.label}</span>
-                  </div>
-                ))}
+                {trackingSteps.map((step) => {
+                  let dotClass = `${styles.dot} ${step.active ? styles.dotOn : ''}`
+                  let lblClass = step.active ? styles.lbl : styles.lblOff
+                  if (step.active && step.variant === 'success') {
+                    dotClass = `${styles.dot} ${styles.dotSuccess}`
+                    lblClass = styles.lblSuccess
+                  } else if (step.active && step.variant === 'danger') {
+                    dotClass = `${styles.dot} ${styles.dotDanger}`
+                    lblClass = styles.lblDanger
+                  } else if (step.active && step.variant === 'warning') {
+                    dotClass = `${styles.dot} ${styles.dotWarning}`
+                    lblClass = styles.lblWarning
+                  }
+                  return (
+                    <div key={step.label} className={styles.step}>
+                      <div className={dotClass}>
+                        <span className={`material-symbols-outlined ${styles.ico}`}>{step.icon}</span>
+                      </div>
+                      <span className={lblClass}>{step.label}</span>
+                    </div>
+                  )
+                })}
               </div>
             </section>
 
