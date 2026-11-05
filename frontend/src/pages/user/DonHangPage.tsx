@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import OrderReviewModal from '../../components/orders/OrderReviewModal'
+import OrderComplaintModal from '../../components/orders/OrderComplaintModal'
 import { useOrderHistory } from '../../contexts/OrderHistoryContext'
 import { useDishes } from '../../contexts/DishesContext'
 import { orderService } from '../../services/orderService'
 import { reviewService } from '../../services/reviewService'
+import { complaintService, Complaint } from '../../services/complaintService'
 import { getDishImageUrl, handleDishImageError } from '../../utils/dishImages'
 import { Order } from '../../types/order'
 import Footer from '../../components/layout/Footer'
@@ -47,6 +49,10 @@ export default function DonHangPage() {
   const [reviewOpen, setReviewOpen] = useState(false)
   const [reviewedDishIds, setReviewedDishIds] = useState<string[]>([])
   const [reviewToast, setReviewToast] = useState(false)
+  const [complaintOpen, setComplaintOpen] = useState(false)
+  const [complaintToast, setComplaintToast] = useState(false)
+  const [complaintData, setComplaintData] = useState<Complaint | null>(null)
+  const [loadingComplaint, setLoadingComplaint] = useState(false)
   const reviewFetchKey = useRef('')
 
   const loadOrder = useCallback(async () => {
@@ -67,6 +73,7 @@ export default function DonHangPage() {
     void loadOrder()
   }, [loadOrder])
 
+  // UC14 / BR-23: Cho phép tải và thực hiện đánh giá món cho các đơn ở REVIEWABLE_STATUSES (bao gồm DA_GIAI_QUYET)
   useEffect(() => {
     if (!order || !REVIEWABLE_STATUSES.has(order.status)) {
       reviewFetchKey.current = ''
@@ -95,6 +102,27 @@ export default function DonHangPage() {
     return () => { active = false }
   }, [order])
 
+  // UC15 / BR-23: Lấy thông tin khiếu nại nếu đơn hàng đang ở trạng thái KHIEU_NAI hoặc DA_GIAI_QUYET
+  useEffect(() => {
+    if (!order || !['KHIEU_NAI', 'DA_GIAI_QUYET'].includes(order.status)) {
+      setComplaintData(null)
+      return
+    }
+    let active = true
+    setLoadingComplaint(true)
+    complaintService.getComplaintByOrderId(order.id)
+      .then((res) => {
+        if (active) setComplaintData(res)
+      })
+      .catch(() => {
+        if (active) setComplaintData(null)
+      })
+      .finally(() => {
+        if (active) setLoadingComplaint(false)
+      })
+    return () => { active = false }
+  }, [order?.id, order?.status])
+
   useEffect(() => {
     if (!order || TERMINAL_STATUSES.has(order.status)) return
     const timer = window.setInterval(() => void loadOrder(), 15000)
@@ -106,6 +134,12 @@ export default function DonHangPage() {
     const timer = window.setTimeout(() => setReviewToast(false), 4000)
     return () => window.clearTimeout(timer)
   }, [reviewToast])
+
+  useEffect(() => {
+    if (!complaintToast) return
+    const timer = window.setTimeout(() => setComplaintToast(false), 4000)
+    return () => window.clearTimeout(timer)
+  }, [complaintToast])
 
   const reviewItems = useMemo(
     () => (order?.items || [])
@@ -175,15 +209,40 @@ export default function DonHangPage() {
   const progress = isCancelled ? 0 : DELIVERED_STATUSES.has(order.status) ? 100 : order.status === 'CHO_XAC_NHAN' ? 0 : order.status === 'DANG_CHUAN_BI' ? 33.33 : 66.67
   const canCancel = order.status === 'CHO_XAC_NHAN'
   const canConfirmReceipt = ['DA_GIAO', 'DA_BAN_GIAO'].includes(order.status)
+
+  // BUG-03 (UC14, BR-23): Đơn DA_GIAI_QUYET được phép đánh giá món
   const canReview = REVIEWABLE_STATUSES.has(order.status) && reviewItems.length > 0
-  const hasPartnerAction = canCancel || canConfirmReceipt || canReview
+
+  // BUG-02 (UC15, BR-23, EX-14): Cho phép khiếu nại trong vòng 24 giờ sau khi giao/hoàn thành
+  const deliveryTime = order.delivered_at || order.completed_at || order.created_at
+  const within24Hours = deliveryTime
+    ? (Date.now() - new Date(deliveryTime).getTime()) <= 24 * 60 * 60 * 1000
+    : true
+  const canComplain = ['DA_GIAO', 'DA_BAN_GIAO', 'HOAN_THANH'].includes(order.status) &&
+    within24Hours &&
+    order.status !== 'KHIEU_NAI' &&
+    order.status !== 'DA_GIAI_QUYET'
+
+  const hasPartnerAction = canCancel || canConfirmReceipt || canReview || canComplain
   const displayItems = order.items || []
 
   return (
     <div className={styles.pageWrapper}>
       <main className={styles.page}>
         {reviewToast ? <div className={styles.reviewToast} role="status">Đánh giá của bạn đã được gửi.</div> : null}
+        {complaintToast ? <div className={styles.reviewToast} role="status">Khiếu nại của bạn đã được gửi tới Canteen.</div> : null}
         {reviewOpen && canReview ? <OrderReviewModal orderId={order.id} items={reviewItems} onClose={() => setReviewOpen(false)} onSubmitReview={submitReviews} /> : null}
+        {complaintOpen && canComplain ? (
+          <OrderComplaintModal
+            orderId={order.id}
+            onClose={() => setComplaintOpen(false)}
+            onSuccess={() => {
+              setComplaintToast(true)
+              void loadOrder()
+              void refreshHistory()
+            }}
+          />
+        ) : null}
         <div className={`wrap ${styles.layout}`}>
           <div className={styles.main}>
             <Link className={styles.back} to="/lich-su-don">← Lịch sử đơn</Link>
@@ -222,11 +281,85 @@ export default function DonHangPage() {
               </div>
             </section>
 
+            {/* UC15 / BR-23: Hiển thị khối thông tin Khiếu nại nếu đơn hàng đang ở KHIEU_NAI hoặc DA_GIAI_QUYET */}
+            {['KHIEU_NAI', 'DA_GIAI_QUYET'].includes(order.status) ? (
+              <section className={styles.complaintCard} aria-label="Thông tin khiếu nại đơn hàng">
+                <div className={styles.complaintHead}>
+                  <h2 className={styles.complaintTitle}>
+                    <span className="material-symbols-outlined" style={{ color: '#ea580c' }}>report_problem</span>
+                    Thông tin khiếu nại
+                  </h2>
+                  {complaintData ? (
+                    <span className={`${styles.complaintBadge} ${
+                      complaintData.status === 'CHAP_NHAN' ? styles.complaintAccepted :
+                      complaintData.status === 'TU_CHOI' ? styles.complaintRejected :
+                      complaintData.status === 'YEU_CAU_BO_SUNG' ? styles.complaintMoreInfo :
+                      styles.complaintPending
+                    }`}>
+                      {complaintData.status === 'CHAP_NHAN' ? 'Đã chấp nhận' :
+                       complaintData.status === 'TU_CHOI' ? 'Từ chối khiếu nại' :
+                       complaintData.status === 'YEU_CAU_BO_SUNG' ? 'Yêu cầu bổ sung' :
+                       'Đang xử lý'}
+                    </span>
+                  ) : null}
+                </div>
+                {loadingComplaint ? (
+                  <p style={{ margin: 0, color: 'var(--color-muted)' }}>Đang tải thông tin khiếu nại...</p>
+                ) : complaintData ? (
+                  <div className={styles.complaintBody}>
+                    <div className={styles.complaintRow}>
+                      <span className={styles.complaintLbl}>Lý do khiếu nại</span>
+                      <p className={styles.complaintTxt}><strong>{complaintData.reason}</strong></p>
+                    </div>
+                    <div className={styles.complaintRow}>
+                      <span className={styles.complaintLbl}>Mô tả của bạn</span>
+                      <p className={styles.complaintTxt}>{complaintData.description}</p>
+                    </div>
+                    {complaintData.proof_image_url && (
+                      <div className={styles.complaintRow}>
+                        <span className={styles.complaintLbl}>Ảnh minh chứng</span>
+                        <a href={complaintData.proof_image_url} target="_blank" rel="noopener noreferrer">
+                          <img src={complaintData.proof_image_url} alt="Minh chứng" className={styles.complaintThumb} />
+                        </a>
+                      </div>
+                    )}
+                    {complaintData.admin_response && (
+                      <div className={styles.adminResponseBox}>
+                        <h3 className={styles.adminResponseTitle}>
+                          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>support_agent</span>
+                          Phản hồi từ Ban Quản lý NEUFood
+                        </h3>
+                        <p className={styles.adminResponseTxt}>{complaintData.admin_response}</p>
+                        {complaintData.resolved_at && (
+                          <p className={styles.adminResponseTime}>
+                            Thời gian giải quyết: {new Date(complaintData.resolved_at).toLocaleString('vi-VN')}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p style={{ margin: 0, color: 'var(--color-muted)' }}>Đơn hàng đang trong tiến trình khiếu nại.</p>
+                )}
+              </section>
+            ) : null}
+
             <div className={styles.act2}>
               <Link to="/menu" className={`${styles.actBtn} ${styles.actGhost} ${hasPartnerAction ? '' : styles.reorderFull}`}>Đặt món khác</Link>
               {canCancel ? <button type="button" className={`${styles.actBtn} ${styles.actDanger}`} disabled={isWorking} onClick={() => window.confirm('Bạn muốn hủy đơn hàng này?') && void runOrderAction(() => orderService.cancelOrder(order.id))}>Hủy đơn</button> : null}
               {canConfirmReceipt ? <button type="button" className={`${styles.actBtn} ${styles.actPri}`} disabled={isWorking} onClick={() => void runOrderAction(() => orderService.confirmReceipt(order.id))}>{isWorking ? 'Đang cập nhật…' : 'Xác nhận đã nhận món'}</button> : null}
               {canReview ? <button type="button" className={`${styles.actBtn} ${styles.actPri}`} disabled={isWorking} onClick={() => setReviewOpen(true)}>Đánh giá món</button> : null}
+              {canComplain ? (
+                <button
+                  type="button"
+                  className={`${styles.actBtn} ${styles.actWarn}`}
+                  disabled={isWorking}
+                  onClick={() => setComplaintOpen(true)}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>report_problem</span>
+                  Khiếu nại đơn
+                </button>
+              ) : null}
               {REVIEWABLE_STATUSES.has(order.status) && reviewItems.length === 0 ? <div className={styles.reviewedBadge}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check_circle</span><span>Đã đánh giá các món trong đơn hàng.</span></div> : null}
             </div>
           </div>

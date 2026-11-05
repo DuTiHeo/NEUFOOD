@@ -11,7 +11,7 @@ from app.crud.complaint import (
 )
 from app.core.security import jwt_required, role_required
 from app.schemas.complaint import ComplaintCreateRequest, ComplaintResolveRequest
-from app.utils.helpers import api_response
+from app.utils.helpers import api_response, save_upload_file
 
 complaint_bp = Blueprint("complaints", __name__, url_prefix="/complaints")
 
@@ -34,12 +34,62 @@ def _serialize_complaint(c) -> dict:
     }
 
 
+@complaint_bp.route("/upload-proof", methods=["POST"])
+@role_required("customer")
+def upload_complaint_proof():
+    """Tải lên hình ảnh minh chứng khiếu nại (UC15, EX-14)."""
+    file = request.files.get("file")
+    if file is None or not file.filename:
+        return api_response(
+            message="Vui lòng chọn file ảnh trong trường 'file'",
+            status_code=400,
+            success=False,
+        )
+
+    filename = save_upload_file(file)
+    if filename is None:
+        return api_response(
+            message="Định dạng ảnh không được hỗ trợ (chỉ nhận PNG, JPG, JPEG, WEBP, GIF)",
+            status_code=400,
+            success=False,
+        )
+
+    return api_response(
+        data={"proof_image_url": f"/uploads/{filename}", "filename": filename},
+        message="Tải ảnh minh chứng thành công",
+        status_code=201,
+    )
+
+
 @complaint_bp.route("", methods=["GET"])
 @jwt_required
 def list_complaints():
     """
     Xem danh sách khiếu nại (UC15, UC25, BR-23, BR-24).
     Admin xem toàn bộ; Khách hàng xem danh sách của chính mình.
+    Hỗ trợ lọc theo order_id.
+    """
+    try:
+        user_id = int(g.current_user["sub"])
+    except (KeyError, TypeError, ValueError):
+        return api_response(message="Phiên đăng nhập không hợp lệ", status_code=401, success=False)
+
+    role = g.current_user.get("role")
+    order_id = request.args.get("order_id")
+    with get_db() as db:
+        items = get_complaints(db, user_id=None if role == "admin" else user_id)
+        if order_id:
+            items = [c for c in items if c.order_id == order_id]
+        data = [_serialize_complaint(c) for c in items]
+        return api_response(data=data)
+
+
+@complaint_bp.route("/by-order/<order_id>", methods=["GET"])
+@jwt_required
+def get_complaint_by_order(order_id: str):
+    """
+    Xem chi tiết khiếu nại theo mã đơn hàng (UC15, BR-23).
+    Khách chỉ xem được khiếu nại của chính mình, Admin xem tất cả.
     """
     try:
         user_id = int(g.current_user["sub"])
@@ -49,8 +99,16 @@ def list_complaints():
     role = g.current_user.get("role")
     with get_db() as db:
         items = get_complaints(db, user_id=None if role == "admin" else user_id)
-        data = [_serialize_complaint(c) for c in items]
-        return api_response(data=data)
+        complaint = next((c for c in items if c.order_id == order_id), None)
+        if not complaint:
+            return api_response(
+                message="Không tìm thấy khiếu nại cho đơn hàng này",
+                errors=[{"code": "NOT_FOUND"}],
+                status_code=404,
+                success=False,
+            )
+
+        return api_response(data=_serialize_complaint(complaint))
 
 
 @complaint_bp.route("/<int(max=2147483647):complaint_id>", methods=["GET"])

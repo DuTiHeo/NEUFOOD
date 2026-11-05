@@ -774,3 +774,148 @@
   font-size: 1.25rem;
   font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
+
+.actWarn {
+  background-color: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
+.actWarn:hover {
+  background-color: #ffedd5;
+  color: #9a3412;
+}
+
+.complaintCard {
+  border-radius: 0.75rem;
+  background-color: #ffffff;
+  border: 1px solid rgb(226 232 240);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.05);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.complaintHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid rgb(241 245 249);
+  padding-bottom: 0.75rem;
+}
+
+.complaintTitle {
+  font-family: var(--font-headline);
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-ink);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.complaintBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.complaintPending {
+  background-color: #fef3c7;
+  color: #b45309;
+}
+
+.complaintAccepted {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.complaintRejected {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.complaintMoreInfo {
+  background-color: #ffedd5;
+  color: #c2410c;
+}
+
+.complaintBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.complaintRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.complaintLbl {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.complaintTxt {
+  margin: 0;
+  color: var(--color-ink);
+  line-height: 1.45;
+}
+
+.complaintThumb {
+  max-width: 8rem;
+  max-height: 6rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  object-fit: cover;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.complaintThumb:hover {
+  transform: scale(1.03);
+}
+
+.adminResponseBox {
+  margin-top: 0.5rem;
+  padding: 1rem;
+  border-radius: 0.625rem;
+  background-color: #f8fafc;
+  border-left: 4px solid var(--color-brand);
+}
+
+.adminResponseTitle {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-brand);
+  margin: 0 0 0.35rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.adminResponseTxt {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.adminResponseTime {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+
