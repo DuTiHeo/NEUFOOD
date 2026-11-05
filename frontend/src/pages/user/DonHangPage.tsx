@@ -15,6 +15,7 @@ function formatPrice(value: number) {
 }
 
 const TERMINAL_STATUSES = new Set(['HOAN_THANH', 'DA_HUY_KHACH', 'TU_CHOI', 'TU_DONG_HUY', 'BO_DON_BLACKLIST', 'DA_GIAI_QUYET'])
+const REVIEWABLE_STATUSES = new Set(['DA_GIAO', 'DA_BAN_GIAO', 'HOAN_THANH', 'DA_GIAI_QUYET'])
 const DELIVERED_STATUSES = new Set(['DA_GIAO', 'DA_BAN_GIAO', 'HOAN_THANH'])
 
 const STATUS_COPY = {
@@ -67,7 +68,7 @@ export default function DonHangPage() {
   }, [loadOrder])
 
   useEffect(() => {
-    if (!order || !DELIVERED_STATUSES.has(order.status)) {
+    if (!order || !REVIEWABLE_STATUSES.has(order.status)) {
       reviewFetchKey.current = ''
       setReviewedDishIds([])
       return
@@ -174,7 +175,7 @@ export default function DonHangPage() {
   const progress = isCancelled ? 0 : DELIVERED_STATUSES.has(order.status) ? 100 : order.status === 'CHO_XAC_NHAN' ? 0 : order.status === 'DANG_CHUAN_BI' ? 33.33 : 66.67
   const canCancel = order.status === 'CHO_XAC_NHAN'
   const canConfirmReceipt = ['DA_GIAO', 'DA_BAN_GIAO'].includes(order.status)
-  const canReview = DELIVERED_STATUSES.has(order.status) && reviewItems.length > 0
+  const canReview = REVIEWABLE_STATUSES.has(order.status) && reviewItems.length > 0
   const hasPartnerAction = canCancel || canConfirmReceipt || canReview
   const displayItems = order.items || []
 
@@ -226,7 +227,7 @@ export default function DonHangPage() {
               {canCancel ? <button type="button" className={`${styles.actBtn} ${styles.actDanger}`} disabled={isWorking} onClick={() => window.confirm('Bạn muốn hủy đơn hàng này?') && void runOrderAction(() => orderService.cancelOrder(order.id))}>Hủy đơn</button> : null}
               {canConfirmReceipt ? <button type="button" className={`${styles.actBtn} ${styles.actPri}`} disabled={isWorking} onClick={() => void runOrderAction(() => orderService.confirmReceipt(order.id))}>{isWorking ? 'Đang cập nhật…' : 'Xác nhận đã nhận món'}</button> : null}
               {canReview ? <button type="button" className={`${styles.actBtn} ${styles.actPri}`} disabled={isWorking} onClick={() => setReviewOpen(true)}>Đánh giá món</button> : null}
-              {DELIVERED_STATUSES.has(order.status) && reviewItems.length === 0 ? <div className={styles.reviewedBadge}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check_circle</span><span>Đã đánh giá các món trong đơn hàng.</span></div> : null}
+              {REVIEWABLE_STATUSES.has(order.status) && reviewItems.length === 0 ? <div className={styles.reviewedBadge}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check_circle</span><span>Đã đánh giá các món trong đơn hàng.</span></div> : null}
             </div>
           </div>
 
