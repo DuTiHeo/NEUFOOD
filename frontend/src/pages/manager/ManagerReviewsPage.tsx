@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { MessageSquareText, RefreshCw, Search, Star, UtensilsCrossed } from 'lucide-react'
 import { reviewService } from '../../services/reviewService'
-import type { Dish, DishReview } from '../../types/dish'
+import { dishService } from '../../services/dishService'
+import type { Category, Dish, DishReview } from '../../types/dish'
 import { getDishImageUrl, handleDishImageError } from '../../utils/dishImages'
 import { loadCanteenDishes } from './managerData'
 import { dateTime, money, requestMessage } from './managerRules'
@@ -16,9 +17,11 @@ function Stars({ value, large = false }: { value: number; large?: boolean }) {
 
 export default function ManagerReviewsPage() {
   const [dishes, setDishes] = useState<Dish[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [selected, setSelected] = useState('')
   const [reviews, setReviews] = useState<DishReview[]>([])
   const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('all')
   const [catalogLoading, setCatalogLoading] = useState(true)
   const [reviewsLoading, setReviewsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -36,6 +39,7 @@ export default function ManagerReviewsPage() {
       })
       .catch((requestError) => { if (active) setError(requestMessage(requestError, 'Không tải được danh sách món.')) })
       .finally(() => { if (active) setCatalogLoading(false) })
+    dishService.getCategories().then((items) => { if (active) setCategories(items) }).catch(() => {})
     return () => { active = false }
   }, [revision])
 
@@ -57,7 +61,10 @@ export default function ManagerReviewsPage() {
   }, [selected, revision])
 
   const selectedDish = dishes.find((dish) => dish.id === selected)
-  const filteredDishes = useMemo(() => dishes.filter((dish) => dish.name.toLocaleLowerCase('vi').includes(search.trim().toLocaleLowerCase('vi'))), [dishes, search])
+  const filteredDishes = useMemo(() => dishes.filter((dish) =>
+    dish.name.toLocaleLowerCase('vi').includes(search.trim().toLocaleLowerCase('vi'))
+    && (categoryFilter === 'all' || dish.category_ids?.includes(categoryFilter))
+  ), [dishes, search, categoryFilter])
   const average = reviews.length ? reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / reviews.length : 0
 
   return <div className="manager-page">
@@ -71,7 +78,13 @@ export default function ManagerReviewsPage() {
     <div className={styles.reviewLayout}>
       <section className={`manager-card ${styles.menuPanel}`} aria-label="Thực đơn món ăn">
         <header className={styles.panelHeader}><div><h2>Thực đơn</h2><p>{catalogLoading ? 'Đang tải món…' : `${dishes.length} món`}</p></div></header>
-        <label className={styles.searchBox}><Search size={16} /><input type="search" placeholder="Tìm món ăn…" aria-label="Tìm món ăn" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+        <div className={styles.menuFilters}>
+          <label className={styles.searchBox}><Search size={16} /><input type="search" placeholder="Tìm món ăn…" aria-label="Tìm món ăn" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+          <select className="manager-select" aria-label="Lọc món theo danh mục" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+            <option value="all">Tất cả danh mục</option>
+            {categories.map((category) => <option key={category.id} value={category.id}>{category.label || category.name || category.id}</option>)}
+          </select>
+        </div>
         <div className={styles.dishList}>
           {catalogLoading ? <div className="manager-state">Đang tải thực đơn…</div> : filteredDishes.length ? filteredDishes.map((dish) => {
             const rating = Number(dish.rating || 0)

@@ -3,7 +3,8 @@
 .panelHeader{padding:18px 20px 13px;border-bottom:1px solid #edf1f5}
 .panelHeader h2,.reviewSummary h2{margin:0;color:#26465f;font-size:15px}
 .panelHeader p,.reviewSummary p{margin:5px 0 0;color:#8b9bab;font-size:11px}
-.searchBox{margin:13px 14px 9px;display:flex;align-items:center;gap:8px;padding:0 10px;height:38px;border:1px solid #dde5ed;border-radius:8px;color:#8b9bab}
+.menuFilters{display:grid;gap:8px;padding:13px 14px 9px}
+.searchBox{display:flex;align-items:center;gap:8px;padding:0 10px;height:38px;border:1px solid #dde5ed;border-radius:8px;color:#8b9bab}
 .searchBox:focus-within{border-color:#789ab7;box-shadow:0 0 0 3px #1d5f8e10}
 .searchBox input{min-width:0;width:100%;border:0;outline:0;background:transparent;color:#3a566e;font:inherit;font-size:12px}
 .dishList{overflow:auto;padding:0 9px 10px;min-height:100px}
