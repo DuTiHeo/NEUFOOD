@@ -13,6 +13,8 @@ export default function MainLayout() {
 
   useEffect(() => {
     const body = document.body
+    if (showBottomNav) body.classList.add('has-bottom-nav')
+    else body.classList.remove('has-bottom-nav')
     if (!isHomeRoute) {
       body.classList.add('page-background')
     } else {
@@ -21,8 +23,9 @@ export default function MainLayout() {
 
     return () => {
       body.classList.remove('page-background')
+      body.classList.remove('has-bottom-nav')
     }
-  }, [isHomeRoute, pathname])
+  }, [isHomeRoute, pathname, showBottomNav])
 
   return (
     <>
