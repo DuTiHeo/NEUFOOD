@@ -13,6 +13,14 @@ export interface RegisterPayload {
   full_name: string;
   phone_number: string;
   student_id?: string;
+  otp?: string;
+}
+
+export interface RegisterOtpPayload {
+  email: string;
+  phone_number?: string;
+  full_name?: string;
+  student_id?: string;
 }
 
 export interface ForgotPasswordData {

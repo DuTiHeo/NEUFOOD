@@ -208,7 +208,7 @@ flowchart TD
 ## CHƯƠNG 4: QUY TẮC NGHIỆP VỤ CỐT LÕI (BUSINESS RULES)
 
 ### 4.1. Nhóm Tài khoản & Bảo mật
-* **BR-01 (Định danh tài khoản):** Mỗi tài khoản chỉ được liên kết với một địa chỉ Email duy nhất (ưu tiên email sinh viên/cán bộ NEU: `@neu.edu.vn` hoặc `@st.neu.edu.vn`). Số điện thoại đăng ký phải là số di động hợp lệ tại Việt Nam (10 chữ số).
+* **BR-01 (Định danh tài khoản):** Mỗi tài khoản chỉ được liên kết với một địa chỉ Email duy nhất và bắt buộc thuộc tên miền email sinh viên/cán bộ NEU: `@neu.edu.vn` hoặc `@st.neu.edu.vn`. Số điện thoại đăng ký phải là số di động hợp lệ tại Việt Nam (10 chữ số) và là duy nhất trên toàn hệ thống (`UNIQUE`). Trường hợp số điện thoại bị tài khoản khác chiếm dụng, Quản trị viên (Admin) có công cụ xác minh và giải phóng số điện thoại (`UC23`).
 * **BR-02 (Bảo mật đăng nhập & Khóa theo thiết bị):** Hệ thống chống dò mật khẩu theo **thiết bị**, không khóa theo địa chỉ IP dùng chung và không để người khác cố tình khóa tài khoản của chủ tài khoản:
   1. **Thiết bị tin cậy:** Sau mỗi lần đăng nhập thành công, hệ thống cấp cho thiết bị một **mã thiết bị (device token) do máy chủ tạo và ký**; client không thể tự tạo mã hợp lệ. Mã hết hiệu lực sau **30 ngày** không sử dụng và bị thu hồi toàn bộ khi người dùng đổi hoặc đặt lại mật khẩu.
   2. **Sai mật khẩu trên thiết bị tin cậy:** Sai liên tiếp **từ 5 lần trở lên** thì chỉ khóa **riêng thiết bị đó** 15 phút. Các thiết bị tin cậy khác của cùng tài khoản vẫn đăng nhập bình thường.

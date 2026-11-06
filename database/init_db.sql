@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(150) NOT NULL,
-    phone_number VARCHAR(20) NOT NULL,
+    phone_number VARCHAR(20) UNIQUE,
     student_id VARCHAR(30),
     role VARCHAR(20) NOT NULL DEFAULT 'customer' 
         CHECK (role IN ('customer', 'staff', 'manager', 'admin')),

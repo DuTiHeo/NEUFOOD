@@ -12,7 +12,14 @@ logger = logging.getLogger(__name__)
 
 def _build_otp_html(to_email: str, otp_code: str, purpose: str) -> str:
     """Tạo nội dung HTML định dạng đẹp mắt gửi qua email."""
-    if purpose == "login_otp":
+    if purpose == "register_otp":
+        title = "Xác Thực Đăng Ký Tài Khoản NEUFood"
+        desc = (
+            "Chào mừng bạn đến với <strong>NEUFood</strong>! "
+            f"Bạn vừa đăng ký tài khoản mới bằng email trường <strong>{to_email}</strong>. "
+            "Vui lòng nhập mã OTP dưới đây để xác thực địa chỉ email và kích hoạt tài khoản của bạn."
+        )
+    elif purpose == "login_otp":
         title = "Mã Xác Thực Đăng Nhập Khẩn Cấp"
         desc = (
             "Bạn vừa yêu cầu mã xác nhận để đăng nhập vào tài khoản <strong>NEUFood</strong> "

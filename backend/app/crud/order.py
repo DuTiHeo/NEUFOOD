@@ -55,6 +55,16 @@ def create_order(
             "Tài khoản của bạn đã bị khóa tính năng đặt hàng do vi phạm chính sách nhận hàng/thanh toán COD. Vui lòng liên hệ Admin để giải quyết",
             "EX-10", 403,
         )
+
+    # BR-22, EX-10: Chặn đặt hàng nếu số điện thoại nhận hàng thuộc tài khoản đang bị Blacklist COD
+    if recipient_phone and db.query(User.id).filter(
+        User.phone_number == recipient_phone.strip(),
+        User.is_blacklisted == True,
+    ).first():
+        raise OrderError(
+            "Số điện thoại nhận hàng này đang thuộc danh sách đen (Blacklist COD) do từng vi phạm chính sách nhận hàng/thanh toán. Vui lòng liên hệ Admin để giải quyết",
+            "EX-10", 403,
+        )
     sync_overdue_orders(db, user_id=user_id)
     if db.query(Order.id).filter(Order.user_id == user_id, Order.status.in_(ACTIVE_ORDER_STATUSES)).first():
         raise OrderError(

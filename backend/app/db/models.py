@@ -59,7 +59,7 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(150), nullable=False)
-    phone_number = Column(String(20), nullable=False)
+    phone_number = Column(String(20), unique=True, nullable=True, index=True)
     student_id = Column(String(30), nullable=True)
     role = Column(String(20), nullable=False, default="customer", index=True)  # 'customer' | 'staff' | 'manager' | 'admin'
     avatar_url = Column(Text, nullable=True)

@@ -2,6 +2,7 @@ import api from './api';
 import {
   LoginPayload,
   RegisterPayload,
+  RegisterOtpPayload,
   AuthResponse,
   ApiResponse,
   ForgotPasswordData,
@@ -49,6 +50,11 @@ export const authService = {
       localStorage.setItem(DEVICE_TOKEN_KEY, authData.device_token);
     }
     return authData;
+  },
+
+  async sendRegisterOtp(payload: RegisterOtpPayload): Promise<ApiResponse<any>> {
+    const res = await api.post<ApiResponse<any>>('/auth/register/send-otp', payload);
+    return res.data;
   },
 
   async register(payload: RegisterPayload): Promise<AuthResponse> {

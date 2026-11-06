@@ -66,32 +66,67 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 ## 2. Phân Hệ Thành Viên 1: Xác Thực, Người Dùng, Blacklist & Cấu Hình (`/auth`, `/users`, `/settings`)
 
 ### 2.1. Đăng Ký Tài Khoản Khách Hàng (`UC01`, `BR-01`, `EX-01`)
+
+#### 2.1.1. Yêu Cầu Gửi Mã OTP Đăng Ký (`POST /api/v1/auth/register/send-otp`)
+- **Endpoint**: `POST /api/v1/auth/register/send-otp`
+- **Quyền hạn**: Public (Không yêu cầu JWT)
+- **Headers**: `Content-Type: application/json`
+- **Request Body**:
+```json
+{
+  "email": "11215432@st.neu.edu.vn",
+  "phone_number": "0912345678",
+  "full_name": "Nguyễn Văn Sinh Viên"
+}
+```
+- **Quy tắc nghiệp vụ**:
+  - Kiểm tra email thuộc `@neu.edu.vn` hoặc `@st.neu.edu.vn` và chưa tồn tại trong hệ thống.
+  - Kiểm tra số điện thoại chưa liên kết với tài khoản khác (nếu trùng trả về `409 Conflict`).
+  - Sinh mã OTP 6 chữ số gửi qua SMTP Gmail với thời hạn 5 phút (300 giây). Giới hạn tối đa 5 lần/ngày cho mỗi cặp (IP + email).
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Mã xác thực OTP đã được gửi về email trường NEU của bạn. Vui lòng kiểm tra hộp thư Outlook.",
+  "data": {
+    "email": "11215432@st.neu.edu.vn",
+    "expires_in_seconds": 300
+  }
+}
+```
+
+#### 2.1.2. Xác Nhận OTP & Kích Hoạt Tài Khoản (`POST /api/v1/auth/register`)
 - **Endpoint**: `POST /api/v1/auth/register`
 - **Quyền hạn**: Public (Không yêu cầu JWT)
 - **Headers**: `Content-Type: application/json`
 - **Request Body**:
 ```json
 {
-  "email": "sinhvien_moi@neu.edu.vn",
+  "email": "11215432@st.neu.edu.vn",
   "password": "password123",
   "full_name": "Nguyễn Văn Sinh Viên",
   "phone_number": "0912345678",
-  "student_id": "11218888"
+  "student_id": "11215432",
+  "otp": "123456"
 }
 ```
 - **Ràng buộc dữ liệu (`schemas/auth.py`)**:
-  - `email`: Bắt buộc, chuỗi email hợp lệ RFC chuẩn (`EmailStr`).
+  - `email`: Bắt buộc, chuỗi email hợp lệ RFC chuẩn (`EmailStr`), bắt buộc thuộc tên miền NEU (`@neu.edu.vn` hoặc `@st.neu.edu.vn`) theo `BR-01`.
   - `password`: Bắt buộc, độ dài từ 6 đến 128 ký tự (`min_length=6, max_length=128`).
   - `full_name`: Bắt buộc, từ 2 đến 150 ký tự, tự động cắt tỉa khoảng trắng hai đầu (`strip`).
-  - `phone_number`: Bắt buộc, số di động Việt Nam hợp lệ gồm đúng 10 chữ số bắt đầu bằng `0` (`^0\d{9}$`) theo `BR-01`.
+  - `phone_number`: Bắt buộc, số di động Việt Nam hợp lệ gồm đúng 10 chữ số bắt đầu bằng `0` (`^0\d{9}$`) theo `BR-01`, là duy nhất trên toàn hệ thống (`UNIQUE`).
   - `student_id`: Không bắt buộc (Optional), tối đa 30 ký tự; chuỗi rỗng tự động chuyển thành `null` (`None`).
+  - `otp`: Bắt buộc, mã xác nhận gồm đúng 6 chữ số gửi về hòm thư edu của người dùng.
 - **Quy tắc nghiệp vụ & Kịch bản ngoại lệ**:
-  - `BR-01`: Tài khoản đăng ký mới luôn được gán vai trò mặc định `role = "customer"`.
+  - `BR-01`: Bắt buộc xác nhận OTP email trước khi kích hoạt tài khoản. Nhập sai quá 5 lần sẽ hủy mã OTP.
+  - `BR-01`: Tài khoản đăng ký mới luôn được kích hoạt `is_active = True` và gán vai trò mặc định `role = "customer"`.
   - Cấp cặp JWT Token: Access Token (hiệu lực 15 phút, `expires_in: 900` giây) và Refresh Token (hiệu lực 7 ngày).
   - `EX-01`: Nếu `email` đã tồn tại trên hệ thống $\rightarrow$ Trả về `400 Bad Request` (`"Email đã tồn tại trên hệ thống (EX-01)"`).
   - `EX-01`: Nếu `student_id` đã được liên kết với một tài khoản khác $\rightarrow$ Trả về `400 Bad Request` (`"Mã sinh viên đã tồn tại trên hệ thống (EX-01)"`).
+  - `BR-01` / Xung đột SĐT: Nếu `phone_number` đã được tài khoản khác đăng ký $\rightarrow$ Trả về `409 Conflict` kèm email đã che (`masked_email`) và hướng dẫn liên hệ Admin/Canteen A2 để giải phóng số điện thoại.
+  - `BR-01` / Lỗi Validate: Nếu `email` không thuộc domain `@neu.edu.vn` hoặc `@st.neu.edu.vn` $\rightarrow$ Trả về `422 Unprocessable Entity` (`"Chỉ chấp nhận email sinh viên hoặc cán bộ NEU (@st.neu.edu.vn hoặc @neu.edu.vn)"`).
   - `BR-01` / Lỗi Validate: Nếu `phone_number` không đúng định dạng 10 số bắt đầu bằng 0 $\rightarrow$ Trả về `422 Unprocessable Entity` (`"Số điện thoại không hợp lệ, phải gồm đúng 10 chữ số và bắt đầu bằng số 0 (BR-01)"`).
-  - Request body không phải JSON object hợp lệ $\rightarrow$ Trả về `400 Bad Request` (`"Dữ liệu đầu vào phải là JSON object hợp lệ"`).
+  - `BR-01` / Lỗi OTP: Nếu mã OTP sai hoặc hết hạn $\rightarrow$ Trả về `400 Bad Request` (`"Mã xác nhận OTP không chính xác hoặc đã hết hiệu lực"`).
 - **Response (`201 Created`)**:
 ```json
 {
@@ -975,6 +1010,39 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
   "success": false,
   "message": "Quản trị viên không thể tự đưa tài khoản của chính mình vào danh sách đen",
   "data": null
+}
+```
+
+#### 2.10.3. Cập Nhật Hoặc Giải Phóng Số Điện Thoại Người Dùng (`UC23`, `BR-01`)
+- **Endpoint**: `PATCH /api/v1/users/admin/<int:user_id>/phone`
+- **Quyền hạn**: Độc quyền Quản trị viên (`@role_required("admin")`)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: application/json`
+- **Request Body**:
+```json
+{
+  "phone_number": null
+}
+```
+*(Lưu ý: Truyền `"phone_number": null` hoặc `""` để giải phóng SĐT bị mạo danh/chiếm dụng. Truyền `"09xxxxxxxx"` để gán SĐT mới).*
+- **Ràng buộc dữ liệu (`schemas/user.py` - `AdminUserPhoneUpdateRequest`)**:
+  - `phone_number`: Tùy chọn (`Optional[str]`), nếu cung cấp phải đúng 10 số di động bắt đầu bằng `0` (`^0\d{9}$`).
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Đã giải phóng số điện thoại thành công",
+  "data": {
+    "id": 2,
+    "email": "sinhvien@neu.edu.vn",
+    "full_name": "Nguyễn Văn A",
+    "phone_number": null,
+    "student_id": "11210001",
+    "role": "customer",
+    "is_active": true,
+    "is_blacklisted": false
+  }
 }
 ```
 
