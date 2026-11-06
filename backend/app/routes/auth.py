@@ -67,12 +67,17 @@ def _check_otp_rate_limit(email_key: str, client_ip: str, today_str: str) -> Opt
     ip_key = f"{client_ip}:{email_key}"
     ip_entry = OTP_IP_STORE.get(ip_key, {})
     ip_count = ip_entry.get("count", 0) if ip_entry.get("date") == today_str else 0
-    if ip_count >= 3:
+
+    # Nới lỏng kiểm tra khi chạy ở môi trường phát triển (localhost / 127.0.0.1) để nhà phát triển kiểm thử không bị chặn cứng
+    is_local_dev = client_ip in ("127.0.0.1", "::1", "localhost")
+    max_ip_limit = 50 if is_local_dev else 3
+    if ip_count >= max_ip_limit:
         return 429, "Bạn đã vượt quá giới hạn gửi mã OTP tối đa 3 lần/ngày từ địa chỉ mạng này. Vui lòng thử lại vào ngày mai"
 
+    max_email_limit = 100 if is_local_dev else 10
     email_entry = OTP_STORE.get(email_key, {})
     email_count = email_entry.get("daily_count", 0) if email_entry.get("date") == today_str else 0
-    if email_count >= 10:
+    if email_count >= max_email_limit:
         return 429, "Tài khoản này đã vượt quá giới hạn gửi mã OTP tối đa 10 lần/ngày. Vui lòng thử lại vào ngày mai"
 
     return None
