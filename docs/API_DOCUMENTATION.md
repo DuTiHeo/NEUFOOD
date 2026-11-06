@@ -140,31 +140,35 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 }
 ```
 
-### 2.2. Đăng Nhập Hệ Thống & Bảo Vệ Chống Dò Mật Khẩu (`UC02`, `BR-01`, `BR-02`, `EX-02`)
+### 2.2. Đăng Nhập Hệ Thống & Bảo Vệ Chống Dò Mật Khẩu Theo Thiết Bị (`UC02`, `BR-01`, `BR-02`, `EX-02`)
 - **Endpoint**: `POST /api/v1/auth/login`
 - **Quyền hạn**: Public (Không yêu cầu JWT)
+- **Giới hạn tần suất (Rate Limit)**: `@limiter.limit("20/minute", key_func=get_login_rate_limit_key)` tính theo cặp **(IP + email)** để tránh khóa nhầm người dùng chung mạng KTX/Wifi trường (BUG-01, BR-02).
 - **Headers**: `Content-Type: application/json`
 - **Request Body**:
 ```json
 {
   "email": "admin@neufood.vn",
-  "password": "password123"
+  "password": "password123",
+  "device_token": "1:device-uuid:nonce:timestamp.signature_hmac",
+  "device_name": "Chrome on MacOS"
 }
 ```
 - **Ràng buộc dữ liệu (`schemas/auth.py`)**:
   - `email`: Bắt buộc, định dạng email chuẩn (`EmailStr`).
   - `password`: Bắt buộc, chuỗi từ 1 đến 128 ký tự (`min_length=1`).
+  - `device_token`: Tùy chọn, chuỗi token thiết bị tin cậy có chữ ký HMAC do máy chủ cấp.
+  - `device_name`: Tùy chọn, tên nhận diện thiết bị/trình duyệt (tối đa 150 ký tự).
 - **Quy tắc nghiệp vụ & Cơ chế bảo mật (`BR-02`, `EX-02`)**:
-  - **Kiểm tra trạng thái tài khoản trước khi xác thực mật khẩu**:
-    - Nếu tài khoản có `is_active == false` $\rightarrow$ Trả lỗi `403 Forbidden` (`"Tài khoản này đã bị khóa"`).
-    - Nếu tài khoản đang trong thời gian khóa tạm thời 15 phút (`locked_until > now()`) $\rightarrow$ Trả lỗi `403 Forbidden` (`"Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần"`).
-  - **Xác thực mật khẩu**:
-    - Nếu sai mật khẩu: Tăng `failed_login_attempts += 1`.
-      - Khi `failed_login_attempts < 5` $\rightarrow$ Trả lỗi `401 Unauthorized` (`"Email hoặc mật khẩu không chính xác"`).
-      - Khi chạm mốc `failed_login_attempts >= 5` lần liên tiếp $\rightarrow$ Thiết lập `locked_until = now() + 15 minutes` và trả ngay `403 Forbidden` (`"Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần"`).
-    - Nếu đúng mật khẩu:
-      - Reset `failed_login_attempts = 0` và xóa mốc khóa `locked_until = null`.
-      - Cấp cặp JWT Token: Access Token (hiệu lực 15 phút, `expires_in: 900` giây) và Refresh Token (hiệu lực 7 ngày).
+  - **Phân loại thiết bị**:
+    - **Nhánh A (Thiết bị tin cậy)**: Có `device_token` hợp lệ, đúng chữ ký HMAC và chưa hết hạn 30 ngày trong `user_devices`.
+      - Nếu thiết bị đang bị khóa (`device.locked_until > now()`) $\rightarrow$ Trả `403 Forbidden`.
+      - Nếu sai mật khẩu: Tăng `device.failed_login_attempts`. Đạt $\ge 5$ lần $\rightarrow$ Khóa **riêng thiết bị này 15 phút** (`device.locked_until = now() + 15m`). Thiết bị tin cậy khác vẫn vào được.
+      - Nếu đúng mật khẩu: Reset bộ đếm lỗi thiết bị, gia hạn TTL 30 ngày.
+    - **Nhánh B (Thiết bị chưa xác minh / Thiết bị lạ)**: Không gửi token hoặc token không hợp lệ/hết hạn.
+      - Nếu nhóm thiết bị lạ của tài khoản đang bị khóa (`user.locked_until > now()`) $\rightarrow$ Trả `403 Forbidden` kèm gợi ý đăng nhập bằng OTP email.
+      - Nếu sai mật khẩu: Tăng `user.failed_login_attempts`. Đạt $\ge 5$ lần $\rightarrow$ Khóa quyền đăng nhập bằng mật khẩu từ **mọi thiết bị lạ** trong 15 phút. Thiết bị tin cậy của chủ tài khoản không bị ảnh hưởng.
+      - Nếu đúng mật khẩu: Reset lockout tài khoản, cấp mới một `device_token` có chữ ký HMAC và lưu vào bảng `user_devices`.
 - **Response (`200 OK`)**:
 ```json
 {
@@ -175,6 +179,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
     "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "token_type": "Bearer",
     "expires_in": 900,
+    "device_token": "1:f837b2d1-4e78-45e0-912f-6c1782e41a99:e82a...b4c.4f38a...",
     "user": {
       "id": 1,
       "email": "admin@neufood.vn",
@@ -188,6 +193,48 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
     }
   }
 }
+```
+
+### 2.2.1. Yêu Cầu Mã OTP Đăng Nhập Khẩn Cấp (`UC02`, `BR-02.4`, `EX-02`, `EX-04`)
+- **Endpoint**: `POST /api/v1/auth/login/otp/request`
+- **Quyền hạn**: Public (Không yêu cầu JWT)
+- **Mục đích**: Lối thoát an toàn cho chủ tài khoản khi bị kẻ xấu cố tình gõ sai mật khẩu làm khóa nhánh thiết bị lạ.
+- **Request Body**:
+```json
+{
+  "email": "sinhvien@neu.edu.vn"
+}
+```
+- **Quy tắc nghiệp vụ (`EX-04`)**:
+  - Hạn mức: Tối đa 3 lần/ngày cho mỗi cặp (email + IP) và tối đa 10 lần/ngày cho mỗi email.
+  - Hiệu lực OTP: Đúng 5 phút (300 giây).
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Mã OTP đăng nhập đã được gửi tới email của bạn (hiệu lực 5 phút)",
+  "data": {
+    "email": "sinhvien@neu.edu.vn",
+    "expires_in_seconds": 300
+  }
+}
+```
+
+### 2.2.2. Xác Thực Mã OTP Đăng Nhập & Mở Khóa Tài Khoản (`UC02`, `BR-02.4`, `EX-02`, `EX-04`)
+- **Endpoint**: `POST /api/v1/auth/login/otp/verify`
+- **Quyền hạn**: Public (Không yêu cầu JWT)
+- **Request Body**:
+```json
+{
+  "email": "sinhvien@neu.edu.vn",
+  "otp": "123456",
+  "device_name": "Chrome on MacOS"
+}
+```
+- **Quy tắc nghiệp vụ (`BR-02.4`, `EX-04`)**:
+  - Nhập sai mã OTP liên tiếp 5 lần $\rightarrow$ Hủy mã OTP ngay lập tức.
+  - Xác thực đúng: Tự động mở khóa tài khoản (`locked_until = null`), cấp JWT tokens và nâng cấp thiết bị hiện tại thành **Thiết bị tin cậy** (cấp `device_token` mới).
+- **Response (`200 OK`)**: Tương tự phản hồi của `POST /api/v1/auth/login` kèm `device_token`.
 ```
 - **Response lỗi (`401 Unauthorized` - Sai mật khẩu < 5 lần)**:
 ```json

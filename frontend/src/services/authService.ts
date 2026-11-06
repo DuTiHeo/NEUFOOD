@@ -6,13 +6,47 @@ import {
   ApiResponse,
   ForgotPasswordData,
   ResetPasswordPayload,
+  OtpLoginRequestPayload,
+  OtpLoginVerifyPayload,
+  OtpLoginRequestData,
 } from '../types/auth';
 import { User, UserProfileUpdate } from '../types/user';
 
+const DEVICE_TOKEN_KEY = 'neufood_device_token';
+
 export const authService = {
+  getStoredDeviceToken(): string | null {
+    return localStorage.getItem(DEVICE_TOKEN_KEY);
+  },
+
   async login(payload: LoginPayload): Promise<AuthResponse> {
-    const res = await api.post<ApiResponse<AuthResponse>>('/auth/login', payload);
-    return res.data.data;
+    const deviceToken = payload.device_token || localStorage.getItem(DEVICE_TOKEN_KEY) || undefined;
+    const body: LoginPayload = {
+      ...payload,
+      device_token: deviceToken,
+    };
+    const res = await api.post<ApiResponse<AuthResponse>>('/auth/login', body);
+    const authData = res.data.data;
+    if (authData?.device_token) {
+      localStorage.setItem(DEVICE_TOKEN_KEY, authData.device_token);
+    }
+    return authData;
+  },
+
+  async requestLoginOtp(email: string): Promise<ApiResponse<OtpLoginRequestData>> {
+    const res = await api.post<ApiResponse<OtpLoginRequestData>>('/auth/login/otp/request', {
+      email: email.trim(),
+    });
+    return res.data;
+  },
+
+  async verifyLoginOtp(payload: OtpLoginVerifyPayload): Promise<AuthResponse> {
+    const res = await api.post<ApiResponse<AuthResponse>>('/auth/login/otp/verify', payload);
+    const authData = res.data.data;
+    if (authData?.device_token) {
+      localStorage.setItem(DEVICE_TOKEN_KEY, authData.device_token);
+    }
+    return authData;
   },
 
   async register(payload: RegisterPayload): Promise<AuthResponse> {

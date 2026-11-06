@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(
         default_factory=lambda: int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
     )  # 7 ngày cho Refresh Token dài hạn
+    DEVICE_TOKEN_SECRET: str = Field(
+        default_factory=lambda: os.getenv("DEVICE_TOKEN_SECRET", os.getenv("SECRET_KEY", "neufood_super_secret_jwt_key_please_change_in_production"))
+    )
+    DEVICE_TOKEN_TTL_DAYS: int = Field(
+        default_factory=lambda: int(os.getenv("DEVICE_TOKEN_TTL_DAYS", "30"))
+    )  # 30 ngày cho token thiết bị tin cậy (BR-02)
 
     # 3. Cơ sở dữ liệu (Database Connection)
     DATABASE_URL: str = Field(

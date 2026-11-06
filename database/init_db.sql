@@ -252,7 +252,29 @@ CREATE TABLE IF NOT EXISTS revoked_tokens (
     reason VARCHAR(255)
 );
 
--- 16. INDEXES
+-- 16. BẢNG USER_DEVICES (Thiết bị tin cậy & Chống khóa oan tài khoản - BR-02, EX-02)
+CREATE TABLE IF NOT EXISTS user_devices (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    device_id VARCHAR(64) NOT NULL,
+    token_hash VARCHAR(64) NOT NULL UNIQUE,
+    device_name VARCHAR(150),
+    failed_login_attempts INT DEFAULT 0 NOT NULL,
+    locked_until TIMESTAMP WITH TIME ZONE,
+    last_used_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    is_revoked BOOLEAN DEFAULT FALSE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT uq_user_device_id UNIQUE (user_id, device_id)
+);
+
+DROP TRIGGER IF EXISTS set_timestamp_user_devices ON user_devices;
+CREATE TRIGGER set_timestamp_user_devices
+BEFORE UPDATE ON user_devices
+FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
+
+-- 17. INDEXES
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_blacklisted ON users(is_blacklisted);
@@ -279,3 +301,6 @@ CREATE INDEX IF NOT EXISTS idx_staff_shifts_staff_date ON staff_shifts(staff_id,
 
 CREATE INDEX IF NOT EXISTS idx_revoked_tokens_jti ON revoked_tokens(jti);
 CREATE INDEX IF NOT EXISTS idx_revoked_tokens_expires_at ON revoked_tokens(expires_at);
+
+CREATE INDEX IF NOT EXISTS idx_user_devices_token_hash ON user_devices(token_hash);
+CREATE INDEX IF NOT EXISTS idx_user_devices_user_id ON user_devices(user_id);
