@@ -22,6 +22,18 @@ class RegisterRequest(BaseModel):
     phone_number: str = Field(..., pattern=VN_PHONE_REGEX)
     student_id: Optional[str] = Field(default=None, max_length=30)
 
+    @field_validator("email", mode="before")
+    @classmethod
+    def validate_neu_email(cls, v: Any) -> Any:
+        """BR-01: Chỉ chấp nhận email sinh viên hoặc cán bộ NEU (@neu.edu.vn hoặc @st.neu.edu.vn)."""
+        if isinstance(v, str):
+            email_lower = v.strip().lower()
+            allowed_domains = ("@neu.edu.vn", "@st.neu.edu.vn")
+            if not any(email_lower.endswith(domain) for domain in allowed_domains):
+                raise ValueError("Chỉ chấp nhận email sinh viên hoặc cán bộ NEU (@st.neu.edu.vn hoặc @neu.edu.vn)")
+            return email_lower
+        return v
+
     @field_validator("full_name", "phone_number", mode="before")
     @classmethod
     def strip_strings(cls, v: Any) -> Any:

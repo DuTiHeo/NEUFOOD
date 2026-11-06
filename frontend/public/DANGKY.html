@@ -65,10 +65,11 @@
                                 </div>
                             </div>
                             <div class="inputGroup">
-                                <label class="inputLabel" for="signup-email">ĐỊA CHỈ EMAIL</label>
+                                <label class="inputLabel" for="signup-email">ĐỊA CHỈ EMAIL TRƯỜNG NEU</label>
                                 <div class="inputWrapper">
-                                    <input class="input" id="signup-email" placeholder="tên@côngty.com" type="email" autocomplete="email" required />
+                                    <input class="input" id="signup-email" placeholder="masv@st.neu.edu.vn hoặc ten@neu.edu.vn" type="email" autocomplete="email" required />
                                 </div>
+                                <small style="display: block; margin-top: 4px; font-size: 11px; color: #64748b;">Chỉ chấp nhận email sinh viên hoặc cán bộ (@st.neu.edu.vn hoặc @neu.edu.vn).</small>
                             </div>
                             <div class="inputGroup">
                                 <label class="inputLabel" for="signup-phone">SỐ ĐIỆN THOẠI</label>
@@ -96,6 +97,10 @@
                             </div>
                             <p class="formDesc" id="signup-message" role="alert" aria-live="polite" style="margin-top: 8px; display: none;"></p>
                             <button class="submitButton" type="submit">Tạo tài khoản</button>
+                            <div class="legalNotice" style="margin-top: 14px; padding: 10px 12px; background: rgba(0, 63, 135, 0.05); border-left: 3px solid #003f87; border-radius: 6px; font-size: 12px; line-height: 1.5; color: #334155;">
+                                <span style="font-weight: 600; color: #003f87;">💡 Lưu ý quan trọng:</span>
+                                Tài khoản được liên kết trực tiếp với Email sinh viên NEU. Mọi hành vi mạo danh thông tin cá nhân hoặc cố tình bùng đơn COD sẽ được hệ thống chuyển thông tin về Phòng Thanh tra &amp; Công tác Sinh viên xử lý theo quy chế.
+                            </div>
                         </form>
                         <footer class="footer">
                             <p class="footerText">
@@ -144,6 +149,13 @@
             el.style.color = type === 'success' ? '#0f766e' : type === 'loading' ? '#003f87' : '#b91c1c';
         }
 
+        function setMessageHtml(html) {
+            const el = document.getElementById('signup-message');
+            if (!el) return;
+            el.style.display = 'block';
+            el.innerHTML = html;
+        }
+
         document.getElementById('signup-form')?.addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -155,7 +167,10 @@
             const acceptedTerms = Boolean(document.getElementById('terms')?.checked);
 
             if (!name) return setMessage('Vui lòng nhập họ và tên.', 'error');
-            if (!email) return setMessage('Vui lòng nhập email hợp lệ.', 'error');
+            if (!email) return setMessage('Vui lòng nhập email trường NEU.', 'error');
+            if (!email.endsWith('@neu.edu.vn') && !email.endsWith('@st.neu.edu.vn')) {
+                return setMessage('Hệ thống chỉ chấp nhận email trường NEU (@st.neu.edu.vn hoặc @neu.edu.vn).', 'error');
+            }
             if (!/^0\d{9}$/.test(phone)) return setMessage('Số điện thoại cần có 10 chữ số và bắt đầu bằng 0.', 'error');
             if (password.length < 6) return setMessage('Mật khẩu phải có ít nhất 6 ký tự.', 'error');
             if (password !== confirm) return setMessage('Mật khẩu xác nhận không khớp.', 'error');
@@ -183,7 +198,33 @@
                 });
                 const result = await response.json().catch(() => null);
                 const auth = result?.data;
-                if (!response.ok) throw new Error(result?.message || 'Không thể tạo tài khoản với thông tin này.');
+
+                if (!response.ok) {
+                    // Xử lý ngoại lệ xung đột số điện thoại (HTTP 409)
+                    if (response.status === 409 || result?.data?.conflict === 'phone_number') {
+                        const masked = result?.data?.masked_email || 'một tài khoản khác';
+                        const subject = encodeURIComponent(`Yêu cầu xác minh & giải phóng SĐT ${phone}`);
+                        const body = encodeURIComponent(`Kính gửi Admin NEUFood / Canteen A2,\n\nTôi là sinh viên trường ĐH Kinh tế Quốc dân.\n- Họ tên: ${name}\n- Email NEU: ${email}\n- Số điện thoại của tôi: ${phone}\n\nHiện tại khi đăng ký tài khoản NEUFood, hệ thống thông báo số điện thoại này đã được liên kết với tài khoản (${masked}).\nTôi gửi email này để xác nhận tôi là chủ sở hữu hợp pháp của số điện thoại trên. Kính nhờ Admin kiểm tra và hỗ trợ giải phóng số điện thoại giúp tôi để tôi có thể tạo tài khoản.\n\nXin trân trọng cảm ơn!`);
+                        const mailtoLink = `mailto:admin@neufood.vn?subject=${subject}&body=${body}`;
+
+                        setMessageHtml(`
+                            <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 12px; margin-top: 6px; text-align: left;">
+                                <div style="display: flex; align-items: center; gap: 6px; font-weight: 600; color: #be123c; margin-bottom: 6px;">
+                                    <span style="font-size: 16px;">⚠️</span> Số điện thoại đã được đăng ký
+                                </div>
+                                <p style="font-size: 12.5px; color: #334155; line-height: 1.5; margin: 0 0 10px 0;">
+                                    Số điện thoại <strong>${phone}</strong> đã được liên kết với tài khoản <strong>${masked}</strong>. Nếu bạn là chủ sở hữu hợp pháp của số này, vui lòng liên hệ Admin hoặc Canteen A2 để được xác minh và giải phóng.
+                                </p>
+                                <a href="${mailtoLink}" style="display: inline-block; background: #003f87; color: #ffffff; padding: 7px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none;">
+                                    ✉️ Gửi email yêu cầu Admin giải phóng SĐT
+                                </a>
+                            </div>
+                        `);
+                        return;
+                    }
+                    throw new Error(result?.message || 'Không thể tạo tài khoản với thông tin này.');
+                }
+
                 if (!auth?.access_token || !auth?.user) throw new Error('Máy chủ trả về dữ liệu đăng ký không hợp lệ.');
 
                 saveAuth(auth);

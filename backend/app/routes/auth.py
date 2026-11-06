@@ -10,6 +10,7 @@ from app.db.session import get_db
 from app.crud.user import (
     get_user_by_email,
     get_user_by_id,
+    get_user_by_phone,
     get_user_by_student_id,
     create_user,
     record_failed_login,
@@ -321,12 +322,26 @@ def login():
         )
 
 
+def _mask_email(email: str) -> str:
+    """Che bớt ký tự email để đảm bảo tính riêng tư khi cảnh báo trùng thông tin (vd: 1121****@st.neu.edu.vn)."""
+    if not email or "@" not in email:
+        return email
+    username, domain = email.split("@", 1)
+    if len(username) <= 3:
+        masked = username[0] + "****"
+    else:
+        visible_len = min(4, len(username) // 2)
+        masked = username[:visible_len] + "****"
+    return f"{masked}@{domain}"
+
+
 @auth_bp.route("/register", methods=["POST"])
 def register():
     """
     Đăng ký tài khoản khách hàng (UC01, BR-01, EX-01).
+    - Ràng buộc email thuộc trường NEU (@neu.edu.vn hoặc @st.neu.edu.vn).
     - Kiểm tra định dạng SĐT 10 chữ số bắt đầu bằng 0 (BR-01).
-    - Kiểm tra trùng lặp email và student_id trên hệ thống (EX-01).
+    - Kiểm tra trùng lặp email, SĐT (kèm hỗ trợ gỡ SĐT) và student_id trên hệ thống (EX-01, EX-03).
     - Mặc định gán role = 'customer' (BR-01).
     """
     raw_data = _parse_json_body()
@@ -342,7 +357,17 @@ def register():
     except ValidationError as e:
         errors = e.errors(include_url=False, include_context=False)
         for err in errors:
-            if "phone_number" in err.get("loc", ()):
+            locs = err.get("loc", ())
+            if "email" in locs:
+                raw_msg = err.get("msg") or "Email không hợp lệ"
+                clean_msg = raw_msg.split("Value error, ")[-1] if "Value error, " in raw_msg else raw_msg
+                return api_response(
+                    message=clean_msg,
+                    errors=errors,
+                    status_code=422,
+                    success=False,
+                )
+            if "phone_number" in locs:
                 return api_response(
                     message="Số điện thoại không hợp lệ, phải gồm đúng 10 chữ số và bắt đầu bằng số 0",
                     errors=errors,
@@ -362,6 +387,21 @@ def register():
             return api_response(
                 message="Email đã tồn tại trên hệ thống",
                 status_code=400,
+                success=False,
+            )
+
+        # BR-01, EX-03: Kiểm tra trùng lặp Số điện thoại và trả về cảnh báo kèm masked email
+        existing_phone_user = get_user_by_phone(db, data.phone_number)
+        if existing_phone_user:
+            masked = _mask_email(existing_phone_user.email)
+            return api_response(
+                data={
+                    "conflict": "phone_number",
+                    "masked_email": masked,
+                    "phone_number": data.phone_number,
+                },
+                message=f"Số điện thoại này đã được liên kết với tài khoản {masked}. Nếu bạn là chủ sở hữu hợp pháp của số điện thoại này, vui lòng liên hệ Admin hoặc Canteen A2 để được xác minh và giải phóng số điện thoại.",
+                status_code=409,
                 success=False,
             )
 

@@ -18,6 +18,7 @@ from app.schemas.user import (
     UserUpdateRequest,
     AdminUserStatusUpdateRequest,
     AdminUserBlacklistUpdateRequest,
+    AdminUserPhoneUpdateRequest,
 )
 from app.utils.helpers import api_response
 
@@ -421,4 +422,81 @@ def admin_change_user_blacklist(user_id: int):
             message=msg,
             status_code=200,
         )
+
+
+@user_bp.route("/admin/<int:user_id>/phone", methods=["PATCH"])
+@role_required("admin")
+def admin_change_user_phone(user_id: int):
+    """
+    UC23: Quản trị viên cập nhật hoặc giải phóng số điện thoại người dùng (giải quyết tranh chấp/mạo danh SĐT).
+    - Truyền phone_number = null hoặc chuỗi rỗng: gỡ SĐT khỏi tài khoản để giải phóng cho chính chủ.
+    - Truyền phone_number = "09xxxxxxxx": đổi SĐT (kiểm tra định dạng và chống trùng lặp).
+    """
+    raw_data = _parse_json_body()
+    if raw_data is None:
+        return api_response(
+            message="Dữ liệu đầu vào phải là JSON object hợp lệ",
+            status_code=400,
+            success=False,
+        )
+
+    try:
+        data = AdminUserPhoneUpdateRequest(**raw_data)
+    except ValidationError as e:
+        return api_response(
+            message="Dữ liệu cập nhật số điện thoại không hợp lệ",
+            errors=_format_validation_errors(e),
+            status_code=422,
+            success=False,
+        )
+
+    new_phone = data.phone_number
+    if new_phone is not None:
+        import re
+        if not re.match(r"^0\d{9}$", new_phone):
+            return api_response(
+                message="Số điện thoại không hợp lệ, phải gồm đúng 10 chữ số và bắt đầu bằng số 0",
+                status_code=422,
+                success=False,
+            )
+
+    admin_id = int(g.current_user["sub"])
+    with get_db() as db:
+        admin_user = get_user_by_id(db, admin_id)
+        if not admin_user or not admin_user.is_active:
+            return api_response(
+                message="Tài khoản này đã bị khóa",
+                status_code=403,
+                success=False,
+            )
+
+        target_user = get_user_by_id(db, user_id)
+        if not target_user:
+            return api_response(
+                message="Không tìm thấy người dùng",
+                status_code=404,
+                success=False,
+            )
+
+        # Kiểm tra trùng lặp với tài khoản khác
+        if new_phone is not None:
+            conflict_user = get_user_by_phone(db, new_phone)
+            if conflict_user and conflict_user.id != target_user.id:
+                return api_response(
+                    message=f"Số điện thoại {new_phone} đã thuộc về tài khoản {conflict_user.email}",
+                    status_code=400,
+                    success=False,
+                )
+
+        target_user.phone_number = new_phone
+        db.commit()
+        db.refresh(target_user)
+
+        msg = "Đã giải phóng số điện thoại thành công" if new_phone is None else f"Đã cập nhật số điện thoại thành {new_phone}"
+        return api_response(
+            data=_serialize_user(target_user),
+            message=msg,
+            status_code=200,
+        )
+
 

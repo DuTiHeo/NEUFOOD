@@ -6,8 +6,8 @@ from app.db.models import User, Order, ACTIVE_ORDER_STATUSES, RevokedToken, User
 from app.core.security import hash_password
 from app.core.redis_client import is_redis_revoked, set_redis_revoked
 
-# Các trường hồ sơ cho phép gán giá trị None khi người dùng xóa thông tin tùy chọn (UC04)
-NULLABLE_PROFILE_FIELDS = {"student_id", "avatar_url"}
+# Các trường hồ sơ cho phép gán giá trị None khi người dùng hoặc admin xóa/giải phóng thông tin (UC04, UC23)
+NULLABLE_PROFILE_FIELDS = {"student_id", "avatar_url", "phone_number"}
 
 
 def get_user_by_id(db: Session, user_id: int) -> Optional[User]:
@@ -39,7 +39,7 @@ def create_user(
     email: str,
     password: str,
     full_name: str,
-    phone_number: str,
+    phone_number: Optional[str] = None,
     student_id: Optional[str] = None,
     role: str = "customer",
 ) -> User:
@@ -48,11 +48,12 @@ def create_user(
     """
     hashed = hash_password(password)
     normalized_student_id = student_id.strip() if student_id and student_id.strip() else None
+    normalized_phone = phone_number.strip() if phone_number and phone_number.strip() else None
     user = User(
         email=email.strip().lower(),
         password_hash=hashed,
         full_name=full_name.strip(),
-        phone_number=phone_number.strip(),
+        phone_number=normalized_phone,
         student_id=normalized_student_id,
         role=role,
         is_active=True,
