@@ -82,6 +82,7 @@ class OrderResponse(BaseModel):
     order_code_suffix: str
     user_id: Optional[int] = None
     staff_id: Optional[int] = None
+    shipper_id: Optional[int] = None
     order_type: str
     recipient_name: str
     recipient_phone: str
