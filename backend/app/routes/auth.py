@@ -59,26 +59,39 @@ OTP_IP_STORE: Dict[str, Dict[str, Any]] = {}
 
 def _check_otp_rate_limit(email_key: str, client_ip: str, today_str: str) -> Optional[tuple]:
     """
-    Kiểm tra hạn mức yêu cầu OTP theo EX-04:
-    - Tối đa 3 lần/ngày cho mỗi cặp (email + IP)
-    - Tối đa 10 lần/ngày cho mỗi email
+    Kiểm tra hạn mức và cooldown yêu cầu OTP kết hợp (IP + email) (EX-04):
+    1. Cooldown 60s giữa 2 lần gửi liên tiếp từ cùng một cặp (IP + email).
+    2. Tối đa 5 lần/ngày cho mỗi cặp (IP + email) - không vạ lây IP và không khóa oan tài khoản.
+    3. Tối đa 10 lần/ngày cho mỗi email trên toàn hệ thống.
     Trả về None nếu hợp lệ, hoặc (status_code, message) nếu vi phạm.
     """
     ip_key = f"{client_ip}:{email_key}"
     ip_entry = OTP_IP_STORE.get(ip_key, {})
+    now = datetime.now(timezone.utc)
+
+    # 1. Cooldown 60 giây giữa các lần yêu cầu
+    last_sent_at = ip_entry.get("last_sent_at")
+    if last_sent_at is not None:
+        if last_sent_at.tzinfo is None:
+            last_sent_at = last_sent_at.replace(tzinfo=timezone.utc)
+        elapsed = (now - last_sent_at).total_seconds()
+        if elapsed < 60:
+            remaining = max(1, int(60 - elapsed))
+            return 429, f"Vui lòng đợi {remaining} giây trước khi yêu cầu gửi mã OTP mới"
+
+    # 2. Hạn ngạch theo cặp (IP + email) trong ngày
     ip_count = ip_entry.get("count", 0) if ip_entry.get("date") == today_str else 0
-
-    # Nới lỏng kiểm tra khi chạy ở môi trường phát triển (localhost / 127.0.0.1) để nhà phát triển kiểm thử không bị chặn cứng
     is_local_dev = client_ip in ("127.0.0.1", "::1", "localhost")
-    max_ip_limit = 50 if is_local_dev else 3
-    if ip_count >= max_ip_limit:
-        return 429, "Bạn đã vượt quá giới hạn gửi mã OTP tối đa 3 lần/ngày từ địa chỉ mạng này. Vui lòng thử lại vào ngày mai"
+    max_pair_limit = 50 if is_local_dev else 5
+    if ip_count >= max_pair_limit:
+        return 429, f"Tài khoản {email_key} đã đạt giới hạn 5 lần yêu cầu mã OTP trong ngày từ mạng này. Vui lòng thử lại vào ngày mai hoặc chuyển sang mạng khác (4G/Wifi khác)"
 
+    # 3. Hạn ngạch tổng theo email trong ngày
     max_email_limit = 100 if is_local_dev else 10
     email_entry = OTP_STORE.get(email_key, {})
     email_count = email_entry.get("daily_count", 0) if email_entry.get("date") == today_str else 0
     if email_count >= max_email_limit:
-        return 429, "Tài khoản này đã vượt quá giới hạn gửi mã OTP tối đa 10 lần/ngày. Vui lòng thử lại vào ngày mai"
+        return 429, f"Tài khoản {email_key} đã đạt giới hạn tối đa 10 lần yêu cầu mã OTP trong ngày. Vui lòng thử lại vào ngày mai"
 
     return None
 
@@ -92,10 +105,15 @@ def _record_otp_request(
     purpose: str = "reset_password",
 ):
     """Ghi nhận mã OTP mới và cập nhật bộ đếm giới hạn tần suất theo ngày (EX-04)."""
+    now = datetime.now(timezone.utc)
     ip_key = f"{client_ip}:{email_key}"
     ip_entry = OTP_IP_STORE.get(ip_key, {})
     ip_count = ip_entry.get("count", 0) if ip_entry.get("date") == today_str else 0
-    OTP_IP_STORE[ip_key] = {"date": today_str, "count": ip_count + 1}
+    OTP_IP_STORE[ip_key] = {
+        "date": today_str,
+        "count": ip_count + 1,
+        "last_sent_at": now,
+    }
 
     email_entry = OTP_STORE.get(email_key, {})
     email_count = email_entry.get("daily_count", 0) if email_entry.get("date") == today_str else 0

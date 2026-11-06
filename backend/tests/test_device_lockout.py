@@ -150,25 +150,39 @@ class TestDeviceLockoutAndSecurity(unittest.TestCase):
         self.assertTrue(d2.is_revoked)
 
     def test_otp_rate_limiting_per_ip_and_email(self):
-        """Hạn mức OTP: 3 lần/ngày/(email+IP) và 10 lần/ngày/email (EX-04)."""
+        """Hạn mức OTP: Cooldown 60s, 5 lần/ngày/(email+IP) và 10 lần/ngày/email (EX-04)."""
         email = "test_student@neu.edu.vn"
         ip = "192.168.1.50"
         today = datetime.now(timezone.utc).date().isoformat()
+        now = datetime.now(timezone.utc)
 
-        # 3 lần đầu từ cùng IP -> Hợp lệ
-        for _ in range(3):
+        # 1. Gửi lần 1 hợp lệ
+        err1 = _check_otp_rate_limit(email, ip, today)
+        self.assertIsNone(err1)
+        _record_otp_request(email, ip, today, "123456", now + timedelta(minutes=5))
+
+        # 2. Gửi ngay lập tức (< 60s) -> Bị chặn bởi Cooldown 60s
+        err_cooldown = _check_otp_rate_limit(email, ip, today)
+        self.assertIsNotNone(err_cooldown)
+        self.assertEqual(err_cooldown[0], 429)
+        self.assertIn("Vui lòng đợi", err_cooldown[1])
+
+        # 3. Giả lập time-travel qua 61 giây cho các lần tiếp theo
+        ip_key = f"{ip}:{email}"
+        for _ in range(4):
+            OTP_IP_STORE[ip_key]["last_sent_at"] = datetime.now(timezone.utc) - timedelta(seconds=61)
             err = _check_otp_rate_limit(email, ip, today)
             self.assertIsNone(err)
-            _record_otp_request(email, ip, today, "123456", datetime.now(timezone.utc))
+            _record_otp_request(email, ip, today, "123456", now + timedelta(minutes=5))
 
-        # Lần thứ 4 từ cùng IP -> Bị chặn 429
-        err = _check_otp_rate_limit(email, ip, today)
-        self.assertIsNotNone(err)
-        status_code, msg = err
-        self.assertEqual(status_code, 429)
-        self.assertIn("3 lần/ngày từ địa chỉ mạng này", msg)
+        # 4. Lần thứ 6 từ cùng IP -> Chạm mốc 5 lần/ngày cho cặp (IP + email) -> 429
+        OTP_IP_STORE[ip_key]["last_sent_at"] = datetime.now(timezone.utc) - timedelta(seconds=61)
+        err_limit = _check_otp_rate_limit(email, ip, today)
+        self.assertIsNotNone(err_limit)
+        self.assertEqual(err_limit[0], 429)
+        self.assertIn("5 lần", err_limit[1])
 
-        # Đổi sang IP khác (IP 2) -> Vẫn gửi được (chống khóa oan khi kẻ xấu spam từ IP 1)
+        # 5. Đổi sang IP khác (IP 2) -> Vẫn gửi được (chống kẻ xấu ở IP 1 phá)
         ip_2 = "192.168.1.51"
         err_ip2 = _check_otp_rate_limit(email, ip_2, today)
         self.assertIsNone(err_ip2)
