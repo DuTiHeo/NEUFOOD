@@ -32,7 +32,6 @@ export default function TaiKhoanPage() {
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [changePwdError, setChangePwdError] = useState('')
   const [changePwdSuccess, setChangePwdSuccess] = useState('')
-  const [debugOtp, setDebugOtp] = useState<string | null>(null)
 
   useEffect(() => {
     setFullName(user?.full_name || '')
@@ -75,7 +74,6 @@ export default function TaiKhoanPage() {
     if (cooldown > 0 || isSendingOtp) return
     setChangePwdError('')
     setChangePwdSuccess('')
-    setDebugOtp(null)
     setIsSendingOtp(true)
 
     try {
@@ -83,9 +81,6 @@ export default function TaiKhoanPage() {
       setOtpSent(true)
       setCooldown(60)
       setChangePwdSuccess(res.message || 'Mã xác thực OTP 6 số đã được gửi tới email của bạn.')
-      if (res.data?.otp_debug) {
-        setDebugOtp(res.data.otp_debug)
-      }
     } catch (reqError: any) {
       setChangePwdError(
         reqError?.response?.data?.message || 'Không thể gửi mã xác thực OTP. Vui lòng thử lại sau.'
@@ -134,7 +129,6 @@ export default function TaiKhoanPage() {
       setNewPassword('')
       setConfirmPassword('')
       setOtpSent(false)
-      setDebugOtp(null)
     } catch (reqError: any) {
       setChangePwdError(
         reqError?.response?.data?.message || 'Đổi mật khẩu không thành công. Vui lòng kiểm tra lại mã OTP.'
@@ -250,25 +244,6 @@ export default function TaiKhoanPage() {
               <div className={styles.bannerError} role="alert">
                 <AlertCircle className={styles.bannerIcon} size={18} />
                 <span>{changePwdError}</span>
-              </div>
-            ) : null}
-
-            {debugOtp ? (
-              <div
-                style={{
-                  backgroundColor: '#fffbeb',
-                  border: '1px solid #fef3c7',
-                  borderRadius: '0.65rem',
-                  padding: '0.6rem 0.8rem',
-                  marginBottom: '1rem',
-                  fontSize: '0.8125rem',
-                  color: '#92400e',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                }}
-              >
-                <span>🛠️ <strong>Môi trường phát triển:</strong> Mã OTP vừa gửi là <strong>{debugOtp}</strong></span>
               </div>
             ) : null}
 
