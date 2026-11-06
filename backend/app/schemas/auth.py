@@ -21,6 +21,7 @@ class RegisterRequest(BaseModel):
     full_name: str = Field(..., min_length=2, max_length=150)
     phone_number: str = Field(..., pattern=VN_PHONE_REGEX)
     student_id: Optional[str] = Field(default=None, max_length=30)
+    otp: Optional[str] = Field(default=None, description="Mã OTP gồm 6 chữ số gửi về email edu")
 
     @field_validator("email", mode="before")
     @classmethod
@@ -48,6 +49,33 @@ class RegisterRequest(BaseModel):
         """Chuẩn hóa mã sinh viên: chuyển chuỗi rỗng về None để tránh lỗi trùng student_id rỗng (BR-01, EX-01)."""
         if v is None:
             return None
+        if isinstance(v, str):
+            cleaned = v.strip()
+            return cleaned if cleaned else None
+        return v
+
+
+class RegisterOtpRequest(BaseModel):
+    """Schema yêu cầu gửi mã OTP kích hoạt tài khoản đăng ký (UC01, BR-01)."""
+    email: EmailStr
+    full_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    student_id: Optional[str] = None
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def validate_neu_email(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            email_lower = v.strip().lower()
+            allowed_domains = ("@neu.edu.vn", "@st.neu.edu.vn")
+            if not any(email_lower.endswith(domain) for domain in allowed_domains):
+                raise ValueError("Chỉ chấp nhận email sinh viên hoặc cán bộ NEU (@st.neu.edu.vn hoặc @neu.edu.vn)")
+            return email_lower
+        return v
+
+    @field_validator("phone_number", mode="before")
+    @classmethod
+    def strip_phone(cls, v: Any) -> Any:
         if isinstance(v, str):
             cleaned = v.strip()
             return cleaned if cleaned else None

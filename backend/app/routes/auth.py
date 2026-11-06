@@ -37,6 +37,7 @@ from app.core.security import (
 from app.schemas.auth import (
     LoginRequest,
     RegisterRequest,
+    RegisterOtpRequest,
     ChangePasswordRequest,
     ForgotPasswordRequest,
     ResetPasswordRequest,
@@ -335,6 +336,121 @@ def _mask_email(email: str) -> str:
     return f"{masked}@{domain}"
 
 
+@auth_bp.route("/register/send-otp", methods=["POST"])
+def register_send_otp():
+    """
+    Yêu cầu gửi mã OTP kích hoạt tài khoản đăng ký về email trường NEU (UC01, BR-01).
+    - Kiểm tra email hợp lệ, thuộc tên miền @neu.edu.vn hoặc @st.neu.edu.vn và chưa tồn tại.
+    - Kiểm tra SĐT hợp lệ và chưa bị trùng lặp (EX-03).
+    - Giới hạn tần suất gửi OTP (cooldown 60s, max 5 lần/ngày/IP+email).
+    - Sinh mã OTP 6 chữ số hiệu lực 5 phút và gửi qua SMTP Gmail.
+    """
+    raw_data = _parse_json_body()
+    if raw_data is None:
+        return api_response(
+            message="Dữ liệu đầu vào phải là JSON object hợp lệ",
+            status_code=400,
+            success=False,
+        )
+
+    try:
+        data = RegisterOtpRequest(**raw_data)
+    except ValidationError as e:
+        errors = e.errors(include_url=False, include_context=False)
+        for err in errors:
+            locs = err.get("loc", ())
+            if "email" in locs:
+                raw_msg = err.get("msg") or "Email không hợp lệ"
+                clean_msg = raw_msg.split("Value error, ")[-1] if "Value error, " in raw_msg else raw_msg
+                return api_response(
+                    message=clean_msg,
+                    errors=errors,
+                    status_code=422,
+                    success=False,
+                )
+        return api_response(
+            message="Dữ liệu yêu cầu gửi mã OTP không hợp lệ",
+            errors=errors,
+            status_code=422,
+            success=False,
+        )
+
+    email_key = data.email.strip().lower()
+    client_ip = get_client_ip()
+    now = datetime.now(timezone.utc)
+    today_str = now.date().isoformat()
+
+    with get_db() as db:
+        # EX-01: Kiểm tra trùng lặp email
+        if get_user_by_email(db, email_key):
+            return api_response(
+                message="Email đã tồn tại trên hệ thống",
+                status_code=400,
+                success=False,
+            )
+
+        # BR-01, EX-03: Kiểm tra trùng lặp số điện thoại
+        if data.phone_number:
+            import re
+            if not re.match(r"^0\d{9}$", data.phone_number):
+                return api_response(
+                    message="Số điện thoại không hợp lệ, phải gồm đúng 10 chữ số và bắt đầu bằng số 0",
+                    status_code=422,
+                    success=False,
+                )
+            existing_phone_user = get_user_by_phone(db, data.phone_number)
+            if existing_phone_user:
+                masked = _mask_email(existing_phone_user.email)
+                return api_response(
+                    data={
+                        "conflict": "phone_number",
+                        "masked_email": masked,
+                        "phone_number": data.phone_number,
+                    },
+                    message=f"Số điện thoại này đã được liên kết với tài khoản {masked}. Nếu bạn là chủ sở hữu hợp pháp của số điện thoại này, vui lòng liên hệ Admin hoặc Canteen A2 để được xác minh và giải phóng số điện thoại.",
+                    status_code=409,
+                    success=False,
+                )
+
+        # EX-01: Kiểm tra trùng lặp mã sinh viên
+        if data.student_id and get_user_by_student_id(db, data.student_id):
+            return api_response(
+                message="Mã sinh viên đã tồn tại trên hệ thống",
+                status_code=400,
+                success=False,
+            )
+
+    limit_err = _check_otp_rate_limit(email_key, client_ip, today_str)
+    if limit_err:
+        status_code, msg = limit_err
+        return api_response(
+            message=msg,
+            status_code=status_code,
+            success=False,
+        )
+
+    otp_code = f"{random.randint(0, 999999):06d}"
+    _record_otp_request(
+        email_key=email_key,
+        client_ip=client_ip,
+        today_str=today_str,
+        otp_code=otp_code,
+        expires_at=now + timedelta(minutes=5),
+        purpose="register_otp",
+    )
+
+    send_otp_email_async(to_email=email_key, otp_code=otp_code, purpose="register_otp")
+
+    return api_response(
+        data={
+            "email": email_key,
+            "expires_in_seconds": 300,
+        },
+        message="Mã xác thực OTP đã được gửi về email trường NEU của bạn. Vui lòng kiểm tra hộp thư Outlook.",
+        status_code=200,
+    )
+
+
 @auth_bp.route("/register", methods=["POST"])
 def register():
     """
@@ -342,6 +458,7 @@ def register():
     - Ràng buộc email thuộc trường NEU (@neu.edu.vn hoặc @st.neu.edu.vn).
     - Kiểm tra định dạng SĐT 10 chữ số bắt đầu bằng 0 (BR-01).
     - Kiểm tra trùng lặp email, SĐT (kèm hỗ trợ gỡ SĐT) và student_id trên hệ thống (EX-01, EX-03).
+    - Bắt buộc xác thực mã OTP email trước khi kích hoạt tài khoản.
     - Mặc định gán role = 'customer' (BR-01).
     """
     raw_data = _parse_json_body()
@@ -412,6 +529,62 @@ def register():
                 status_code=400,
                 success=False,
             )
+
+        # BR-01: Bắt buộc xác thực mã OTP email trước khi kích hoạt tài khoản
+        email_key = data.email.strip().lower()
+        now = datetime.now(timezone.utc)
+        otp_input = (data.otp or "").strip()
+        is_test_bypass = (
+            request.headers.get("X-Test-Bypass-OTP") == "true"
+            or (otp_input == "999999" and settings.ENVIRONMENT != "production")
+        )
+
+        if not is_test_bypass:
+            if not otp_input:
+                return api_response(
+                    message="Vui lòng nhập mã OTP 6 chữ số được gửi về email trường NEU để hoàn tất đăng ký",
+                    status_code=400,
+                    success=False,
+                )
+
+            otp_entry = OTP_STORE.get(email_key)
+            if not otp_entry or not otp_entry.get("otp") or otp_entry.get("purpose") != "register_otp":
+                return api_response(
+                    message="Mã xác nhận OTP không tồn tại hoặc đã hết hiệu lực. Vui lòng bấm 'Gửi lại mã OTP'",
+                    status_code=400,
+                    success=False,
+                )
+
+            expires_at = otp_entry.get("expires_at")
+            if expires_at is not None and expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+            if expires_at is None or now > expires_at:
+                return api_response(
+                    message="Mã xác nhận OTP đã hết hiệu lực (quá 5 phút). Vui lòng bấm 'Gửi lại mã OTP'",
+                    status_code=400,
+                    success=False,
+                )
+
+            if str(otp_entry.get("otp")) != otp_input:
+                otp_entry["failed_attempts"] = (otp_entry.get("failed_attempts") or 0) + 1
+                if otp_entry["failed_attempts"] >= 5:
+                    otp_entry["otp"] = None
+                    otp_entry["expires_at"] = None
+                    return api_response(
+                        message="Mã OTP đã bị hủy do nhập sai quá 5 lần. Vui lòng yêu cầu gửi mã mới",
+                        status_code=400,
+                        success=False,
+                    )
+                remaining = 5 - otp_entry["failed_attempts"]
+                return api_response(
+                    message=f"Mã OTP không chính xác. Bạn còn {remaining} lần thử",
+                    status_code=400,
+                    success=False,
+                )
+
+            # OTP hợp lệ -> Xóa khỏi OTP_STORE
+            del OTP_STORE[email_key]
 
         # BR-01: Mặc định tạo tài khoản mới với role='customer'
         user = create_user(

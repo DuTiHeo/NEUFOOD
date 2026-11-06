@@ -95,8 +95,28 @@
                                     Tôi đồng ý với <a href="DieuKhoanDichVu.html">Điều khoản &amp; Điều kiện</a> và <a href="ChinhSachBaoMat.html">Chính sách bảo mật</a>.
                                 </label>
                             </div>
+                            <div id="otp-group" style="display: none; background: #f0f7ff; border: 1.5px solid #003f87; border-radius: 8px; padding: 14px; margin-top: 10px;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                                    <span style="font-weight: 700; color: #003f87; font-size: 13px;">✉️ XÁC THỰC EMAIL TRƯỜNG NEU</span>
+                                    <span id="otp-countdown" style="font-size: 11.5px; color: #e11d48; font-weight: 600;"></span>
+                                </div>
+                                <p style="font-size: 12px; color: #334155; margin: 0 0 10px 0; line-height: 1.4;">
+                                    Mã OTP 6 chữ số đã được gửi tới <strong id="otp-sent-to" style="color: #003f87;"></strong>. Vui lòng mở hòm thư Outlook để lấy mã:
+                                </p>
+                                <div class="inputWrapper" style="margin-bottom: 8px;">
+                                    <input class="input" id="signup-otp" placeholder="Nhập 6 chữ số OTP" type="text" inputmode="numeric" maxlength="6" style="text-align: center; font-size: 18px; letter-spacing: 6px; font-weight: 700; color: #003f87;" />
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+                                    <button type="button" id="btn-resend-otp" style="background: none; border: none; padding: 0; color: #003f87; font-weight: 600; cursor: pointer; text-decoration: underline;">
+                                        Gửi lại mã OTP
+                                    </button>
+                                    <button type="button" id="btn-change-info" style="background: none; border: none; padding: 0; color: #64748b; cursor: pointer; text-decoration: underline;">
+                                        Sửa lại thông tin
+                                    </button>
+                                </div>
+                            </div>
                             <p class="formDesc" id="signup-message" role="alert" aria-live="polite" style="margin-top: 8px; display: none;"></p>
-                            <button class="submitButton" type="submit">Tạo tài khoản</button>
+                            <button class="submitButton" id="btn-submit" type="submit">Tạo tài khoản</button>
                             <div class="legalNotice" style="margin-top: 14px; padding: 10px 12px; background: rgba(0, 63, 135, 0.05); border-left: 3px solid #003f87; border-radius: 6px; font-size: 12px; line-height: 1.5; color: #334155;">
                                 <span style="font-weight: 600; color: #003f87;">💡 Lưu ý quan trọng:</span>
                                 Tài khoản được liên kết trực tiếp với Email sinh viên NEU. Mọi hành vi mạo danh thông tin cá nhân hoặc cố tình bùng đơn COD sẽ được hệ thống chuyển thông tin về Phòng Thanh tra &amp; Công tác Sinh viên xử lý theo quy chế.
@@ -156,6 +176,75 @@
             el.innerHTML = html;
         }
 
+        let isOtpRequested = false;
+        let resendTimer = null;
+        let resendSeconds = 0;
+
+        function startResendCountdown(seconds = 60) {
+            resendSeconds = seconds;
+            const btnResend = document.getElementById('btn-resend-otp');
+            const countdownEl = document.getElementById('otp-countdown');
+            if (btnResend) {
+                btnResend.disabled = true;
+                btnResend.style.opacity = '0.5';
+                btnResend.style.cursor = 'not-allowed';
+            }
+            if (resendTimer) clearInterval(resendTimer);
+            resendTimer = setInterval(() => {
+                resendSeconds--;
+                if (countdownEl) countdownEl.textContent = `Gửi lại sau ${resendSeconds}s`;
+                if (resendSeconds <= 0) {
+                    clearInterval(resendTimer);
+                    resendTimer = null;
+                    if (countdownEl) countdownEl.textContent = '';
+                    if (btnResend) {
+                        btnResend.disabled = false;
+                        btnResend.style.opacity = '1';
+                        btnResend.style.cursor = 'pointer';
+                        btnResend.textContent = 'Gửi lại mã OTP';
+                    }
+                }
+            }, 1000);
+        }
+
+        function setFormLocked(locked) {
+            ['signup-name', 'signup-email', 'signup-phone', 'signup-password', 'signup-confirm', 'terms'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = locked;
+            });
+        }
+
+        document.getElementById('btn-change-info')?.addEventListener('click', () => {
+            isOtpRequested = false;
+            setFormLocked(false);
+            const otpGroup = document.getElementById('otp-group');
+            if (otpGroup) otpGroup.style.display = 'none';
+            const btnSubmit = document.getElementById('btn-submit');
+            if (btnSubmit) btnSubmit.textContent = 'Tạo tài khoản';
+            setMessage('Bạn có thể chỉnh sửa lại thông tin tài khoản.', 'loading');
+        });
+
+        document.getElementById('btn-resend-otp')?.addEventListener('click', async () => {
+            if (resendSeconds > 0) return;
+            const email = String(document.getElementById('signup-email')?.value || '').trim().toLowerCase();
+            const phone = String(document.getElementById('signup-phone')?.value || '').trim();
+            const name = String(document.getElementById('signup-name')?.value || '').trim();
+            setMessage('Đang gửi lại mã OTP…', 'loading');
+            try {
+                const res = await fetch(`${API_URL}/auth/register/send-otp`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, phone_number: phone, full_name: name })
+                });
+                const data = await res.json().catch(() => null);
+                if (!res.ok) throw new Error(data?.message || 'Không thể gửi lại mã OTP');
+                startResendCountdown(60);
+                setMessage('Đã gửi lại mã OTP mới về hòm thư của bạn!', 'success');
+            } catch (err) {
+                setMessage(err instanceof Error ? err.message : 'Lỗi gửi mã OTP', 'error');
+            }
+        });
+
         document.getElementById('signup-form')?.addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -176,14 +265,79 @@
             if (password !== confirm) return setMessage('Mật khẩu xác nhận không khớp.', 'error');
             if (!acceptedTerms) return setMessage('Bạn cần đồng ý với Điều khoản & Điều kiện.', 'error');
 
-            const form = e.currentTarget;
-            const button = form.querySelector('button[type="submit"]');
-            const originalButtonText = button?.textContent;
-            if (button) {
-                button.disabled = true;
-                button.textContent = 'Đang tạo tài khoản…';
+            const btnSubmit = document.getElementById('btn-submit');
+
+            // BƯỚC 1: Nếu chưa gửi OTP -> Gọi API gửi OTP về email trường NEU
+            if (!isOtpRequested) {
+                btnSubmit.disabled = true;
+                btnSubmit.textContent = 'Đang gửi mã OTP về email…';
+                setMessage('Đang kích hoạt gửi mã OTP về email trường NEU…', 'loading');
+
+                try {
+                    const otpRes = await fetch(`${API_URL}/auth/register/send-otp`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            email,
+                            phone_number: phone,
+                            full_name: name,
+                        }),
+                    });
+                    const otpData = await otpRes.json().catch(() => null);
+
+                    if (!otpRes.ok) {
+                        // Xử lý xung đột số điện thoại (HTTP 409)
+                        if (otpRes.status === 409 || otpData?.data?.conflict === 'phone_number') {
+                            const masked = otpData?.data?.masked_email || 'một tài khoản khác';
+                            const subject = encodeURIComponent(`Yêu cầu xác minh & giải phóng SĐT ${phone}`);
+                            const body = encodeURIComponent(`Kính gửi Admin NEUFood / Canteen A2,\n\nTôi là sinh viên trường ĐH Kinh tế Quốc dân.\n- Họ tên: ${name}\n- Email NEU: ${email}\n- Số điện thoại của tôi: ${phone}\n\nHiện tại khi đăng ký tài khoản NEUFood, hệ thống thông báo số điện thoại này đã được liên kết với tài khoản (${masked}).\nTôi gửi email này để xác nhận tôi là chủ sở hữu hợp pháp của số điện thoại trên. Kính nhờ Admin kiểm tra và hỗ trợ giải phóng số điện thoại giúp tôi để tôi có thể tạo tài khoản.\n\nXin trân trọng cảm ơn!`);
+                            const mailtoLink = `mailto:admin@neufood.vn?subject=${subject}&body=${body}`;
+
+                            setMessageHtml(`
+                                <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 12px; margin-top: 6px; text-align: left;">
+                                    <div style="display: flex; align-items: center; gap: 6px; font-weight: 600; color: #be123c; margin-bottom: 6px;">
+                                        <span style="font-size: 16px;">⚠️</span> Số điện thoại đã được đăng ký
+                                    </div>
+                                    <p style="font-size: 12.5px; color: #334155; line-height: 1.5; margin: 0 0 10px 0;">
+                                        Số điện thoại <strong>${phone}</strong> đã được liên kết với tài khoản <strong>${masked}</strong>. Nếu bạn là chủ sở hữu hợp pháp của số này, vui lòng liên hệ Admin hoặc Canteen A2 để được xác minh và giải phóng.
+                                    </p>
+                                    <a href="${mailtoLink}" style="display: inline-block; background: #003f87; color: #ffffff; padding: 7px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none;">
+                                        ✉️ Gửi email yêu cầu Admin giải phóng SĐT
+                                    </a>
+                                </div>
+                            `);
+                            return;
+                        }
+                        throw new Error(otpData?.message || 'Không thể gửi mã OTP.');
+                    }
+
+                    // Gửi OTP thành công -> Mở block nhập OTP
+                    isOtpRequested = true;
+                    setFormLocked(true);
+                    document.getElementById('otp-group').style.display = 'block';
+                    document.getElementById('otp-sent-to').textContent = email;
+                    document.getElementById('signup-otp').value = '';
+                    document.getElementById('signup-otp').focus();
+                    btnSubmit.textContent = 'Xác nhận OTP & Hoàn tất đăng ký';
+                    startResendCountdown(60);
+                    setMessage('Mã xác thực OTP đã được gửi về Outlook của bạn. Vui lòng nhập 6 chữ số để kích hoạt tài khoản!', 'success');
+                } catch (err) {
+                    setMessage(err instanceof Error ? err.message : 'Không thể gửi mã xác nhận. Vui lòng thử lại.', 'error');
+                } finally {
+                    btnSubmit.disabled = false;
+                }
+                return;
             }
-            setMessage('Đang tạo tài khoản…', 'loading');
+
+            // BƯỚC 2: Người dùng đã nhận OTP và bấm Xác nhận
+            const otp = String(document.getElementById('signup-otp')?.value || '').trim();
+            if (!/^\d{6}$/.test(otp)) {
+                return setMessage('Vui lòng nhập đúng mã xác thực gồm 6 chữ số.', 'error');
+            }
+
+            btnSubmit.disabled = true;
+            btnSubmit.textContent = 'Đang kích hoạt tài khoản…';
+            setMessage('Đang xác thực mã OTP và kích hoạt tài khoản…', 'loading');
 
             try {
                 const response = await fetch(`${API_URL}/auth/register`, {
@@ -194,48 +348,27 @@
                         email,
                         phone_number: phone,
                         password,
+                        otp,
                     }),
                 });
                 const result = await response.json().catch(() => null);
                 const auth = result?.data;
 
                 if (!response.ok) {
-                    // Xử lý ngoại lệ xung đột số điện thoại (HTTP 409)
-                    if (response.status === 409 || result?.data?.conflict === 'phone_number') {
-                        const masked = result?.data?.masked_email || 'một tài khoản khác';
-                        const subject = encodeURIComponent(`Yêu cầu xác minh & giải phóng SĐT ${phone}`);
-                        const body = encodeURIComponent(`Kính gửi Admin NEUFood / Canteen A2,\n\nTôi là sinh viên trường ĐH Kinh tế Quốc dân.\n- Họ tên: ${name}\n- Email NEU: ${email}\n- Số điện thoại của tôi: ${phone}\n\nHiện tại khi đăng ký tài khoản NEUFood, hệ thống thông báo số điện thoại này đã được liên kết với tài khoản (${masked}).\nTôi gửi email này để xác nhận tôi là chủ sở hữu hợp pháp của số điện thoại trên. Kính nhờ Admin kiểm tra và hỗ trợ giải phóng số điện thoại giúp tôi để tôi có thể tạo tài khoản.\n\nXin trân trọng cảm ơn!`);
-                        const mailtoLink = `mailto:admin@neufood.vn?subject=${subject}&body=${body}`;
-
-                        setMessageHtml(`
-                            <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 12px; margin-top: 6px; text-align: left;">
-                                <div style="display: flex; align-items: center; gap: 6px; font-weight: 600; color: #be123c; margin-bottom: 6px;">
-                                    <span style="font-size: 16px;">⚠️</span> Số điện thoại đã được đăng ký
-                                </div>
-                                <p style="font-size: 12.5px; color: #334155; line-height: 1.5; margin: 0 0 10px 0;">
-                                    Số điện thoại <strong>${phone}</strong> đã được liên kết với tài khoản <strong>${masked}</strong>. Nếu bạn là chủ sở hữu hợp pháp của số này, vui lòng liên hệ Admin hoặc Canteen A2 để được xác minh và giải phóng.
-                                </p>
-                                <a href="${mailtoLink}" style="display: inline-block; background: #003f87; color: #ffffff; padding: 7px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none;">
-                                    ✉️ Gửi email yêu cầu Admin giải phóng SĐT
-                                </a>
-                            </div>
-                        `);
-                        return;
-                    }
-                    throw new Error(result?.message || 'Không thể tạo tài khoản với thông tin này.');
+                    throw new Error(result?.message || 'Mã xác thực OTP không chính xác hoặc đã hết hạn.');
                 }
 
                 if (!auth?.access_token || !auth?.user) throw new Error('Máy chủ trả về dữ liệu đăng ký không hợp lệ.');
 
                 saveAuth(auth);
-                setMessage('Đăng ký thành công! Đang chuyển trang…', 'success');
+                setMessage('Xác thực OTP thành công! Đang kích hoạt tài khoản và chuyển trang…', 'success');
                 window.setTimeout(() => window.location.assign(window.authDestination), 450);
             } catch (error) {
                 setMessage(error instanceof Error ? error.message : 'Không thể kết nối máy chủ. Vui lòng thử lại.', 'error');
             } finally {
-                if (button) {
-                    button.disabled = false;
-                    button.textContent = originalButtonText;
+                btnSubmit.disabled = false;
+                if (btnSubmit.textContent.includes('Đang')) {
+                    btnSubmit.textContent = 'Xác nhận OTP & Hoàn tất đăng ký';
                 }
             }
         });
