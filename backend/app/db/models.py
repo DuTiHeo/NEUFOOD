@@ -78,6 +78,7 @@ class User(Base):
 
     orders = relationship("Order", foreign_keys="Order.user_id", back_populates="user")
     handled_orders = relationship("Order", foreign_keys="Order.staff_id", back_populates="staff")
+    delivery_orders = relationship("Order", foreign_keys="Order.shipper_id", back_populates="shipper")
     reviews = relationship("Review", back_populates="user")
     complaints = relationship("Complaint", foreign_keys="Complaint.user_id", back_populates="user")
     shifts = relationship("StaffShift", foreign_keys="StaffShift.staff_id", back_populates="staff")
@@ -170,6 +171,7 @@ class Order(Base):
     order_code_suffix = Column(String(4), nullable=False, index=True)  # 4 chữ số cuối đối chiếu khi nhận hàng (BR-18)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     staff_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    shipper_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     order_type = Column(String(20), nullable=False, default="delivery", index=True)  # 'delivery' | 'pickup'
     recipient_name = Column(String(150), nullable=False)
     recipient_phone = Column(String(20), nullable=False)
@@ -200,6 +202,7 @@ class Order(Base):
 
     user = relationship("User", foreign_keys=[user_id], back_populates="orders")
     staff = relationship("User", foreign_keys=[staff_id], back_populates="handled_orders")
+    shipper = relationship("User", foreign_keys=[shipper_id], back_populates="delivery_orders")
     campus_location = relationship("CampusLocation", back_populates="orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
     reviews = relationship("Review", back_populates="order", cascade="all, delete-orphan")
