@@ -83,6 +83,15 @@ class Settings(BaseSettings):
         default_factory=lambda: int(os.getenv("MAX_CONTENT_LENGTH", str(16 * 1024 * 1024)))
     )
 
+    # 8. Cấu hình gửi Email SMTP (Gmail / Custom SMTP)
+    SMTP_HOST: str = Field(default_factory=lambda: os.getenv("SMTP_HOST", "smtp.gmail.com"))
+    SMTP_PORT: int = Field(default_factory=lambda: int(os.getenv("SMTP_PORT", "587")))
+    SMTP_USER: str = Field(default_factory=lambda: os.getenv("SMTP_USER", ""))
+    SMTP_PASSWORD: str = Field(default_factory=lambda: os.getenv("SMTP_PASSWORD", ""))
+    SMTP_FROM_NAME: str = Field(default_factory=lambda: os.getenv("SMTP_FROM_NAME", "NEUFood - Canteen NEU"))
+    SMTP_FROM_EMAIL: str = Field(default_factory=lambda: os.getenv("SMTP_FROM_EMAIL", os.getenv("SMTP_USER", "noreply@neufood.vn")))
+    SMTP_USE_TLS: bool = Field(default_factory=lambda: os.getenv("SMTP_USE_TLS", "1").lower() in ("1", "true", "yes"))
+
     @property
     def cors_origins_list(self) -> List[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]

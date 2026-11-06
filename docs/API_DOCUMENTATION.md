@@ -525,9 +525,9 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 - **Quy tắc nghiệp vụ & Kịch bản ngoại lệ (`EX-04`)**:
   - Kiểm tra email có tồn tại trên hệ thống hay không; nếu không tồn tại $\rightarrow$ Trả về `404 Not Found` (`"Email không tồn tại trên hệ thống"`).
   - Kiểm tra tài khoản có bị vô hiệu hóa `is_active == false` hay không; nếu bị khóa $\rightarrow$ Trả về `403 Forbidden` (`"Tài khoản này đã bị khóa"`).
-  - **Giới hạn số lần gửi OTP (`EX-04`)**: Tối đa 3 lần/ngày/email (`daily_count >= 3` bị chặn) $\rightarrow$ Trả về `400 Bad Request` (`"Bạn đã vượt quá giới hạn gửi mã OTP tối đa 3 lần/ngày. Vui lòng thử lại vào ngày mai (EX-04)"`).
+  - **Giới hạn số lần gửi OTP (`EX-04`)**: Tối đa 3 lần/ngày cho mỗi cặp `(email + IP)` và tối đa 10 lần/ngày cho mỗi `email` $\rightarrow$ Trả về `429 Too Many Requests` nếu vi phạm.
   - **Hiệu lực OTP (`EX-04`)**: Mã OTP gồm đúng 6 chữ số ngẫu nhiên (`000000` - `999999`), có thời hạn hiệu lực chính xác `5 phút` (300 giây) kể từ thời điểm tạo.
-  - **Cơ chế lưu trữ in-memory & Hỗ trợ Dev/Test**: Lưu trữ trong `OTP_STORE` tại `routes/auth.py`. Trong môi trường phát triển (dev/test), trường `otp_debug` được trả kèm trong `data` phản hồi để tạo điều kiện kiểm thử tự động và test Postman mà không cần cấu hình Mail Server bên ngoài.
+  - **Gửi Email Thực Tế Qua SMTP (Gmail)**: Hệ thống sử dụng module `app.utils.email.send_otp_email_async` để gửi email HTML có thương hiệu NEUFood trực tiếp đến hòm thư người dùng qua giao thức SMTP (hỗ trợ `smtp.gmail.com` cổng 587 STARTTLS). Nếu chưa thiết lập biến môi trường `SMTP_USER`/`SMTP_PASSWORD`, hệ thống ghi nhận log cảnh báo và trả về `otp_debug` khi `FLASK_DEBUG=1` để phục vụ phát triển nội bộ.
 - **Response (`200 OK`)**:
 ```json
 {

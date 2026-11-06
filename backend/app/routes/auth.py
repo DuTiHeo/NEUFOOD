@@ -46,6 +46,7 @@ from app.schemas.auth import (
 )
 from app.core.limiter import limiter, get_login_rate_limit_key, get_client_ip
 from app.utils.helpers import api_response
+from app.utils.email import send_otp_email_async
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
@@ -695,6 +696,9 @@ def request_login_otp():
         purpose="login_otp",
     )
 
+    # Gửi email thực tế tới hòm thư người dùng qua SMTP Gmail
+    send_otp_email_async(to_email=email_key, otp_code=otp_code, purpose="login_otp")
+
     resp_data = {
         "email": email_key,
         "expires_in_seconds": 300,
@@ -704,7 +708,7 @@ def request_login_otp():
 
     return api_response(
         data=resp_data,
-        message="Mã OTP đăng nhập đã được gửi tới email của bạn (hiệu lực 5 phút)",
+        message="Mã OTP đăng nhập đã được gửi tới email của bạn (vui lòng kiểm tra Hộp thư đến và Thư rác)",
         status_code=200,
     )
 
@@ -904,6 +908,9 @@ def forgot_password():
         purpose="reset_password",
     )
 
+    # Gửi email thực tế tới hòm thư người dùng qua SMTP Gmail
+    send_otp_email_async(to_email=email_key, otp_code=otp_code, purpose="reset_password")
+
     resp_data = {
         "email": email_key,
         "expires_in_seconds": 300,
@@ -914,7 +921,7 @@ def forgot_password():
 
     return api_response(
         data=resp_data,
-        message="Mã OTP khôi phục mật khẩu đã được gửi (hiệu lực 5 phút)",
+        message="Mã OTP khôi phục mật khẩu đã được gửi tới email của bạn (vui lòng kiểm tra Hộp thư đến và Thư rác)",
         status_code=200,
     )
 

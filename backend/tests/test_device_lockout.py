@@ -192,6 +192,35 @@ class TestDeviceLockoutAndSecurity(unittest.TestCase):
         self.assertIsNone(entry["otp"])
         self.assertIsNone(entry["expires_at"])
 
+    def test_send_otp_email_without_smtp_config_falls_back(self):
+        """Khi chưa cấu hình SMTP: hàm ghi log và không gây lỗi crash ứng dụng."""
+        from app.utils.email import send_otp_email
+        from app.core.config import settings
+
+        old_user = settings.SMTP_USER
+        old_pass = settings.SMTP_PASSWORD
+        try:
+            settings.SMTP_USER = ""
+            settings.SMTP_PASSWORD = ""
+            res = send_otp_email("test@neu.edu.vn", "888999", "reset_password")
+            self.assertFalse(res)
+        finally:
+            settings.SMTP_USER = old_user
+            settings.SMTP_PASSWORD = old_pass
+
+    def test_build_otp_email_templates(self):
+        """Kiểm tra template email HTML và Text chứa mã OTP và thương hiệu NEUFood."""
+        from app.utils.email import _build_otp_html, _build_otp_text
+
+        html = _build_otp_html("sv@neu.edu.vn", "123456", "reset_password")
+        self.assertIn("1 2 3 4 5 6", html)
+        self.assertIn("NEUFood", html)
+        self.assertIn("5 phút", html)
+
+        text = _build_otp_text("sv@neu.edu.vn", "123456", "login_otp")
+        self.assertIn("123456", text)
+        self.assertIn("Đại học Kinh tế Quốc dân", text)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -111,9 +111,15 @@ export default function ForgotPasswordPage() {
 
         {step === 'reset' ? (
           <form onSubmit={resetPassword} className="flex flex-col gap-4">
+            <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-3.5 text-xs text-blue-900 flex items-start gap-2.5">
+              <span className="text-base leading-none">✉️</span>
+              <div className="leading-relaxed">
+                Mã xác thực 6 số đã được gửi tới email <strong>{email}</strong>. Vui lòng kiểm tra cả thư mục <strong>Hộp thư đến (Inbox)</strong> và <strong>Thư rác (Spam)</strong>. Mã có hiệu lực trong <strong>5 phút</strong>.
+              </div>
+            </div>
             {debugOtp ? (
-              <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">
-                Mã OTP môi trường phát triển: <strong className="font-mono">{debugOtp}</strong>
+              <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900" role="status">
+                🛠️ Môi trường phát triển: Mã OTP của bạn là <strong className="font-mono text-sm">{debugOtp}</strong>
               </p>
             ) : null}
             <div className="flex flex-col gap-1.5">
