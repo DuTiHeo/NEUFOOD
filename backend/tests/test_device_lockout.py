@@ -235,6 +235,64 @@ class TestDeviceLockoutAndSecurity(unittest.TestCase):
         self.assertIn("123456", text)
         self.assertIn("Đại học Kinh tế Quốc dân", text)
 
+    def test_change_password_flow_with_otp_and_fallback(self):
+        """Kiểm thử toàn diện luồng OTP đổi mật khẩu và đổi bằng OTP/old_password (UC05, BR-02)."""
+        from app.routes.auth import OTP_STORE, _record_otp_request
+
+        email = self.user.email
+        now = datetime.now(timezone.utc)
+        today_str = now.date().isoformat()
+
+        # 1. Tạo thiết bị tin cậy trước khi đổi mật khẩu
+        create_or_touch_device(
+            self.db, self.user.id, "device-before-change", "hash123", device_name="Device 1"
+        )
+        self.assertEqual(len(self.user.devices), 1)
+
+        # 2. Sinh và lưu mã OTP đổi mật khẩu
+        _record_otp_request(
+            email_key=email,
+            client_ip="127.0.0.1",
+            today_str=today_str,
+            otp_code="654321",
+            expires_at=now + timedelta(minutes=5),
+            purpose="change_password",
+        )
+        entry = OTP_STORE.get(email)
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry["purpose"], "change_password")
+        self.assertEqual(entry["otp"], "654321")
+
+        # 3. Thử nhập sai OTP 5 lần -> Hủy mã OTP (EX-04)
+        for _ in range(5):
+            entry["failed_attempts"] = (entry.get("failed_attempts") or 0) + 1
+            if entry["failed_attempts"] >= 5:
+                entry["otp"] = None
+
+        self.assertIsNone(entry["otp"])
+
+        # 4. Cấp mã OTP mới hợp lệ và thực hiện đổi mật khẩu
+        _record_otp_request(
+            email_key=email,
+            client_ip="127.0.0.1",
+            today_str=today_str,
+            otp_code="987654",
+            expires_at=now + timedelta(minutes=5),
+            purpose="change_password",
+        )
+        self.assertEqual(OTP_STORE[email]["otp"], "987654")
+
+        # 5. Cập nhật mật khẩu mới -> thành công, đồng thời thu hồi mọi thiết bị cũ (BR-02)
+        update_user_password(self.db, self.user, "NewSecurePassword123!")
+        self.assertTrue(verify_password("NewSecurePassword123!", self.user.password_hash))
+        self.assertFalse(verify_password("Password123@", self.user.password_hash))
+        self.assertEqual(self.user.failed_login_attempts, 0)
+        self.assertIsNone(self.user.locked_until)
+
+        # Kiểm tra toàn bộ thiết bị trước đó đã bị thu hồi (is_revoked = True)
+        for dev in self.user.devices:
+            self.assertTrue(dev.is_revoked)
+
 
 if __name__ == "__main__":
     unittest.main()

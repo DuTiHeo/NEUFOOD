@@ -6,6 +6,8 @@ import {
   ApiResponse,
   ForgotPasswordData,
   ResetPasswordPayload,
+  ChangePasswordPayload,
+  ChangePasswordOtpResponse,
   OtpLoginRequestPayload,
   OtpLoginVerifyPayload,
   OtpLoginRequestData,
@@ -83,6 +85,16 @@ export const authService = {
 
   async resetPassword(payload: ResetPasswordPayload): Promise<ApiResponse<null>> {
     const res = await api.post<ApiResponse<null>>('/auth/reset-password', payload);
+    return res.data;
+  },
+
+  async requestChangePasswordOtp(): Promise<ApiResponse<ChangePasswordOtpResponse>> {
+    const res = await api.post<ApiResponse<ChangePasswordOtpResponse>>('/auth/change-password/otp');
+    return res.data;
+  },
+
+  async changePassword(payload: ChangePasswordPayload): Promise<ApiResponse<null>> {
+    const res = await api.post<ApiResponse<null>>('/auth/change-password', payload);
     return res.data;
   },
 

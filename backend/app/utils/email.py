@@ -18,6 +18,12 @@ def _build_otp_html(to_email: str, otp_code: str, purpose: str) -> str:
             "Bạn vừa yêu cầu mã xác nhận để đăng nhập vào tài khoản <strong>NEUFood</strong> "
             "hoặc mở khóa đăng nhập từ thiết bị mới."
         )
+    elif purpose == "change_password":
+        title = "Xác Thực Đổi Mật Khẩu Tài Khoản"
+        desc = (
+            "Chúng tôi nhận được yêu cầu đổi mật khẩu cho tài khoản <strong>NEUFood</strong> "
+            f"của bạn (liên kết với email <strong>{to_email}</strong>)."
+        )
     else:
         title = "Khôi Phục Mật Khẩu Tài Khoản"
         desc = (
@@ -103,7 +109,12 @@ def _build_otp_html(to_email: str, otp_code: str, purpose: str) -> str:
 
 def _build_otp_text(to_email: str, otp_code: str, purpose: str) -> str:
     """Nội dung plain text dự phòng nếu client không hỗ trợ HTML."""
-    title = "Mã xác thực đăng nhập NEUFood" if purpose == "login_otp" else "Khôi phục mật khẩu NEUFood"
+    if purpose == "login_otp":
+        title = "Mã xác thực đăng nhập NEUFood"
+    elif purpose == "change_password":
+        title = "Xác thực đổi mật khẩu NEUFood"
+    else:
+        title = "Khôi phục mật khẩu NEUFood"
     return f"""NEUFood - {title}
 
 Mã xác thực của bạn: {otp_code}
@@ -124,11 +135,12 @@ def send_otp_email(to_email: str, otp_code: str, purpose: str = "reset_password"
     - Trả về True nếu gửi thành công, False nếu gặp lỗi.
     """
     to_email = to_email.strip().lower()
-    subject = (
-        f"[{otp_code}] Mã xác thực đăng nhập NEUFood"
-        if purpose == "login_otp"
-        else f"[{otp_code}] Mã khôi phục mật khẩu NEUFood"
-    )
+    if purpose == "login_otp":
+        subject = f"[{otp_code}] Mã xác thực đăng nhập NEUFood"
+    elif purpose == "change_password":
+        subject = f"[{otp_code}] Mã xác thực đổi mật khẩu NEUFood"
+    else:
+        subject = f"[{otp_code}] Mã khôi phục mật khẩu NEUFood"
 
     # 1. Kiểm tra cấu hình SMTP
     smtp_user = settings.SMTP_USER.strip() if settings.SMTP_USER else ""

@@ -43,8 +43,9 @@ class RegisterRequest(BaseModel):
 
 
 class ChangePasswordRequest(BaseModel):
-    """Schema đầu vào đổi mật khẩu khi đang đăng nhập (UC05)."""
-    old_password: str = Field(..., min_length=1, max_length=128)
+    """Schema đầu vào đổi mật khẩu khi đang đăng nhập (UC05). Hỗ trợ xác thực qua OTP hoặc mật khẩu cũ."""
+    old_password: Optional[str] = Field(default=None, max_length=128)
+    otp: Optional[str] = Field(default=None, max_length=20)
     new_password: str = Field(..., min_length=6, max_length=128)
 
 

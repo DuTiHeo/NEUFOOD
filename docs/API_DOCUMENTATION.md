@@ -445,13 +445,45 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 }
 ```
 
-### 2.6. Đổi Mật Khẩu Tài Khoản (`UC05`, `EX-04`)
+### 2.6. Đổi Mật Khẩu Tài Khoản (`UC05`, `BR-02`, `EX-04`)
+
+#### 2.6.1. Yêu Cầu Gửi Mã OTP Đổi Mật Khẩu
+- **Endpoint**: `POST /api/v1/auth/change-password/otp`
+- **Quyền hạn**: Authenticated (`@jwt_required` - Tất cả các role)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: application/json`
+- **Quy tắc nghiệp vụ**:
+  - Email nhận mã được lấy trực tiếp từ `current_user` trong token đăng nhập.
+  - Áp dụng Rate Limiting theo cặp `(IP + email)`: Cooldown 60 giây giữa các lần bấm gửi và tối đa 5 lần/ngày.
+  - Mã OTP gồm 6 chữ số có thời hạn hiệu lực 5 phút (300 giây). Gửi email thật qua SMTP Gmail.
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Mã OTP xác nhận đổi mật khẩu đã được gửi tới email của bạn (vui lòng kiểm tra Hộp thư đến và Thư rác)",
+  "data": {
+    "email": "sinhvien@neu.edu.vn",
+    "expires_in_seconds": 300,
+    "daily_count": 1
+  }
+}
+```
+
+#### 2.6.2. Xác Nhận Đổi Mật Khẩu (Bằng OTP hoặc Mật Khẩu Cũ)
 - **Endpoint**: `POST /api/v1/auth/change-password`
 - **Quyền hạn**: Authenticated (`@jwt_required` - Tất cả các role)
 - **Headers**:
   - `Authorization: Bearer <access_token>`
   - `Content-Type: application/json`
-- **Request Body**:
+- **Request Body (Đổi bằng OTP)**:
+```json
+{
+  "otp": "123456",
+  "new_password": "newpassword456"
+}
+```
+- **Request Body (Đổi bằng Mật khẩu cũ)**:
 ```json
 {
   "old_password": "password123",
@@ -459,17 +491,14 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 }
 ```
 - **Ràng buộc dữ liệu (`schemas/auth.py`)**:
-  - `old_password`: Bắt buộc, độ dài từ 1 đến 128 ký tự.
+  - Phải gửi ít nhất `otp` (1 - 20 ký tự) HOẶC `old_password` (1 - 128 ký tự).
   - `new_password`: Bắt buộc, độ dài từ 6 đến 128 ký tự (`min_length=6, max_length=128`).
-- **Quy tắc nghiệp vụ & Cơ chế bảo mật (`UC05`, `EX-04`)**:
-  - Kiểm tra `old_password` có khớp với hash mật khẩu hiện tại trong DB hay không. Nếu sai $\rightarrow$ Trả về `400 Bad Request` (`"Mật khẩu hiện tại không chính xác"`).
-  - Kiểm tra `new_password` không được trùng với mật khẩu hiện tại (`old_password` hoặc hash DB). Nếu trùng $\rightarrow$ Trả về `400 Bad Request` (`"Mật khẩu mới không được trùng với mật khẩu hiện tại"`).
-  - Mật khẩu mới được băm bảo mật bằng thuật toán Bcrypt thông qua hàm `update_user_password(db, user, new_password)`.
-  - **Tự động thu hồi Access Token (Two-Tier Dual-Write / EX-04)**: Ngay sau khi đổi mật khẩu thành công, Access Token hiện tại được tự động thu hồi bằng cơ chế Dual-Write:
-    - Ghi nhận bản ghi vào bảng `revoked_tokens` trong PostgreSQL (`token_type = "access"`, `reason = "change_password"`).
-    - Nạp đồng thời vào Redis key `revoked_token:{jti}` với TTL bằng thời gian sống còn lại của Access Token (tối đa 15 phút - 900 giây).
-    - Nếu Redis ngoại tuyến, token vẫn được thu hồi an toàn và bền vững trong PostgreSQL (Graceful Fallback).
-    - Mọi request kế tiếp sử dụng token cũ này sẽ bị chặn tức thì qua Redis $O(1)$ và nhận lỗi `401 Unauthorized` (`"Phiên đăng nhập đã bị thu hồi hoặc đăng xuất"`), buộc người dùng phải đăng nhập lại bằng mật khẩu mới hoặc sử dụng Refresh Token để lấy token mới.
+- **Quy tắc nghiệp vụ & Cơ chế bảo mật (`UC05`, `BR-02`, `EX-04`)**:
+  - Nếu gửi `otp`: Xác thực mã OTP trong `OTP_STORE`. Nhập sai tăng số lần thử; sai liên tiếp 5 lần $\rightarrow$ Hủy mã OTP lập tức (`EX-04`).
+  - Nếu gửi `old_password`: Kiểm tra khớp hash mật khẩu hiện tại trong DB.
+  - Kiểm tra `new_password` không được trùng với mật khẩu hiện tại.
+  - Cập nhật mật khẩu mới băm Bcrypt, reset lockout và thu hồi toàn bộ token thiết bị tin cậy (`BR-02`).
+  - **Tự động thu hồi Access Token**: Ghi nhận bản ghi vào bảng `revoked_tokens` trong PostgreSQL (`reason = "change_password"`), buộc người dùng phải đăng nhập lại hoặc làm mới token.
 - **Response (`200 OK`)**:
 ```json
 {

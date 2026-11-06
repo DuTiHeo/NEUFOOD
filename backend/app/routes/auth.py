@@ -578,10 +578,80 @@ def get_me():
         )
 
 
+@auth_bp.route("/change-password/otp", methods=["POST"])
+@jwt_required
+def request_change_password_otp():
+    """
+    Yêu cầu gửi mã OTP 6 chữ số tới email tài khoản để xác thực đổi mật khẩu (UC05, EX-04).
+    - Email được lấy trực tiếp từ token tài khoản đã đăng nhập (bảo mật tuyệt đối).
+    - Giới hạn: rate limit theo cặp (IP + email), cooldown 60 giây và tối đa 5 lần/ngày.
+    - Mã OTP có hiệu lực trong vòng 5 phút (300 giây).
+    """
+    user_id = int(g.current_user["sub"])
+    client_ip = get_client_ip()
+    now = datetime.now(timezone.utc)
+    today_str = now.date().isoformat()
+
+    with get_db() as db:
+        user = get_user_by_id(db, user_id)
+        if not user:
+            return api_response(
+                message="Không tìm thấy người dùng",
+                status_code=404,
+                success=False,
+            )
+
+        if not user.is_active:
+            return api_response(
+                message="Tài khoản này đã bị khóa",
+                status_code=403,
+                success=False,
+            )
+
+        email_key = user.email.strip().lower()
+
+    limit_err = _check_otp_rate_limit(email_key, client_ip, today_str)
+    if limit_err:
+        status_code, msg = limit_err
+        return api_response(
+            message=msg,
+            status_code=status_code,
+            success=False,
+        )
+
+    # Sinh mã OTP 6 chữ số và lưu vào OTP_STORE
+    otp_code = f"{random.randint(0, 999999):06d}"
+    _record_otp_request(
+        email_key=email_key,
+        client_ip=client_ip,
+        today_str=today_str,
+        otp_code=otp_code,
+        expires_at=now + timedelta(minutes=5),
+        purpose="change_password",
+    )
+
+    # Gửi email thực tế tới hòm thư người dùng qua SMTP Gmail
+    send_otp_email_async(to_email=email_key, otp_code=otp_code, purpose="change_password")
+
+    resp_data = {
+        "email": email_key,
+        "expires_in_seconds": 300,
+        "daily_count": OTP_STORE[email_key]["daily_count"],
+    }
+    if settings.FLASK_DEBUG:
+        resp_data["otp_debug"] = otp_code
+
+    return api_response(
+        data=resp_data,
+        message="Mã OTP xác nhận đổi mật khẩu đã được gửi tới email của bạn (vui lòng kiểm tra Hộp thư đến và Thư rác)",
+        status_code=200,
+    )
+
+
 @auth_bp.route("/change-password", methods=["POST"])
 @jwt_required
 def change_password():
-    """Đổi mật khẩu tài khoản khi đang đăng nhập (UC05)."""
+    """Đổi mật khẩu tài khoản khi đang đăng nhập (UC05). Hỗ trợ xác thực qua OTP hoặc mật khẩu cũ."""
     raw_data = _parse_json_body()
     if raw_data is None:
         return api_response(
@@ -600,7 +670,18 @@ def change_password():
             success=False,
         )
 
+    otp_input = data.otp.strip() if data.otp else None
+    old_pwd = data.old_password.strip() if data.old_password else None
+    if not otp_input and not old_pwd:
+        return api_response(
+            message="Vui lòng cung cấp mã xác nhận OTP hoặc mật khẩu hiện tại",
+            status_code=400,
+            success=False,
+        )
+
     user_id = int(g.current_user["sub"])
+    now = datetime.now(timezone.utc)
+
     with get_db() as db:
         user = get_user_by_id(db, user_id)
         if not user:
@@ -617,23 +698,71 @@ def change_password():
                 success=False,
             )
 
-        if not verify_password(data.old_password, user.password_hash):
-            return api_response(
-                message="Mật khẩu hiện tại không chính xác",
-                status_code=400,
-                success=False,
-            )
+        email_key = user.email.strip().lower()
 
-        if data.new_password == data.old_password or verify_password(data.new_password, user.password_hash):
+        # 1. Xác thực OTP (nếu có cung cấp)
+        if otp_input:
+            entry = OTP_STORE.get(email_key)
+            if not entry or not entry.get("otp") or entry.get("purpose") != "change_password":
+                return api_response(
+                    message="Mã xác nhận OTP không hợp lệ hoặc đã hết hiệu lực",
+                    status_code=400,
+                    success=False,
+                )
+
+            expires_at = entry.get("expires_at")
+            if expires_at is not None and expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+            if expires_at is None or now > expires_at:
+                return api_response(
+                    message="Mã xác nhận OTP đã hết hiệu lực (quá 5 phút). Vui lòng yêu cầu gửi lại mã OTP",
+                    status_code=400,
+                    success=False,
+                )
+
+            if str(entry.get("otp")) != otp_input:
+                entry["failed_attempts"] = (entry.get("failed_attempts") or 0) + 1
+                if entry["failed_attempts"] >= 5:
+                    entry["otp"] = None
+                    entry["expires_at"] = None
+                    return api_response(
+                        message="Mã OTP đã bị hủy do nhập sai quá 5 lần. Vui lòng yêu cầu mã mới",
+                        status_code=400,
+                        success=False,
+                    )
+                remaining = 5 - entry["failed_attempts"]
+                return api_response(
+                    message=f"Mã xác nhận OTP không chính xác. Bạn còn {remaining} lần thử",
+                    status_code=400,
+                    success=False,
+                )
+
+            # Hủy OTP sau khi xác minh đúng
+            entry["otp"] = None
+            entry["expires_at"] = None
+
+        # 2. Xác thực mật khẩu cũ (nếu có cung cấp)
+        if old_pwd:
+            if not verify_password(old_pwd, user.password_hash):
+                return api_response(
+                    message="Mật khẩu hiện tại không chính xác",
+                    status_code=400,
+                    success=False,
+                )
+
+        # 3. Kiểm tra mật khẩu mới không trùng mật khẩu cũ
+        if (old_pwd and data.new_password == old_pwd) or verify_password(data.new_password, user.password_hash):
             return api_response(
                 message="Mật khẩu mới không được trùng với mật khẩu hiện tại",
                 status_code=400,
                 success=False,
             )
 
+        # 4. Cập nhật mật khẩu mới, reset lockout và thu hồi toàn bộ token thiết bị (UC05, BR-02)
         update_user_password(db, user, data.new_password)
 
-        # Thu hồi Access Token hiện tại để bắt buộc đăng nhập lại hoặc làm mới
+        # 5. Thu hồi Access Token hiện tại để bắt buộc đăng nhập lại hoặc làm mới
         access_jti = g.current_user.get("jti")
         access_exp = g.current_user.get("exp")
         if access_jti and access_exp:

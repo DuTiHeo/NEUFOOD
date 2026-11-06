@@ -28,6 +28,19 @@ export interface ResetPasswordPayload {
   new_password: string;
 }
 
+export interface ChangePasswordPayload {
+  old_password?: string;
+  otp?: string;
+  new_password: string;
+}
+
+export interface ChangePasswordOtpResponse {
+  email: string;
+  expires_in_seconds?: number;
+  daily_count?: number;
+  otp_debug?: string;
+}
+
 export interface OtpLoginRequestPayload {
   email: string;
 }
