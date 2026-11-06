@@ -209,7 +209,12 @@ flowchart TD
 
 ### 4.1. Nhóm Tài khoản & Bảo mật
 * **BR-01 (Định danh tài khoản):** Mỗi tài khoản chỉ được liên kết với một địa chỉ Email duy nhất (ưu tiên email sinh viên/cán bộ NEU: `@neu.edu.vn` hoặc `@st.neu.edu.vn`). Số điện thoại đăng ký phải là số di động hợp lệ tại Việt Nam (10 chữ số).
-* **BR-02 (Bảo mật & Khóa tài khoản):** Người dùng nhập sai mật khẩu quá 5 lần liên tiếp sẽ bị khóa tạm thời 15 phút.
+* **BR-02 (Bảo mật đăng nhập & Khóa theo thiết bị):** Hệ thống chống dò mật khẩu theo **thiết bị**, không khóa theo địa chỉ IP dùng chung và không để người khác cố tình khóa tài khoản của chủ tài khoản:
+  1. **Thiết bị tin cậy:** Sau mỗi lần đăng nhập thành công, hệ thống cấp cho thiết bị một **mã thiết bị (device token) do máy chủ tạo và ký**; client không thể tự tạo mã hợp lệ. Mã hết hiệu lực sau **30 ngày** không sử dụng và bị thu hồi toàn bộ khi người dùng đổi hoặc đặt lại mật khẩu.
+  2. **Sai mật khẩu trên thiết bị tin cậy:** Sai liên tiếp **từ 5 lần trở lên** thì chỉ khóa **riêng thiết bị đó** 15 phút. Các thiết bị tin cậy khác của cùng tài khoản vẫn đăng nhập bình thường.
+  3. **Sai mật khẩu từ thiết bị chưa xác minh** (không có mã thiết bị hoặc mã không hợp lệ): Hệ thống cộng dồn số lần sai của tất cả thiết bị chưa xác minh trên tài khoản; chạm mốc **từ 5 lần trở lên** thì khóa đăng nhập bằng mật khẩu **từ mọi thiết bị chưa xác minh** của tài khoản đó trong 15 phút. Thiết bị tin cậy không bị ảnh hưởng.
+  4. **Lối thoát cho chủ tài khoản:** Khi đang bị khóa ở mục 3, người dùng có thể đăng nhập bằng **mã OTP gửi qua email**. Đăng nhập OTP thành công thì thiết bị đó trở thành thiết bị tin cậy.
+  5. **Giới hạn tần suất:** Endpoint đăng nhập chỉ giới hạn tần suất theo cặp **(địa chỉ IP + email)**, không chặn cứng theo địa chỉ IP thô, để người dùng chung mạng (Wifi giảng đường, KTX, thư viện) không bị ảnh hưởng lẫn nhau.
 * **BR-03 (Phân tách dữ liệu Canteen):** Nhân viên và Quản lý Canteen chỉ được truy cập dữ liệu đơn hàng và thực đơn của Canteen mình phụ trách. Toàn quyền giám sát hệ thống thuộc về Quản trị viên (Admin).
 
 ### 4.2. Nhóm Thực đơn & Quản lý món ăn
@@ -256,10 +261,10 @@ Hệ thống được chuẩn hóa toàn bộ các Use Case liên tục từ **U
 | Mã UC | Tên Use Case | Actor thực hiện | Mức ưu tiên | BR áp dụng | Mã Ngoại lệ liên quan | Mô tả phạm vi nghiệp vụ |
 | :---: | :--- | :--- | :---: | :--- | :--- | :--- |
 | **UC01** | Đăng ký tài khoản khách hàng | Khách vãng lai | Must | BR-01 | EX-01 | Đăng ký bằng Email NEU và SĐT 10 số. |
-| **UC02** | Đăng nhập hệ thống | Tất cả Actors | Must | BR-01, BR-02 | EX-02 | Khóa tạm thời 15p nếu sai liên tiếp 5 lần. |
+| **UC02** | Đăng nhập hệ thống | Tất cả Actors | Must | BR-01, BR-02 | EX-02 | Đăng nhập bằng mật khẩu hoặc OTP email; sai liên tiếp 5 lần thì khóa 15p theo thiết bị (không khóa theo IP). |
 | **UC03** | Đăng xuất | Tất cả Actors | Must | - | - | Thu hồi quyền truy cập của phiên làm việc. |
 | **UC04** | Cập nhật hồ sơ cá nhân | Khách hàng, Canteen, Admin | Should | BR-01 | EX-03 | Đổi SĐT, MSSV, ảnh đại diện. |
-| **UC05** | Đổi / Khôi phục mật khẩu | Tất cả Actors | Should | BR-02 | EX-04 | Đổi mật khẩu với mật khẩu cũ hoặc OTP. |
+| **UC05** | Đổi / Khôi phục mật khẩu | Tất cả Actors | Should | BR-02 | EX-04 | Đổi mật khẩu với mật khẩu cũ hoặc OTP; thành công thì thu hồi toàn bộ thiết bị tin cậy. |
 | **UC06** | Xem thực đơn & chi tiết món | Tất cả Actors | Must | BR-04, BR-06, BR-12 | EX-05 | Giá niêm yết = giá gốc + 5.000đ phụ phí. |
 | **UC07** | Tìm kiếm & lọc món ăn | Tất cả Actors | Must | BR-04 | - | Lọc theo danh mục và từ khóa tên món. |
 | **UC08** | Quản lý giỏ hàng | Khách hàng | Must | BR-06, BR-07 | EX-05, EX-06 | Tối đa 10 phần/món; cảnh báo món hết hàng. |
@@ -290,9 +295,9 @@ Danh mục ngoại lệ được đánh số liền mạch từ **EX-01** đến
 | Mã EX | Giai đoạn | Tình huống ngoại lệ | Kịch bản xử lý của hệ thống |
 | :---: | :--- | :--- | :--- |
 | **EX-01** | Đăng ký | Email hoặc Mã sinh viên đã tồn tại trên hệ thống. | Hệ thống chặn đăng ký, báo lỗi trùng lặp và điều hướng người dùng sang màn hình Đăng nhập hoặc Quên mật khẩu. |
-| **EX-02** | Đăng nhập | Nhập sai thông tin đăng nhập quá 5 lần liên tiếp. | Hệ thống khóa đăng nhập tạm thời trong 15 phút, gửi thông báo cảnh báo và cung cấp link đặt lại mật khẩu qua email. |
+| **EX-02** | Đăng nhập | Nhập sai mật khẩu liên tiếp từ 5 lần trở lên (trên một thiết bị tin cậy, hoặc cộng dồn từ các thiết bị chưa xác minh). | Hệ thống khóa đăng nhập bằng mật khẩu 15 phút **theo phạm vi thiết bị** (BR-02), thông báo thời điểm mở khóa, gửi cảnh báo qua email và cung cấp lựa chọn **đăng nhập bằng OTP email** hoặc đặt lại mật khẩu. Thiết bị tin cậy khác của tài khoản không bị khóa. |
 | **EX-03** | Cập nhật hồ sơ | Số điện thoại không hợp lệ hoặc đã thuộc tài khoản khác. | Chặn lưu thay đổi, yêu cầu người dùng nhập đúng định dạng số di động 10 số. |
-| **EX-04** | Khôi phục mật khẩu | Mã xác nhận OTP hết hiệu lực (quá 5 phút) hoặc nhập sai. | Thông báo mã OTP không hợp lệ, cho phép người dùng ấn nút "Gửi lại mã OTP" (tối đa 3 lần/ngày). |
+| **EX-04** | Khôi phục mật khẩu / Đăng nhập OTP | Mã xác nhận OTP hết hiệu lực (quá 5 phút) hoặc nhập sai. | Thông báo mã OTP không hợp lệ. Nhập sai cùng một mã **từ 5 lần trở lên** thì mã bị hủy, phải yêu cầu mã mới. Người dùng được ấn "Gửi lại mã OTP" tối đa **3 lần/ngày cho mỗi cặp (email + IP yêu cầu)** và tối đa **10 lần/ngày cho mỗi email**, để người khác không thể dùng hết lượt OTP của chủ tài khoản từ một mạng duy nhất. |
 | **EX-05** | Giỏ hàng | Món ăn bị Canteen đánh dấu "Hết món" khi đang nằm trong giỏ. | Hệ thống đánh dấu đỏ món ăn trong giỏ, hiển thị cảnh báo "Món đã hết hàng", vô hiệu hóa nút "Tạo đơn" cho đến khi khách xóa món đó. |
 | **EX-06** | Giỏ hàng | Khách cố tình tăng số lượng món vượt quá 10 phần. | Nút tăng (+) bị vô hiệu hóa, hiển thị thông báo "Số lượng tối đa cho mỗi món là 10 phần". |
 | **EX-07** | Chọn địa điểm | Khách chọn địa điểm không có trong danh mục tòa nhà NEU. | Bắt buộc chọn từ danh sách thả xuống do Admin quản lý; không cho phép nhập text tự do ngoài danh mục. |
