@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(
         default_factory=lambda: int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
     )  # 7 ngày cho Refresh Token dài hạn
+    DEVICE_TOKEN_SECRET: str = Field(
+        default_factory=lambda: os.getenv("DEVICE_TOKEN_SECRET", os.getenv("SECRET_KEY", "neufood_super_secret_jwt_key_please_change_in_production"))
+    )
+    DEVICE_TOKEN_TTL_DAYS: int = Field(
+        default_factory=lambda: int(os.getenv("DEVICE_TOKEN_TTL_DAYS", "30"))
+    )  # 30 ngày cho token thiết bị tin cậy (BR-02)
 
     # 3. Cơ sở dữ liệu (Database Connection)
     DATABASE_URL: str = Field(
@@ -76,6 +82,15 @@ class Settings(BaseSettings):
     MAX_CONTENT_LENGTH: int = Field(
         default_factory=lambda: int(os.getenv("MAX_CONTENT_LENGTH", str(16 * 1024 * 1024)))
     )
+
+    # 8. Cấu hình gửi Email SMTP (Gmail / Custom SMTP)
+    SMTP_HOST: str = Field(default_factory=lambda: os.getenv("SMTP_HOST", "smtp.gmail.com"))
+    SMTP_PORT: int = Field(default_factory=lambda: int(os.getenv("SMTP_PORT", "587")))
+    SMTP_USER: str = Field(default_factory=lambda: os.getenv("SMTP_USER", ""))
+    SMTP_PASSWORD: str = Field(default_factory=lambda: os.getenv("SMTP_PASSWORD", ""))
+    SMTP_FROM_NAME: str = Field(default_factory=lambda: os.getenv("SMTP_FROM_NAME", "NEUFood - Canteen NEU"))
+    SMTP_FROM_EMAIL: str = Field(default_factory=lambda: os.getenv("SMTP_FROM_EMAIL", os.getenv("SMTP_USER", "noreply@neufood.vn")))
+    SMTP_USE_TLS: bool = Field(default_factory=lambda: os.getenv("SMTP_USE_TLS", "1").lower() in ("1", "true", "yes"))
 
     @property
     def cors_origins_list(self) -> List[str]:

@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
-from app.db.models import User, Order, ACTIVE_ORDER_STATUSES, RevokedToken
+from app.db.models import User, Order, ACTIVE_ORDER_STATUSES, RevokedToken, UserDevice
 from app.core.security import hash_password
 from app.core.redis_client import is_redis_revoked, set_redis_revoked
 
@@ -115,14 +115,130 @@ def reset_login_attempts(db: Session, user: User) -> User:
 
 def update_user_password(db: Session, user: User, new_password: str) -> User:
     """
-    Cập nhật mật khẩu mới (đã băm Bcrypt) và đồng thời mở khóa/reset bộ đếm đăng nhập sai (UC05, BR-02, EX-04).
+    Cập nhật mật khẩu mới (đã băm Bcrypt) và đồng thời mở khóa/reset bộ đếm đăng nhập sai,
+    thu hồi toàn bộ token thiết bị tin cậy đã cấp trước đó (UC05, BR-02, EX-04).
     """
     user.password_hash = hash_password(new_password)
     user.failed_login_attempts = 0
     user.locked_until = None
+    revoke_all_user_devices(db, user.id)
     db.commit()
     db.refresh(user)
     return user
+
+
+# --- QUẢN LÝ THIẾT BỊ TIN CẬY & KHÓA THEO THIẾT BỊ (BR-02, EX-02) ---
+
+def get_user_device(db: Session, user_id: int, device_id: str) -> Optional[UserDevice]:
+    """Tìm thiết bị theo cặp (user_id, device_id)."""
+    return (
+        db.query(UserDevice)
+        .filter(UserDevice.user_id == user_id, UserDevice.device_id == device_id)
+        .first()
+    )
+
+
+def get_device_by_token_hash(db: Session, token_hash: str) -> Optional[UserDevice]:
+    """Tìm thiết bị theo mã băm token SHA-256."""
+    return (
+        db.query(UserDevice)
+        .filter(UserDevice.token_hash == token_hash)
+        .first()
+    )
+
+
+def create_or_touch_device(
+    db: Session,
+    user_id: int,
+    device_id: str,
+    token_hash: str,
+    device_name: Optional[str] = None,
+    ttl_days: int = 30,
+) -> UserDevice:
+    """
+    Tạo mới hoặc gia hạn thiết bị tin cậy sau khi đăng nhập thành công (BR-02).
+    """
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(days=ttl_days)
+    device = get_user_device(db, user_id, device_id)
+
+    if device:
+        device.token_hash = token_hash
+        if device_name:
+            device.device_name = device_name
+        device.failed_login_attempts = 0
+        device.locked_until = None
+        device.is_revoked = False
+        device.last_used_at = now
+        device.expires_at = expires_at
+    else:
+        device = UserDevice(
+            user_id=user_id,
+            device_id=device_id,
+            token_hash=token_hash,
+            device_name=device_name,
+            failed_login_attempts=0,
+            locked_until=None,
+            is_revoked=False,
+            last_used_at=now,
+            expires_at=expires_at,
+        )
+        db.add(device)
+
+    db.commit()
+    db.refresh(device)
+    return device
+
+
+def record_device_failed_login(db: Session, device: UserDevice) -> UserDevice:
+    """
+    Ghi nhận lần đăng nhập sai trên thiết bị tin cậy và khóa riêng thiết bị này 15 phút nếu >= 5 lần (BR-02, EX-02).
+    """
+    now = datetime.now(timezone.utc)
+    if device.locked_until is not None:
+        locked_until = (
+            device.locked_until.replace(tzinfo=timezone.utc)
+            if device.locked_until.tzinfo is None
+            else device.locked_until
+        )
+        if locked_until <= now:
+            device.failed_login_attempts = 0
+            device.locked_until = None
+
+    device.failed_login_attempts = (device.failed_login_attempts or 0) + 1
+    if device.failed_login_attempts >= 5:
+        device.locked_until = now + timedelta(minutes=15)
+
+    db.commit()
+    db.refresh(device)
+    return device
+
+
+def reset_device_attempts(db: Session, device: UserDevice, ttl_days: int = 30) -> UserDevice:
+    """
+    Reset số lần sai và gia hạn TTL thiết bị sau khi đăng nhập đúng mật khẩu (BR-02).
+    """
+    now = datetime.now(timezone.utc)
+    device.failed_login_attempts = 0
+    device.locked_until = None
+    device.last_used_at = now
+    device.expires_at = now + timedelta(days=ttl_days)
+    db.commit()
+    db.refresh(device)
+    return device
+
+
+def revoke_all_user_devices(db: Session, user_id: int) -> int:
+    """
+    Thu hồi toàn bộ token thiết bị tin cậy của người dùng khi đổi/đặt lại mật khẩu (BR-02, UC05).
+    """
+    count = (
+        db.query(UserDevice)
+        .filter(UserDevice.user_id == user_id, UserDevice.is_revoked == False)
+        .update({"is_revoked": True}, synchronize_session=False)
+    )
+    db.commit()
+    return count
 
 
 def get_all_users(
@@ -192,6 +308,10 @@ def admin_update_user_status(
         if is_active is True:
             user.failed_login_attempts = 0
             user.locked_until = None
+            db.query(UserDevice).filter(UserDevice.user_id == user.id).update(
+                {"failed_login_attempts": 0, "locked_until": None},
+                synchronize_session=False,
+            )
 
     if role is not None:
         user.role = role

@@ -10,6 +10,8 @@ class LoginRequest(BaseModel):
     email: EmailStr
     # Đặt min_length=1 để mọi mật khẩu nhập sai độ dài bất kỳ >= 1 đều đi vào luồng đếm failed_login_attempts (BR-02)
     password: str = Field(..., min_length=1, max_length=128)
+    device_token: Optional[str] = Field(default=None, description="Mã token thiết bị tin cậy nếu có (BR-02)")
+    device_name: Optional[str] = Field(default=None, max_length=150, description="Tên thiết bị/trình duyệt")
 
 
 class RegisterRequest(BaseModel):
@@ -41,14 +43,27 @@ class RegisterRequest(BaseModel):
 
 
 class ChangePasswordRequest(BaseModel):
-    """Schema đầu vào đổi mật khẩu khi đang đăng nhập (UC05)."""
-    old_password: str = Field(..., min_length=1, max_length=128)
+    """Schema đầu vào đổi mật khẩu khi đang đăng nhập (UC05). Hỗ trợ xác thực qua OTP hoặc mật khẩu cũ."""
+    old_password: Optional[str] = Field(default=None, max_length=128)
+    otp: Optional[str] = Field(default=None, max_length=20)
     new_password: str = Field(..., min_length=6, max_length=128)
 
 
 class ForgotPasswordRequest(BaseModel):
     """Schema đầu vào yêu cầu gửi mã OTP khôi phục mật khẩu (UC05, EX-04)."""
     email: EmailStr
+
+
+class OtpLoginRequest(BaseModel):
+    """Schema đầu vào yêu cầu mã OTP đăng nhập khẩn cấp / lối thoát khóa thiết bị (BR-02.4, EX-02)."""
+    email: EmailStr
+
+
+class OtpLoginVerifyRequest(BaseModel):
+    """Schema đầu vào xác thực OTP đăng nhập hệ thống và cấp thiết bị tin cậy (BR-02.4, EX-02)."""
+    email: EmailStr
+    otp: str = Field(..., pattern=r"^\d{6}$", description="Mã OTP đúng 6 chữ số")
+    device_name: Optional[str] = Field(default=None, max_length=150, description="Tên thiết bị mới cần cấp token")
 
 
 class ResetPasswordRequest(BaseModel):
@@ -74,6 +89,7 @@ class TokenResponse(BaseModel):
     refresh_token: Optional[str] = None
     token_type: str = "Bearer"
     expires_in: Optional[int] = None
+    device_token: Optional[str] = Field(default=None, description="Mã token thiết bị tin cậy cấp cho client (BR-02)")
     user: dict
 
 

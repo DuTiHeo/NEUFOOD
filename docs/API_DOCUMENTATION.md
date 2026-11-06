@@ -140,31 +140,35 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 }
 ```
 
-### 2.2. Đăng Nhập Hệ Thống & Bảo Vệ Chống Dò Mật Khẩu (`UC02`, `BR-01`, `BR-02`, `EX-02`)
+### 2.2. Đăng Nhập Hệ Thống & Bảo Vệ Chống Dò Mật Khẩu Theo Thiết Bị (`UC02`, `BR-01`, `BR-02`, `EX-02`)
 - **Endpoint**: `POST /api/v1/auth/login`
 - **Quyền hạn**: Public (Không yêu cầu JWT)
+- **Giới hạn tần suất (Rate Limit)**: `@limiter.limit("20/minute", key_func=get_login_rate_limit_key)` tính theo cặp **(IP + email)** để tránh khóa nhầm người dùng chung mạng KTX/Wifi trường (BUG-01, BR-02).
 - **Headers**: `Content-Type: application/json`
 - **Request Body**:
 ```json
 {
   "email": "admin@neufood.vn",
-  "password": "password123"
+  "password": "password123",
+  "device_token": "1:device-uuid:nonce:timestamp.signature_hmac",
+  "device_name": "Chrome on MacOS"
 }
 ```
 - **Ràng buộc dữ liệu (`schemas/auth.py`)**:
   - `email`: Bắt buộc, định dạng email chuẩn (`EmailStr`).
   - `password`: Bắt buộc, chuỗi từ 1 đến 128 ký tự (`min_length=1`).
+  - `device_token`: Tùy chọn, chuỗi token thiết bị tin cậy có chữ ký HMAC do máy chủ cấp.
+  - `device_name`: Tùy chọn, tên nhận diện thiết bị/trình duyệt (tối đa 150 ký tự).
 - **Quy tắc nghiệp vụ & Cơ chế bảo mật (`BR-02`, `EX-02`)**:
-  - **Kiểm tra trạng thái tài khoản trước khi xác thực mật khẩu**:
-    - Nếu tài khoản có `is_active == false` $\rightarrow$ Trả lỗi `403 Forbidden` (`"Tài khoản này đã bị khóa"`).
-    - Nếu tài khoản đang trong thời gian khóa tạm thời 15 phút (`locked_until > now()`) $\rightarrow$ Trả lỗi `403 Forbidden` (`"Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần"`).
-  - **Xác thực mật khẩu**:
-    - Nếu sai mật khẩu: Tăng `failed_login_attempts += 1`.
-      - Khi `failed_login_attempts < 5` $\rightarrow$ Trả lỗi `401 Unauthorized` (`"Email hoặc mật khẩu không chính xác"`).
-      - Khi chạm mốc `failed_login_attempts >= 5` lần liên tiếp $\rightarrow$ Thiết lập `locked_until = now() + 15 minutes` và trả ngay `403 Forbidden` (`"Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần"`).
-    - Nếu đúng mật khẩu:
-      - Reset `failed_login_attempts = 0` và xóa mốc khóa `locked_until = null`.
-      - Cấp cặp JWT Token: Access Token (hiệu lực 15 phút, `expires_in: 900` giây) và Refresh Token (hiệu lực 7 ngày).
+  - **Phân loại thiết bị**:
+    - **Nhánh A (Thiết bị tin cậy)**: Có `device_token` hợp lệ, đúng chữ ký HMAC và chưa hết hạn 30 ngày trong `user_devices`.
+      - Nếu thiết bị đang bị khóa (`device.locked_until > now()`) $\rightarrow$ Trả `403 Forbidden`.
+      - Nếu sai mật khẩu: Tăng `device.failed_login_attempts`. Đạt $\ge 5$ lần $\rightarrow$ Khóa **riêng thiết bị này 15 phút** (`device.locked_until = now() + 15m`). Thiết bị tin cậy khác vẫn vào được.
+      - Nếu đúng mật khẩu: Reset bộ đếm lỗi thiết bị, gia hạn TTL 30 ngày.
+    - **Nhánh B (Thiết bị chưa xác minh / Thiết bị lạ)**: Không gửi token hoặc token không hợp lệ/hết hạn.
+      - Nếu nhóm thiết bị lạ của tài khoản đang bị khóa (`user.locked_until > now()`) $\rightarrow$ Trả `403 Forbidden` kèm gợi ý đăng nhập bằng OTP email.
+      - Nếu sai mật khẩu: Tăng `user.failed_login_attempts`. Đạt $\ge 5$ lần $\rightarrow$ Khóa quyền đăng nhập bằng mật khẩu từ **mọi thiết bị lạ** trong 15 phút. Thiết bị tin cậy của chủ tài khoản không bị ảnh hưởng.
+      - Nếu đúng mật khẩu: Reset lockout tài khoản, cấp mới một `device_token` có chữ ký HMAC và lưu vào bảng `user_devices`.
 - **Response (`200 OK`)**:
 ```json
 {
@@ -175,6 +179,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
     "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "token_type": "Bearer",
     "expires_in": 900,
+    "device_token": "1:f837b2d1-4e78-45e0-912f-6c1782e41a99:e82a...b4c.4f38a...",
     "user": {
       "id": 1,
       "email": "admin@neufood.vn",
@@ -188,6 +193,48 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
     }
   }
 }
+```
+
+### 2.2.1. Yêu Cầu Mã OTP Đăng Nhập Khẩn Cấp (`UC02`, `BR-02.4`, `EX-02`, `EX-04`)
+- **Endpoint**: `POST /api/v1/auth/login/otp/request`
+- **Quyền hạn**: Public (Không yêu cầu JWT)
+- **Mục đích**: Lối thoát an toàn cho chủ tài khoản khi bị kẻ xấu cố tình gõ sai mật khẩu làm khóa nhánh thiết bị lạ.
+- **Request Body**:
+```json
+{
+  "email": "sinhvien@neu.edu.vn"
+}
+```
+- **Quy tắc nghiệp vụ (`EX-04`)**:
+  - Hạn mức: Tối đa 3 lần/ngày cho mỗi cặp (email + IP) và tối đa 10 lần/ngày cho mỗi email.
+  - Hiệu lực OTP: Đúng 5 phút (300 giây).
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Mã OTP đăng nhập đã được gửi tới email của bạn (hiệu lực 5 phút)",
+  "data": {
+    "email": "sinhvien@neu.edu.vn",
+    "expires_in_seconds": 300
+  }
+}
+```
+
+### 2.2.2. Xác Thực Mã OTP Đăng Nhập & Mở Khóa Tài Khoản (`UC02`, `BR-02.4`, `EX-02`, `EX-04`)
+- **Endpoint**: `POST /api/v1/auth/login/otp/verify`
+- **Quyền hạn**: Public (Không yêu cầu JWT)
+- **Request Body**:
+```json
+{
+  "email": "sinhvien@neu.edu.vn",
+  "otp": "123456",
+  "device_name": "Chrome on MacOS"
+}
+```
+- **Quy tắc nghiệp vụ (`BR-02.4`, `EX-04`)**:
+  - Nhập sai mã OTP liên tiếp 5 lần $\rightarrow$ Hủy mã OTP ngay lập tức.
+  - Xác thực đúng: Tự động mở khóa tài khoản (`locked_until = null`), cấp JWT tokens và nâng cấp thiết bị hiện tại thành **Thiết bị tin cậy** (cấp `device_token` mới).
+- **Response (`200 OK`)**: Tương tự phản hồi của `POST /api/v1/auth/login` kèm `device_token`.
 ```
 - **Response lỗi (`401 Unauthorized` - Sai mật khẩu < 5 lần)**:
 ```json
@@ -398,13 +445,45 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 }
 ```
 
-### 2.6. Đổi Mật Khẩu Tài Khoản (`UC05`, `EX-04`)
+### 2.6. Đổi Mật Khẩu Tài Khoản (`UC05`, `BR-02`, `EX-04`)
+
+#### 2.6.1. Yêu Cầu Gửi Mã OTP Đổi Mật Khẩu
+- **Endpoint**: `POST /api/v1/auth/change-password/otp`
+- **Quyền hạn**: Authenticated (`@jwt_required` - Tất cả các role)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: application/json`
+- **Quy tắc nghiệp vụ**:
+  - Email nhận mã được lấy trực tiếp từ `current_user` trong token đăng nhập.
+  - Áp dụng Rate Limiting theo cặp `(IP + email)`: Cooldown 60 giây giữa các lần bấm gửi và tối đa 5 lần/ngày.
+  - Mã OTP gồm 6 chữ số có thời hạn hiệu lực 5 phút (300 giây). Gửi email thật qua SMTP Gmail.
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Mã OTP xác nhận đổi mật khẩu đã được gửi tới email của bạn (vui lòng kiểm tra Hộp thư đến và Thư rác)",
+  "data": {
+    "email": "sinhvien@neu.edu.vn",
+    "expires_in_seconds": 300,
+    "daily_count": 1
+  }
+}
+```
+
+#### 2.6.2. Xác Nhận Đổi Mật Khẩu (Bằng OTP hoặc Mật Khẩu Cũ)
 - **Endpoint**: `POST /api/v1/auth/change-password`
 - **Quyền hạn**: Authenticated (`@jwt_required` - Tất cả các role)
 - **Headers**:
   - `Authorization: Bearer <access_token>`
   - `Content-Type: application/json`
-- **Request Body**:
+- **Request Body (Đổi bằng OTP)**:
+```json
+{
+  "otp": "123456",
+  "new_password": "newpassword456"
+}
+```
+- **Request Body (Đổi bằng Mật khẩu cũ)**:
 ```json
 {
   "old_password": "password123",
@@ -412,17 +491,14 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 }
 ```
 - **Ràng buộc dữ liệu (`schemas/auth.py`)**:
-  - `old_password`: Bắt buộc, độ dài từ 1 đến 128 ký tự.
+  - Phải gửi ít nhất `otp` (1 - 20 ký tự) HOẶC `old_password` (1 - 128 ký tự).
   - `new_password`: Bắt buộc, độ dài từ 6 đến 128 ký tự (`min_length=6, max_length=128`).
-- **Quy tắc nghiệp vụ & Cơ chế bảo mật (`UC05`, `EX-04`)**:
-  - Kiểm tra `old_password` có khớp với hash mật khẩu hiện tại trong DB hay không. Nếu sai $\rightarrow$ Trả về `400 Bad Request` (`"Mật khẩu hiện tại không chính xác"`).
-  - Kiểm tra `new_password` không được trùng với mật khẩu hiện tại (`old_password` hoặc hash DB). Nếu trùng $\rightarrow$ Trả về `400 Bad Request` (`"Mật khẩu mới không được trùng với mật khẩu hiện tại"`).
-  - Mật khẩu mới được băm bảo mật bằng thuật toán Bcrypt thông qua hàm `update_user_password(db, user, new_password)`.
-  - **Tự động thu hồi Access Token (Two-Tier Dual-Write / EX-04)**: Ngay sau khi đổi mật khẩu thành công, Access Token hiện tại được tự động thu hồi bằng cơ chế Dual-Write:
-    - Ghi nhận bản ghi vào bảng `revoked_tokens` trong PostgreSQL (`token_type = "access"`, `reason = "change_password"`).
-    - Nạp đồng thời vào Redis key `revoked_token:{jti}` với TTL bằng thời gian sống còn lại của Access Token (tối đa 15 phút - 900 giây).
-    - Nếu Redis ngoại tuyến, token vẫn được thu hồi an toàn và bền vững trong PostgreSQL (Graceful Fallback).
-    - Mọi request kế tiếp sử dụng token cũ này sẽ bị chặn tức thì qua Redis $O(1)$ và nhận lỗi `401 Unauthorized` (`"Phiên đăng nhập đã bị thu hồi hoặc đăng xuất"`), buộc người dùng phải đăng nhập lại bằng mật khẩu mới hoặc sử dụng Refresh Token để lấy token mới.
+- **Quy tắc nghiệp vụ & Cơ chế bảo mật (`UC05`, `BR-02`, `EX-04`)**:
+  - Nếu gửi `otp`: Xác thực mã OTP trong `OTP_STORE`. Nhập sai tăng số lần thử; sai liên tiếp 5 lần $\rightarrow$ Hủy mã OTP lập tức (`EX-04`).
+  - Nếu gửi `old_password`: Kiểm tra khớp hash mật khẩu hiện tại trong DB.
+  - Kiểm tra `new_password` không được trùng với mật khẩu hiện tại.
+  - Cập nhật mật khẩu mới băm Bcrypt, reset lockout và thu hồi toàn bộ token thiết bị tin cậy (`BR-02`).
+  - **Tự động thu hồi Access Token**: Ghi nhận bản ghi vào bảng `revoked_tokens` trong PostgreSQL (`reason = "change_password"`), buộc người dùng phải đăng nhập lại hoặc làm mới token.
 - **Response (`200 OK`)**:
 ```json
 {
@@ -478,9 +554,9 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 - **Quy tắc nghiệp vụ & Kịch bản ngoại lệ (`EX-04`)**:
   - Kiểm tra email có tồn tại trên hệ thống hay không; nếu không tồn tại $\rightarrow$ Trả về `404 Not Found` (`"Email không tồn tại trên hệ thống"`).
   - Kiểm tra tài khoản có bị vô hiệu hóa `is_active == false` hay không; nếu bị khóa $\rightarrow$ Trả về `403 Forbidden` (`"Tài khoản này đã bị khóa"`).
-  - **Giới hạn số lần gửi OTP (`EX-04`)**: Tối đa 3 lần/ngày/email (`daily_count >= 3` bị chặn) $\rightarrow$ Trả về `400 Bad Request` (`"Bạn đã vượt quá giới hạn gửi mã OTP tối đa 3 lần/ngày. Vui lòng thử lại vào ngày mai (EX-04)"`).
+  - **Giới hạn số lần gửi OTP (`EX-04`)**: Tối đa 3 lần/ngày cho mỗi cặp `(email + IP)` và tối đa 10 lần/ngày cho mỗi `email` $\rightarrow$ Trả về `429 Too Many Requests` nếu vi phạm.
   - **Hiệu lực OTP (`EX-04`)**: Mã OTP gồm đúng 6 chữ số ngẫu nhiên (`000000` - `999999`), có thời hạn hiệu lực chính xác `5 phút` (300 giây) kể từ thời điểm tạo.
-  - **Cơ chế lưu trữ in-memory & Hỗ trợ Dev/Test**: Lưu trữ trong `OTP_STORE` tại `routes/auth.py`. Trong môi trường phát triển (dev/test), trường `otp_debug` được trả kèm trong `data` phản hồi để tạo điều kiện kiểm thử tự động và test Postman mà không cần cấu hình Mail Server bên ngoài.
+  - **Gửi Email Thực Tế Qua SMTP (Gmail)**: Hệ thống sử dụng module `app.utils.email.send_otp_email_async` để gửi email HTML có thương hiệu NEUFood trực tiếp đến hòm thư người dùng qua giao thức SMTP (hỗ trợ `smtp.gmail.com` cổng 587 STARTTLS). Nếu chưa thiết lập biến môi trường `SMTP_USER`/`SMTP_PASSWORD`, hệ thống ghi nhận log cảnh báo và trả về `otp_debug` khi `FLASK_DEBUG=1` để phục vụ phát triển nội bộ.
 - **Response (`200 OK`)**:
 ```json
 {
