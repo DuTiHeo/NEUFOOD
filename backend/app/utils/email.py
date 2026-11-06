@@ -131,7 +131,10 @@ def send_otp_email(to_email: str, otp_code: str, purpose: str = "reset_password"
     )
 
     # 1. Kiểm tra cấu hình SMTP
-    if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
+    smtp_user = settings.SMTP_USER.strip() if settings.SMTP_USER else ""
+    smtp_password = settings.SMTP_PASSWORD.replace(" ", "").strip() if settings.SMTP_PASSWORD else ""
+
+    if not smtp_user or not smtp_password:
         logger.warning(
             "[OTP_EMAIL_DEV_MODE] SMTP chưa được cấu hình (thiếu SMTP_USER/SMTP_PASSWORD trong .env). "
             f"Mã OTP gửi tới '{to_email}' ({purpose}): [{otp_code}]"
@@ -141,7 +144,8 @@ def send_otp_email(to_email: str, otp_code: str, purpose: str = "reset_password"
     # 2. Soạn thảo email đa định dạng (HTML + Text)
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    from_header = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
+    from_email = settings.SMTP_FROM_EMAIL or smtp_user
+    from_header = f"{settings.SMTP_FROM_NAME} <{from_email}>"
     msg["From"] = from_header
     msg["To"] = to_email
 
@@ -157,7 +161,7 @@ def send_otp_email(to_email: str, otp_code: str, purpose: str = "reset_password"
         if settings.SMTP_PORT == 465:
             # SSL
             with smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=12) as server:
-                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+                server.login(smtp_user, smtp_password)
                 server.send_message(msg)
         else:
             # STARTTLS (Cổng 587 phổ biến cho Gmail)
@@ -166,7 +170,7 @@ def send_otp_email(to_email: str, otp_code: str, purpose: str = "reset_password"
                 if settings.SMTP_USE_TLS:
                     server.starttls()
                     server.ehlo()
-                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+                server.login(smtp_user, smtp_password)
                 server.send_message(msg)
 
         logger.info(f"Đã gửi email OTP thành công tới {to_email}")
