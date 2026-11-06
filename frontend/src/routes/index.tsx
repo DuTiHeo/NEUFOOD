@@ -43,6 +43,7 @@ import ManagerReportsPage from '../pages/manager/ManagerReportsPage'
 import StaffDashboardPage from '../pages/staff/StaffDashboardPage'
 import StaffShiftPage from '../pages/staff/StaffShiftPage'
 import StaffMenuPage from '../pages/staff/StaffMenuPage'
+import StaffOrdersPage from '../pages/staff/StaffOrdersPage'
 import NotFoundPage from '../pages/not-found/NotFoundPage'
 
 function StaffSuite() {
@@ -72,7 +73,7 @@ export const AppRoutes: React.FC = () => (
     <Route path="/DANGKY.html" element={<AuthRedirect register />} />
     <Route path="/nhan-vien" element={<ProtectedRoute requiredRole="staff"><StaffSuite /></ProtectedRoute>}>
       <Route index element={<StaffDashboardPage />} />
-      <Route path="don" element={<ManagerOrdersPage audience="staff" />} />
+      <Route path="don" element={<StaffOrdersPage />} />
       <Route path="mon" element={<StaffMenuPage />} />
       <Route path="ca" element={<StaffShiftPage />} />
       <Route path="*" element={<Navigate to="/nhan-vien" replace />} />
