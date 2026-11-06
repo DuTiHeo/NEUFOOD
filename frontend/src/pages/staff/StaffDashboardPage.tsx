@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useOutletContext } from 'react-router-dom'
 import { ArrowRight, CheckCircle2, ClipboardList, Clock3, PackageCheck, RefreshCw, UtensilsCrossed, Wallet } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { shiftService, type CurrentShiftSummary } from '../../services/shiftService'
@@ -9,8 +9,10 @@ import { loadCanteenDishes, loadCanteenOrders } from '../manager/managerData'
 import { activeStatuses, dateTime, money, orderLabels, vietnamDate } from '../manager/managerRules'
 import { shiftLabels } from './staffRules'
 import styles from './StaffWorkspace.module.css'
+import StaffShipperDashboardPage from './StaffShipperDashboardPage'
+import type { StaffOutletContext } from '../../components/staff/staffMode'
 
-export default function StaffDashboardPage() {
+function StaffCounterDashboardPage() {
   const { user } = useAuth()
   const [orders, setOrders] = useState<Order[] | null>(null)
   const [dishes, setDishes] = useState<Dish[] | null>(null)
@@ -62,4 +64,9 @@ export default function StaffDashboardPage() {
     <section className={styles.hero}><div><h2>Đúng mã nhận, đủ tiền COD.</h2><p>Yêu cầu khách đọc 4 số cuối mã đơn trước khi thu tiền và bàn giao. Đơn giao thất bại mang về quầy vẫn giữ nguyên tiền món và phí giao hàng.</p></div><span className={styles.heroIcon}><PackageCheck size={28} /></span></section>
     <p className="manager-hint">Số COD ghi nhận theo tài khoản đã bàn giao đơn. Nếu nhiều người dùng chung tài khoản, thống nhất số liệu tiền mặt và sao kê trước khi nộp ca.</p>
   </div>
+}
+
+export default function StaffDashboardPage() {
+  const { staffMode } = useOutletContext<StaffOutletContext>()
+  return staffMode === 'shipper' ? <StaffShipperDashboardPage /> : <StaffCounterDashboardPage />
 }
