@@ -1575,7 +1575,35 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
 
 ### 5.2. Gửi & Phân Xử Khiếu Nại (`UC15`, `UC25`, `BR-23`, `BR-24`, `EX-14`, `EX-15`)
 
-#### 5.2.1. Khách Hàng Gửi Ticket Khiếu Nại (`UC15`, `BR-23`, `EX-14`, `EX-15`)
+#### 5.2.1. Khách Hàng Tải Lên Ảnh Minh Chứng Khiếu Nại (`UC15`, `EX-14`)
+- **Endpoint**: `POST /api/v1/complaints/upload-proof`
+- **Quyền hạn**: Độc quyền Khách hàng (`@role_required("customer")`)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: multipart/form-data`
+- **Request Body (Form Data)**:
+  - `file`: Tệp hình ảnh minh chứng khiếu nại (bắt buộc; hỗ trợ các định dạng: `PNG`, `JPG`, `JPEG`, `WEBP`, `GIF`; kích thước tối đa 5MB).
+- **Quy tắc kiểm tra**:
+  - Trường `file` là bắt buộc. Nếu không có file đính kèm hoặc tên file rỗng $\rightarrow$ Trả về `400 Bad Request` (`"Vui lòng chọn file ảnh trong trường 'file'"`).
+  - Kiểm tra phần mở rộng file (đuôi ảnh): Chỉ chấp nhận `png`, `jpg`, `jpeg`, `webp`, `gif` (không phân biệt hoa thường). Nếu không hợp lệ $\rightarrow$ Trả về `400 Bad Request` (`"Định dạng ảnh không được hỗ trợ (chỉ nhận PNG, JPG, JPEG, WEBP, GIF)"`).
+  - Tự động sinh tên file ngẫu nhiên an toàn qua UUID v4 hex (`<uuid>.<ext>`) và lưu trữ vào thư mục cấu hình `uploads/`. Trả về đường dẫn tĩnh nội bộ `/uploads/<filename>` để truyền vào trường `proof_image_url` khi gửi ticket khiếu nại.
+- **Response thành công (`201 Created`)**:
+```json
+{
+  "success": true,
+  "message": "Tải ảnh minh chứng thành công",
+  "data": {
+    "proof_image_url": "/uploads/a1b2c3d4e5f6.jpg",
+    "filename": "a1b2c3d4e5f6.jpg"
+  }
+}
+```
+- **Mã lỗi thường gặp**:
+  - `400 Bad Request`: Thiếu trường `file` hoặc file ảnh không đúng định dạng cho phép.
+  - `401 Unauthorized`: Chưa gửi kèm Bearer token hoặc token không hợp lệ / hết hạn.
+  - `403 Forbidden`: Người dùng không có vai trò `customer` hoặc tài khoản bị vô hiệu hóa trong cơ sở dữ liệu.
+
+#### 5.2.2. Khách Hàng Gửi Ticket Khiếu Nại (`UC15`, `BR-23`, `EX-14`, `EX-15`)
 - **Endpoint**: `POST /api/v1/complaints`
 - **Quyền hạn**: Độc quyền Khách hàng (`@role_required("customer")`)
 - **Headers**:
@@ -1587,14 +1615,14 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
   "order_id": "NF2610155566",
   "reason": "Giao nhầm món ăn",
   "description": "Em đặt Phở Trộn nhưng nhận được Bún Riêu.",
-  "proof_image_url": "https://storage.neufood.vn/complaints/proof_123.jpg"
+  "proof_image_url": "/uploads/a1b2c3d4e5f6.jpg"
 }
 ```
 - **Ràng buộc Schema (`schemas/complaint.py` - `ComplaintCreateRequest`)**:
   - `order_id`: Chuỗi từ 2 đến 50 ký tự (`min_length=2, max_length=50`).
   - `reason`: Chuỗi từ 3 đến 255 ký tự (`min_length=3, max_length=255`).
   - `description`: Chuỗi từ 5 đến 2000 ký tự (`min_length=5, max_length=2000`).
-  - `proof_image_url`: Bắt buộc cung cấp ảnh chụp bằng chứng theo định dạng URL hợp lệ (`http://` hoặc `https://`) hoặc đường dẫn upload nội bộ (`/uploads/...`), chuỗi từ 5 đến 1000 ký tự (`pattern=r"^(https?://\S+|/[a-zA-Z0-9_\-\./]+)$"`, vi phạm ném lỗi `422`).
+  - `proof_image_url`: Bắt buộc cung cấp ảnh chụp bằng chứng theo định dạng URL hợp lệ (`http://` hoặc `https://`) hoặc đường dẫn upload nội bộ (`/uploads/...`), chuỗi từ 5 đến 1000 ký tự (`pattern=r"^(https?://\S+|/[a-zA-Z0-9_\-\./]+)$"`, vi phạm ném lỗi `422`). Khuyến khích sử dụng kết quả `proof_image_url` trả về từ `POST /api/v1/complaints/upload-proof`.
 - **Quy tắc nghiệp vụ & Giao dịch (`crud/complaint.py`)**:
   - Kiểm tra tài khoản khách hàng: Role trong DB phải là `customer` và `is_active == True` (`403 Forbidden`).
   - Kiểm tra đơn hàng: Đơn phải thuộc quyền sở hữu của khách hàng (`Order.user_id == user_id`). Nếu không tìm thấy trả về `404 Not Found` (`code: NOT_FOUND`). Khóa dòng đơn (`with_for_update`) trong giao dịch.
@@ -1614,7 +1642,7 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
     "user_name": "Nguyễn Văn A",
     "reason": "Giao nhầm món ăn",
     "description": "Em đặt Phở Trộn nhưng nhận được Bún Riêu.",
-    "proof_image_url": "https://storage.neufood.vn/complaints/proof_123.jpg",
+    "proof_image_url": "/uploads/a1b2c3d4e5f6.jpg",
     "status": "DANG_XU_LY",
     "admin_response": null,
     "resolved_by": null,
@@ -1625,13 +1653,88 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
 }
 ```
 
-#### 5.2.2. Xem Danh Sách & Chi Tiết Khiếu Nại
+#### 5.2.3. Xem Danh Sách & Chi Tiết Khiếu Nại (`UC15`, `UC25`, `BR-23`, `BR-24`)
+
 - `GET /api/v1/complaints` (`@jwt_required`):
-  - Nếu `role == "admin"`: Trả về toàn bộ danh sách khiếu nại trên hệ thống, sắp xếp giảm dần theo thời gian tạo (`created_at.desc()`).
-  - Nếu `role != "admin"`: Chỉ trả về danh sách các khiếu nại do chính người dùng hiện tại gửi.
+  - **Headers**: `Authorization: Bearer <access_token>`
+  - **Query Parameters**:
+    - `order_id` (Tùy chọn / Optional): Chuỗi mã đơn hàng (ví dụ: `?order_id=NF2610155566`) để lọc danh sách khiếu nại theo mã đơn hàng tương ứng.
+  - **Phân quyền & Dữ liệu trả về**:
+    - Nếu `role == "admin"`: Trả về toàn bộ danh sách khiếu nại trên hệ thống (lọc theo `order_id` nếu có), sắp xếp giảm dần theo thời gian tạo (`created_at.desc()`).
+    - Nếu `role != "admin"`: Chỉ trả về danh sách các khiếu nại do chính người dùng hiện tại gửi (lọc theo `order_id` nếu có).
+  - **Response thành công (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Thành công",
+  "data": [
+    {
+      "id": 1,
+      "order_id": "NF2610155566",
+      "user_id": 10,
+      "user_name": "Nguyễn Văn A",
+      "reason": "Giao nhầm món ăn",
+      "description": "Em đặt Phở Trộn nhưng nhận được Bún Riêu.",
+      "proof_image_url": "/uploads/a1b2c3d4e5f6.jpg",
+      "status": "DANG_XU_LY",
+      "admin_response": null,
+      "resolved_by": null,
+      "resolved_at": null,
+      "created_at": "2026-10-19T10:30:00+00:00",
+      "updated_at": "2026-10-19T10:30:00+00:00"
+    }
+  ]
+}
+```
+
+- `GET /api/v1/complaints/by-order/<order_id>` (`@jwt_required` - `UC15`, `BR-23`):
+  - **Mục đích**: Tra cứu nhanh thông tin chi tiết khiếu nại gắn liền với một mã đơn hàng cụ thể.
+  - **Headers**: `Authorization: Bearer <access_token>`
+  - **URL Parameters**:
+    - `order_id`: Chuỗi mã đơn hàng cần tra cứu (ví dụ: `NF2610155566`).
+  - **Phân quyền & Quy tắc kiểm tra**:
+    - Khách hàng (`customer`): Chỉ xem được thông tin khiếu nại nếu đơn hàng thuộc sở hữu của chính mình.
+    - Quản trị viên (`admin`): Được phép tra cứu khiếu nại của bất kỳ đơn hàng nào trên hệ thống.
+  - **Response thành công (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Thành công",
+  "data": {
+    "id": 1,
+    "order_id": "NF2610155566",
+    "user_id": 10,
+    "user_name": "Nguyễn Văn A",
+    "reason": "Giao nhầm món ăn",
+    "description": "Em đặt Phở Trộn nhưng nhận được Bún Riêu.",
+    "proof_image_url": "/uploads/a1b2c3d4e5f6.jpg",
+    "status": "DANG_XU_LY",
+    "admin_response": null,
+    "resolved_by": null,
+    "resolved_at": null,
+    "created_at": "2026-10-19T10:30:00+00:00",
+    "updated_at": "2026-10-19T10:30:00+00:00"
+  }
+}
+```
+  - **Response khi không tìm thấy (`404 Not Found`)**:
+    - Khi đơn hàng không có khiếu nại nào, hoặc khiếu nại thuộc về khách hàng khác (bảo mật dữ liệu):
+```json
+{
+  "success": false,
+  "message": "Không tìm thấy khiếu nại cho đơn hàng này",
+  "data": null,
+  "errors": [
+    {
+      "code": "NOT_FOUND"
+    }
+  ]
+}
+```
+
 - `GET /api/v1/complaints/<int:complaint_id>` (`@jwt_required`): Xem chi tiết một khiếu nại theo ID (chặn tràn số nguyên bằng giới hạn `max=2147483647`). Khách hàng chỉ xem được của mình (trả về `404 Not Found` nếu xem của người khác hoặc ID không tồn tại để ngăn chặn dò quét ID), Admin xem được tất cả.
 
-#### 5.2.3. Admin Phân Xử Khiếu Nại (`UC25`, `BR-24`, `EX-15`)
+#### 5.2.4. Admin Phân Xử Khiếu Nại (`UC25`, `BR-24`, `EX-15`)
 - **Endpoint**: `PATCH /api/v1/complaints/<int:complaint_id>/resolve`
 - **Quyền hạn**: Độc quyền Quản trị viên (`@role_required("admin")`)
 - **Headers**:
@@ -1711,6 +1814,57 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
   - `404 Not Found`: Đơn hàng hoặc khiếu nại không tồn tại.
   - `400 Bad Request`: `EX-14` (quá hạn hoặc đơn chưa giao), `EX-15` (đã có khiếu nại), `COMPLAINT_ALREADY_RESOLVED` (đã giải quyết trước đó với `CHAP_NHAN`/`TU_CHOI`), `INVALID_ORDER_STATUS` (đơn không ở trạng thái khiếu nại).
   - `422 Unprocessable Entity`: Body sai định dạng schema (status không thuộc `CHAP_NHAN`, `TU_CHOI`, `YEU_CAU_BO_SUNG`).
+
+#### 5.2.5. Khách Hàng Bổ Sung Minh Chứng Khiếu Nại (`UC15`, `EX-15`)
+- **Endpoint**: `POST /api/v1/complaints/<int:complaint_id>/supplement`
+- **Quyền hạn**: Độc quyền Khách hàng (`@role_required("customer")`)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: application/json`
+- **Request Body**:
+```json
+{
+  "proof_image_url": "/uploads/new_proof_evidence.jpg",
+  "description": "Em gửi thêm hình ảnh tem niêm phong và hóa đơn theo yêu cầu của Quản trị viên ạ."
+}
+```
+- **Ràng buộc Schema (`ComplaintSupplementRequest`)**:
+  - `proof_image_url` (Tùy chọn): Chuỗi từ 5 đến 1000 ký tự định dạng URL hoặc upload path.
+  - `description` (Tùy chọn): Chuỗi từ 3 đến 2000 ký tự.
+  - *Ít nhất 1 trong 2 trường phải có giá trị.*
+- **Quy tắc nghiệp vụ (`crud/complaint.py`)**:
+  - Kiểm tra quyền sở hữu ticket: `complaint.user_id == user_id` (`403 Forbidden` nếu không phải người tạo khiếu nại).
+  - Kiểm tra trạng thái ticket: Bắt buộc đang ở trạng thái `YEU_CAU_BO_SUNG` (`400 Bad Request` nếu ticket đang ở trạng thái khác).
+  - Cập nhật ảnh minh chứng mới nếu có; ghép thêm nội dung giải trình bổ sung vào `description` kèm mốc thời gian `[Bổ sung HH:mm dd/MM/yyyy]`.
+  - Chuyển trạng thái ticket từ `YEU_CAU_BO_SUNG` về lại `DANG_XU_LY` để Admin tiếp tục kiểm tra và phân xử.
+- **Response thành công (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Bổ sung minh chứng khiếu nại thành công",
+  "data": {
+    "id": 6,
+    "order_id": "NF2611051520",
+    "user_id": 4,
+    "user_name": "Nguyễn Sinh Viên",
+    "reason": "Món bị nguội / không đảm bảo nhiệt độ",
+    "description": "Nội dung ban đầu...\n\n[Bổ sung 17:23 05/11/2026]: Em gửi thêm hình ảnh tem niêm phong...",
+    "proof_image_url": "/uploads/new_proof_evidence.jpg",
+    "status": "DANG_XU_LY",
+    "admin_response": "Vui lòng cung cấp thêm hình ảnh tem niêm phong và hóa đơn",
+    "resolved_by": 5,
+    "resolved_at": null,
+    "created_at": "2026-11-05T17:15:00+00:00",
+    "updated_at": "2026-11-05T17:23:45+00:00"
+  }
+}
+```
+- **Mã lỗi thường gặp**:
+  - `400 Bad Request`: `INVALID_INPUT` (không cung cấp ảnh lẫn mô tả), `INVALID_STATUS` (ticket không ở trạng thái `YEU_CAU_BO_SUNG`).
+  - `401 Unauthorized`: Chưa đăng nhập hoặc token hết hạn.
+  - `403 Forbidden`: Người gọi không sở hữu khiếu nại này.
+  - `404 Not Found`: Không tìm thấy khiếu nại tương ứng.
+
 
 
 ### 5.3. Chốt Ca & Đối Soát Tiền COD Cuối Ca (`UC20`, `BR-25`, `EX-20`)
