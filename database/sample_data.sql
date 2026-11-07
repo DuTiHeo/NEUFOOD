@@ -13,13 +13,13 @@ VALUES
 (4, 'staff02.a2@neufood.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Nguyễn Văn B', '0999999996', 'STAFF02', 'staff', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
 
 -- Khách hàng sinh viên NEU (Customer 1 - Bình thường)
-(4, '11240000@st.neu.edu.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Nguyễn Sinh Viên 01', '0999999995', '11240000', 'customer', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
+(5, '11240000@st.neu.edu.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Nguyễn Sinh Viên 01', '0999999995', '11240000', 'customer', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
 
 -- Khách hàng sinh viên NEU (Customer 2 - Đã có đơn khiếu nại)
-(5, '11240001@st.neu.edu.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Nguyễn Sinh Viên 02', '0999999994', '11240001', 'customer', 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
+(6, '11240001@st.neu.edu.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Nguyễn Sinh Viên 02', '0999999994', '11240001', 'customer', 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
 
 -- Khách hàng vi phạm Blacklist COD (Customer 3 - BR-22, EX-10)
-(6, '11240002@neu.edu.vn', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', 'Nguyễn Sinh Viên 03', '0999999993', '11240002', 'customer', 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=200&q=80', TRUE, TRUE, 'Không nghe máy nhận hàng khi shipper giao tới và không ra quầy Canteen A2 lấy sau 30 phút lưu giữ (BR-22)', NOW() - INTERVAL '2 days')
+(7, '11240002@neu.edu.vn', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', 'Nguyễn Sinh Viên 03', '0999999993', '11240002', 'customer', 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=200&q=80', TRUE, TRUE, 'Không nghe máy nhận hàng khi shipper giao tới và không ra quầy Canteen A2 lấy sau 30 phút lưu giữ (BR-22)', NOW() - INTERVAL '2 days')
 ON CONFLICT (id) DO NOTHING;
 
 SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));
