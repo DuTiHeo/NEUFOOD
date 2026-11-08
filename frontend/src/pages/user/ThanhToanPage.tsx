@@ -319,7 +319,9 @@ export default function ThanhToanPage() {
                     <div className={styles.billRow}><span>Phí giao hàng</span><span className={styles.billRowInk}>{formatPrice(shipping)}</span></div>
                   </div>
                   <div className={styles.billSep} />
-                  <p>Suất đủ điều kiện: {pricing.eligible_servings} · Giảm {pricing.discount_rate}%: {formatPrice(pricing.discount_amount)}{pricing.eligible_servings >= 5 && orderType === 'delivery' ? ' · Miễn phí giao hàng' : ''}</p>
+                  {pricing.eligible_servings >= 5 && (orderType === 'delivery' || pricing.discount_rate > 0) && (
+                    <p>{pricing.discount_rate > 0 ? `Đơn hàng được giảm giá ${pricing.discount_rate}%` : 'Đơn hàng được freeship'}{pricing.discount_rate > 0 && orderType === 'delivery' ? ' + freeship' : ''}</p>
+                  )}
                   {pricing.deposit_amount > 0 && <><p><em>{DEPOSIT_NOTICE}</em></p><p>Cọc mô phỏng 50%: {formatPrice(pricing.deposit_amount)} · Còn {formatPrice(pricing.cod_due)} thanh toán COD khi nhận.</p></>}
                   <div className={styles.billSum}><div><span className={styles.billSumL}>Tổng thanh toán</span><p className={styles.billVat}>COD, thanh toán khi bàn giao</p></div><span className={styles.billSumN}>{formatPrice(total)}</span></div>
                   {overDishQuantityLimit ? <p className={styles.billErr} role="alert">Mỗi món tối đa {maxDishQuantity} phần theo cấu hình hiện tại.</p> : null}
