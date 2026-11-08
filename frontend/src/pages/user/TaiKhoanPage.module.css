@@ -1,10 +1,10 @@
 .acct {
-  min-height: calc(100vh - 4rem);
+  min-height: auto;
   background-color: var(--color-page);
   padding-left: 1.25rem;
   padding-right: 1.25rem;
-  padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
-  padding-top: 7rem;
+  padding-bottom: clamp(2rem, 4vw, 3rem);
+  padding-top: clamp(5.5rem, 8vw, 6.5rem);
   font-family: var(--font-body);
 }
 
@@ -325,12 +325,7 @@
   color: #16803c;
 }
 
-.signOut {
-  margin: 0.75rem 0 0;
-  border: 1px solid var(--color-edge);
-  background: var(--color-panel);
-  color: var(--color-ink);
-}
+/* removed old signOut rule */
 
 .menuLinks {
   width: 100%;
@@ -405,12 +400,15 @@
 
 .adminSection {
   width: 100%;
-  padding-top: 1rem;
+  padding-top: 1.25rem;
   border-top: 1px dashed var(--color-edge);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
 }
 
-.adminLink,
-.adminLinkMuted {
+.adminLink {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -421,25 +419,36 @@
   font-weight: 700;
   text-decoration: none;
   transition: all 0.15s ease;
-}
-
-.adminLink {
   background-color: var(--color-brand);
   color: #FFFFFF;
+  width: 100%;
+  max-width: 22rem;
 }
 
 .adminLink:hover {
   background-color: var(--color-brand-2);
 }
 
-.adminLinkMuted {
-  border: 1px solid var(--color-edge);
-  background-color: var(--color-panel);
-  color: var(--color-muted);
+.signOut {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0;
+  width: 100%;
+  max-width: 22rem;
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #dc2626;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.adminLinkMuted:hover {
-  background-color: var(--color-soft);
-  color: var(--color-brand);
-  border-color: var(--color-brand);
+.signOut:hover {
+  background: #fef2f2;
+  border-color: #f87171;
 }

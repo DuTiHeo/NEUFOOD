@@ -97,11 +97,7 @@ textarea {
 }
 
 body.page-background {
-    background-image: url('/background.jpg');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-attachment: fixed;
+    background-color: var(--color-page);
 }
 
 
@@ -294,7 +290,7 @@ body.page-background {
 /* Shared small-screen safeguards for customer, staff, manager, and admin pages. */
 @media (max-width: 767px) {
     body.page-background {
-        background-attachment: scroll;
+        background-color: var(--color-page);
     }
 
     body.has-bottom-nav {

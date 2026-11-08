@@ -48,13 +48,6 @@ export const MENU_CATEGORIES = [
     "description": "Các món ăn chính no bụng cho bữa trưa và bữa tối",
     "display_order": 7,
     "is_active": true
-  },
-  {
-    "id": "banh-kem",
-    "label": "Bánh Kem",
-    "description": "Bánh ngọt, bánh sinh nhật và bánh kem các loại",
-    "display_order": 8,
-    "is_active": true
   }
 ]
 

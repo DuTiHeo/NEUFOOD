@@ -65,12 +65,23 @@ function StaffAliasRedirect() {
   return <Navigate to={`${target}${search}`} replace />
 }
 
+function ExternalRandomRedirect() {
+  React.useEffect(() => {
+    window.location.replace('/RANDOM.html')
+  }, [])
+  return null
+}
+
 export const AppRoutes: React.FC = () => (
   <Routes>
     <Route path="/dang-nhap" element={<AuthRedirect />} />
     <Route path="/dang-ky" element={<AuthRedirect register />} />
     <Route path="/DANGNHAP.html" element={<AuthRedirect />} />
     <Route path="/DANGKY.html" element={<AuthRedirect register />} />
+    <Route path="/RANDOM.html" element={<ExternalRandomRedirect />} />
+    <Route path="/game" element={<ExternalRandomRedirect />} />
+    <Route path="/random" element={<ExternalRandomRedirect />} />
+    <Route path="/vong-quay" element={<ExternalRandomRedirect />} />
     <Route path="/nhan-vien" element={<ProtectedRoute requiredRole="staff"><StaffSuite /></ProtectedRoute>}>
       <Route index element={<StaffDashboardPage />} />
       <Route path="don" element={<StaffOrdersPage />} />

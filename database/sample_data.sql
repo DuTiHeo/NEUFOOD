@@ -49,8 +49,7 @@ VALUES
 ('do-uong', 'Đồ Uống', 'Trà sữa, trà trái cây tươi, cà phê năng động', 4, TRUE),
 ('an-vat', 'Ăn Vặt', 'Nem chua rán, khoai tây lắc, xúc xích giòn rụm', 5, TRUE),
 ('trang-mieng', 'Tráng Miệng', 'Chè, sữa chua, caramen mát lạnh sau bữa ăn', 6, TRUE),
-('mon-chinh', 'Món Chính', 'Các món ăn chính no bụng cho bữa trưa và bữa tối', 7, TRUE),
-('banh-kem', 'Bánh Kem', 'Bánh ngọt, bánh sinh nhật và bánh kem các loại', 8, TRUE)
+('mon-chinh', 'Món Chính', 'Các món ăn chính no bụng cho bữa trưa và bữa tối', 7, TRUE)
 ON CONFLICT (id) DO NOTHING;
 
 -- 4. DISHES (THỰC ĐƠN CANTEEN A2 - CƠ CHẾ GIÁ GỐC A + 5.000Đ PHỤ PHÍ THEO BR-12)

@@ -391,18 +391,14 @@ export default function TaiKhoanPage() {
           </div>
 
           <div className={styles.adminSection}>
-            {isAdmin ? (
+            {isAdmin && (
               <Link className={styles.adminLink} to="/quan-ly">
                 <span className="material-symbols-outlined">dashboard</span>
                 Vào trang quản trị NEUFood
               </Link>
-            ) : (
-              <Link className={styles.adminLinkMuted} to="/quan-ly/dang-nhap">
-                <span className="material-symbols-outlined">admin_panel_settings</span>
-                Đăng nhập quản trị viên
-              </Link>
             )}
             <button type="button" className={styles.signOut} onClick={() => void signOut()}>
+              <span className="material-symbols-outlined" style={{ fontSize: '1.25rem' }}>logout</span>
               Đăng xuất
             </button>
           </div>
