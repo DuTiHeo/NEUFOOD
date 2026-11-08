@@ -30,9 +30,12 @@ export interface ChatCartItem {
   qty: number;
 }
 
+export interface ChatRecipient { recipient_name: string; recipient_phone: string }
+
 export type ChatAction =
-  | { type: 'ORDER_CONFIRMATION'; draft_id: string; revision: number; expires_at: string; summary: Record<string, unknown> }
-  | { type: 'ORDER_COLLECTING' | 'ORDER_CANCELLED' }
+  | { type: 'ORDER_CONFIRMATION'; draft_id: string; revision: number; expires_at: string; summary: Record<string, unknown>; recipient?: ChatRecipient }
+  | { type: 'ORDER_COLLECTING'; draft_id?: string; revision?: number; recipient?: ChatRecipient }
+  | { type: 'ORDER_CANCELLED' }
   | { type: 'ORDER_CREATED'; order: ChatOrderAction }
   | { type: 'ORDER_FAILED'; error: string; code?: string }
   | { type: 'ADD_TO_CART'; items: ChatCartItem[] }
@@ -63,6 +66,17 @@ const CHAT_SESSION_STORAGE_KEY = 'neufood_chat_session_id';
 const CHAT_MESSAGES_STORAGE_KEY = 'neufood_chat_messages';
 let chatOwner = 'guest';
 const storageKey = (key: string) => `${key}:${chatOwner}`;
+
+export function pendingOrder(messages: ChatMessage[]) {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const action = messages[i].action;
+    if (!action) continue;
+    if (action.type === 'ORDER_CONFIRMATION') return action;
+    if (action.type === 'ORDER_COLLECTING') return action.draft_id && action.revision ? action : null;
+    if (['ORDER_CREATED', 'ORDER_CANCELLED', 'ORDER_FAILED'].includes(action.type)) return null;
+  }
+  return null;
+}
 
 export function pendingConfirmation(messages: ChatMessage[]) {
   for (let i = messages.length - 1; i >= 0; i--) {
@@ -155,9 +169,9 @@ export const chatService = {
     }
   },
 
-  async sendMessage(message: string, history: ChatMessage[], decision?: 'confirm' | 'cancel'): Promise<ChatReplyData> {
+  async sendMessage(message: string, history: ChatMessage[], decision?: 'confirm' | 'cancel', recipientUpdate?: ChatRecipient): Promise<ChatReplyData> {
     const requestOwner = chatOwner;
-    const pending = pendingConfirmation(history);
+    const pending = pendingOrder(history);
     const sessionId = this.getSessionId();
     try {
       const res = await api.post<ApiResponse<ChatReplyData>>(
@@ -169,6 +183,7 @@ export const chatService = {
           draft_id: pending?.draft_id,
           revision: pending?.revision,
           decision,
+          recipient_update: recipientUpdate,
         },
         { timeout: 20000 }
       );

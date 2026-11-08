@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useCart } from '../../contexts/CartContext'
 import { useAuth } from '../../hooks/useAuth'
-import { chatService, ChatMessage, pendingConfirmation } from '../../services/chatService'
+import { chatService, ChatMessage, ChatRecipient, pendingConfirmation, pendingOrder } from '../../services/chatService'
 import styles from './ChatbotWidget.module.css'
 import { formatChatLine } from '../../utils/chatFormatting'
 
@@ -58,6 +58,8 @@ function ChatbotSession({ userId }: { userId?: number }) {
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>(() => chatService.loadStoredMessages())
   const [loading, setLoading] = useState(false)
+  const [editingRecipient, setEditingRecipient] = useState(false)
+  const [recipient, setRecipient] = useState<ChatRecipient>({ recipient_name: '', recipient_phone: '' })
   const [cooldownSec, setCooldownSec] = useState(0)
   const listRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -82,6 +84,7 @@ function ChatbotSession({ userId }: { userId?: number }) {
   }, [messages])
 
   const pending = pendingConfirmation(messages)
+  const draft = pendingOrder(messages)
 
   useEffect(() => {
     if (!open || !listRef.current) return
@@ -103,7 +106,7 @@ function ChatbotSession({ userId }: { userId?: number }) {
   }, [cooldownSec])
 
   const sendMessage = useCallback(
-    async (overrideText?: string, decision?: 'confirm' | 'cancel') => {
+    async (overrideText?: string, decision?: 'confirm' | 'cancel', recipientUpdate?: ChatRecipient) => {
       const text = (typeof overrideText === 'string' ? overrideText : input).trim()
       if (!text || inFlight.current || loading || cooldownSec > 0) return
       inFlight.current = true
@@ -116,9 +119,10 @@ function ChatbotSession({ userId }: { userId?: number }) {
       setLoading(true)
 
       try {
-        const data = await chatService.sendMessage(text, historySnapshot, decision)
+        const data = await chatService.sendMessage(text, historySnapshot, decision, recipientUpdate)
         if (ownerRef.current !== requestOwner) return
         const reply = data?.reply || 'Không có phản hồi từ trợ lý.'
+        setEditingRecipient(false)
 
         if (data?.action?.type === 'ADD_TO_CART' && Array.isArray(data.action.items)) {
           data.action.items.forEach((item) => {
@@ -166,6 +170,7 @@ function ChatbotSession({ userId }: { userId?: number }) {
     const requestOwner = owner
     inFlight.current = true
     setMessages([])
+    setEditingRecipient(false)
     setInput('')
     setCooldownSec(0)
     setLoading(true)
@@ -280,10 +285,17 @@ function ChatbotSession({ userId }: { userId?: number }) {
                 {m.action?.type === 'ORDER_CONFIRMATION' && pending?.draft_id === m.action.draft_id && pending?.revision === m.action.revision && (
                   <div className={styles.actionCard} role="group" aria-label="Xác nhận đơn hàng">
                     <button type="button" className={styles.actionBtn} disabled={loading || cooldownSec > 0 || Date.parse(m.action.expires_at) <= Date.now()} onClick={() => sendMessage('Đồng ý đặt đơn', 'confirm')}>Xác nhận đặt đơn</button>
-                    <button type="button" className={styles.actionBtn} disabled={loading} onClick={() => { setInput('Tôi muốn sửa '); inputRef.current?.focus() }}>Sửa thông tin</button>
+                    <button type="button" className={styles.actionBtn} disabled={loading} onClick={() => { setInput('Tôi muốn sửa món hoặc địa chỉ '); inputRef.current?.focus() }}>Sửa món / địa chỉ</button>
                     <button type="button" className={styles.actionBtn} disabled={loading} onClick={() => sendMessage('Bỏ đơn nháp', 'cancel')}>Bỏ đơn nháp</button>
                     <p className={styles.hint}>Đơn chỉ được tạo sau khi bạn xác nhận. Bạn có thể nhắn “đồng ý đặt đơn”.</p>
                   </div>
+                )}
+
+                {(m.action?.type === 'ORDER_CONFIRMATION' || m.action?.type === 'ORDER_COLLECTING') && m.action.draft_id && draft?.draft_id === m.action.draft_id && draft?.revision === m.action.revision && (
+                  <button type="button" className={styles.actionBtn} disabled={loading} onClick={() => {
+                    setRecipient(m.action && 'recipient' in m.action && m.action.recipient ? m.action.recipient : { recipient_name: '', recipient_phone: '' })
+                    setEditingRecipient(true)
+                  }}>Sửa thông tin đặt hàng</button>
                 )}
 
                 {m.action?.type === 'ORDER_CREATED' && m.action.order && (
@@ -373,6 +385,22 @@ function ChatbotSession({ userId }: { userId?: number }) {
             )}
           </div>
 
+          {editingRecipient && draft && (
+            <form className={styles.actionCard} onSubmit={(event) => {
+              event.preventDefault()
+              sendMessage('Cập nhật người nhận cho đơn này', undefined, recipient)
+            }}>
+              <p>Thông tin sửa chỉ dùng cho đơn này, không thay hồ sơ hoặc thông tin mặc định.</p>
+              <label>Họ tên người nhận
+                <input aria-label="Họ tên người nhận" className={styles.input} required minLength={2} maxLength={150} value={recipient.recipient_name} onChange={e => setRecipient({ ...recipient, recipient_name: e.target.value })} disabled={loading} />
+              </label>
+              <label>Số điện thoại người nhận
+                <input aria-label="Số điện thoại người nhận" className={styles.input} type="tel" required pattern="0[35789][0-9]{8}" value={recipient.recipient_phone} onChange={e => setRecipient({ ...recipient, recipient_phone: e.target.value })} disabled={loading} />
+              </label>
+              <button type="submit" className={styles.actionBtn} disabled={loading}>Lưu người nhận cho đơn này</button>
+              <button type="button" className={styles.actionBtn} disabled={loading} onClick={() => setEditingRecipient(false)}>Đóng chỉnh sửa</button>
+            </form>
+          )}
           <div className={styles.compose}>
             <input
               ref={inputRef}
