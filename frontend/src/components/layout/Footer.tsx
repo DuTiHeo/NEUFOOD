@@ -97,6 +97,7 @@ export default function Footer() {
               Câu chuyện của chúng tôi
             </Link>
             <span className={styles.dot}>•</span>
+            <Link to="/bai-viet" className={styles.footerLink}>Tin tức - sự kiện</Link>
             <Link to="/recruit" className={styles.footerLink}>
               Tuyển dụng nhân sự
             </Link>

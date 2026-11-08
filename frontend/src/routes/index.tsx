@@ -20,7 +20,7 @@ import ThanhToanPage from '../pages/user/ThanhToanPage'
 import DonHangPage from '../pages/user/DonHangPage'
 import LichSuDonHangPage from '../pages/user/LichSuDonHangPage'
 import TaiKhoanPage from '../pages/user/TaiKhoanPage'
-import StoryPage from '../pages/user/StoryPage'
+import ArticlesPage from '../pages/user/ArticlesPage'
 import RecruitPage from '../pages/user/RecruitPage'
 
 // Auth Pages
@@ -41,6 +41,7 @@ import ManagerShiftsPage from '../pages/manager/ManagerShiftsPage'
 import ManagerReviewsPage from '../pages/manager/ManagerReviewsPage'
 import ManagerReportsPage from '../pages/manager/ManagerReportsPage'
 import ManagerPersonnelPage from '../pages/manager/ManagerPersonnelPage'
+const ManagerArticlesPage = React.lazy(() => import('../pages/manager/ManagerArticlesPage'))
 import StaffDashboardPage from '../pages/staff/StaffDashboardPage'
 import StaffShiftPage from '../pages/staff/StaffShiftPage'
 import StaffMenuPage from '../pages/staff/StaffMenuPage'
@@ -94,6 +95,7 @@ export const AppRoutes: React.FC = () => (
       <Route path="ca" element={<ManagerShiftsPage />} />
       <Route path="danh-gia" element={<ManagerReviewsPage />} />
       <Route path="nhan-su" element={<ManagerPersonnelPage />} />
+      <Route path="bai-viet" element={<React.Suspense fallback={<p>Đang mở quản lý bài viết…</p>}><ManagerArticlesPage /></React.Suspense>} />
       <Route path="*" element={<Navigate to="/quan-ly" replace />} />
     </Route>
     <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><SystemAdminLayout /></ProtectedRoute>}>
@@ -102,6 +104,7 @@ export const AppRoutes: React.FC = () => (
       <Route path="tai-khoan" element={<AdminSystemPage section="users" />} />
       <Route path="dia-diem" element={<AdminSystemPage section="locations" />} />
       <Route path="cau-hinh" element={<AdminSystemPage section="settings" />} />
+      <Route path="bai-viet" element={<React.Suspense fallback={<p>Đang mở giám sát bài viết…</p>}><ManagerArticlesPage admin /></React.Suspense>} />
       <Route path="khieu-nai" element={<AdminSystemPage section="complaints" />} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Route>
@@ -111,7 +114,9 @@ export const AppRoutes: React.FC = () => (
       <Route index element={<HomePage />} />
       <Route path="khach-hang" element={<HomePage />} />
       <Route path="menu" element={<MenuPage />} />
-      <Route path="story" element={<StoryPage />} />
+      <Route path="story" element={<ArticlesPage story />} />
+      <Route path="bai-viet" element={<ArticlesPage />} />
+      <Route path="bai-viet/:id" element={<ArticlesPage />} />
       <Route path="recruit" element={<RecruitPage />} />
       <Route path="mon/:id" element={<ChiTietMonPage />} />
       <Route path="gio-hang" element={<GioHangPage />} />

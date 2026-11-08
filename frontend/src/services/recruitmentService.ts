@@ -30,6 +30,7 @@ export const scheduleLabel = (slot: string) => {
   const [day, shift] = slot.split('-')
   return `${({ mon: 'Thứ Hai', tue: 'Thứ Ba', wed: 'Thứ Tư', thu: 'Thứ Năm', fri: 'Thứ Sáu', sat: 'Thứ Bảy' } as Record<string,string>)[day] || day} – ${shift === 'morning' ? 'Sáng 07:00–12:00' : 'Chiều 12:00–19:00'}`
 }
+export const isFulltime = (position: string) => ['chef', 'kitchen_assistant'].includes(position)
 export const positionLabel = (value: string) => employeePositions.find(position => position.value === value)?.name || value
 const base = '/recruitment'
 export const recruitmentService = {

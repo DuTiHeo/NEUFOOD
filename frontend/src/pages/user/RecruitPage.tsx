@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Footer from '../../components/layout/Footer'
 import { recruitmentService, recruitmentPositions as POSITIONS } from '../../services/recruitmentService'
 import styles from './Recruit.module.css'
+import RichDocument from '../../components/articles/RichDocument'
+import { articleService, type PublicArticle, type RecruitmentSettings } from '../../services/articleService'
 
 interface FormData {
   fullName: string
@@ -39,6 +41,17 @@ export default function RecruitPage() {
   const [submittedData, setSubmittedData] = useState<FormData | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
   const [receiptId, setReceiptId] = useState('')
+  const [article, setArticle] = useState<PublicArticle | null>(null)
+  const [settings, setSettings] = useState<RecruitmentSettings | null>(null)
+  const [loadingPosting, setLoadingPosting] = useState(true)
+  const [postingError, setPostingError] = useState('')
+  const [postingRevision, setPostingRevision] = useState(0)
+  useEffect(() => {
+    let active = true; setLoadingPosting(true); setPostingError('')
+    Promise.all([articleService.featured('recruitment'), articleService.settings()]).then(([post, config]) => { if (active) { setArticle(post); setSettings(config) } }).catch(() => { if (active) setPostingError('Không tải được thông tin tuyển dụng mới nhất. Vui lòng thử lại.') }).finally(() => { if (active) setLoadingPosting(false) })
+    return () => { active = false }
+  }, [postingRevision])
+  const isOpen = (position: string) => settings?.positions.some(item => item.position === position && item.is_open) || false
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
@@ -74,6 +87,9 @@ export default function RecruitPage() {
       return
     }
 
+    if (loadingPosting || postingError) { setErrorMsg('Vui lòng tải lại thông tin tuyển dụng trước khi gửi.'); return }
+    if (formData.role && !isOpen(formData.role)) { setErrorMsg('Vị trí này đã ngừng nhận hồ sơ. Vui lòng chọn vị trí khác.'); return }
+
     if (!formData.role) {
       setErrorMsg('Vui lòng chọn vị trí bạn muốn ứng tuyển.')
       return
@@ -95,6 +111,7 @@ export default function RecruitPage() {
       setReceiptId(receipt.id)
       setSubmittedData(application)
     } catch (error: any) {
+      if (error?.response?.data?.errors?.some((item: any) => item.code === 'POSITION_CLOSED')) setPostingRevision(value => value + 1)
       setErrorMsg(error?.response?.data?.message || 'Không gửi được hồ sơ. Thông tin bạn nhập vẫn được giữ; vui lòng thử lại.')
     } finally { setSubmitting(false) }
   }
@@ -126,22 +143,21 @@ export default function RecruitPage() {
           </nav>
 
           <header className={styles.header}>
-            <h1 className={styles.title}>NEU FOOD ĐANG TUYỂN DỤNG NHÂN SỰ PARTIME</h1>
+            <h1 className={styles.title}>{article?.content.title || 'Tuyển dụng NEUFood'}</h1>
             <p className={styles.subtitle}>
-              Cơ hội việc làm linh hoạt theo lịch học, có thêm thu nhập và môi trường năng động ngay tại trường học.
+              {article?.content.summary || 'Chọn vị trí và lịch đăng ký phù hợp với bạn.'}
             </p>
           </header>
 
           <article className={styles.article} aria-label="Thông tin tuyển dụng NEUFood">
-            <section>
-              <p>Hiện nay, do nhu cầu đơn hàng tăng cao, NEUFOOD cần tuyển thêm nhân sự để hỗ trợ đóng gói, điều phối, giao món và chăm sóc khách hàng, đồng thời đồng hành trong các hoạt động truyền thông và sự kiện. Đây là cơ hội để các bạn sinh viên vừa có thêm thu nhập, vừa tích lũy kinh nghiệm và rèn luyện kỹ năng làm việc ngay trong khuôn viên trường.</p>
-              <p>Chúng mình tìm kiếm những sinh viên NEU chủ động, có trách nhiệm, đúng giờ và thân thiện để cùng mang những bữa ăn chu đáo đến cộng đồng sinh viên. Hãy gia nhập ngay đội ngũ NEUFOOD của chúng tôi!</p>
-            </section>
+            {loadingPosting && <p role="status">Đang tải thông tin tuyển dụng…</p>}
+            {postingError && <div role="alert"><p>{postingError}</p><button type="button" onClick={() => setPostingRevision(value => value + 1)}>Thử lại</button></div>}
+            {article && <section>{article.content.cover_url && <img src={article.content.cover_url} alt="" style={{ maxWidth: '100%' }} />}<RichDocument document={article.content.body} /></section>}
             <section>
               <h2 className={styles.positionsTitle}>4 vị trí, cùng một hành trình</h2>
               <div className={styles.positionGrid}>{POSITIONS.map(position => <section key={position.value} className={styles.positionCard}>
-                <h3>{position.name}</h3><p>{position.description}</p><strong>25.000đ/giờ</strong>
-                <a href="#recruit-form" className={styles.positionLink} onClick={() => { setFormData(prev => ({ ...prev, role: position.value })); setSubmittedData(null) }}>Chọn vị trí này</a>
+                <h3>{position.name}</h3><p>{article?.content.recruitment_roles.find(block => block.position === position.value)?.description || position.description}</p><strong>25.000đ/giờ</strong>
+                {isOpen(position.value) ? <a href="#recruit-form" className={styles.positionLink} onClick={() => { setFormData(prev => ({ ...prev, role: position.value })); setSubmittedData(null) }}>Chọn vị trí này</a> : <button className={styles.positionLink} type="button" disabled>Đã ngừng nhận hồ sơ</button>}
               </section>)}</div>
             </section>
             <section>
@@ -208,7 +224,7 @@ export default function RecruitPage() {
                   </div>
                 ) : null}
 
-                <fieldset className={styles.formFields} disabled={submitting}>
+                <fieldset className={styles.formFields} disabled={submitting || loadingPosting || Boolean(postingError)}>
                 <div className={styles.grid2}>
                   <div className={styles.field}>
                     <label htmlFor="fullName" className={styles.label}>
@@ -299,7 +315,7 @@ export default function RecruitPage() {
                     required
                   >
                     <option value="">-- Chọn vị trí ứng tuyển --</option>
-                    {POSITIONS.map(position => <option key={position.value} value={position.value}>{position.name}</option>)}
+                    {POSITIONS.map(position => <option key={position.value} value={position.value} disabled={!isOpen(position.value)}>{position.name}{!isOpen(position.value) ? ' (Đã ngừng nhận hồ sơ)' : ''}</option>)}
                   </select>
                 </div>
 

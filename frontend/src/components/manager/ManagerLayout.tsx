@@ -11,6 +11,7 @@ const links = [
   { to: '/quan-ly/mon', label: 'Quản lý thực đơn', Icon: UtensilsCrossed },
   { to: '/quan-ly/bao-cao', label: 'Báo cáo doanh thu', Icon: BarChart3 },
   { to: '/quan-ly/ca', label: 'Đối soát ca COD', Icon: Wallet },
+  { to: '/quan-ly/bai-viet', label: 'Quản lý bài viết', Icon: ClipboardList },
   { to: '/quan-ly/nhan-su', label: 'Quản lý nhân sự', Icon: Users },
   { to: '/quan-ly/danh-gia', label: 'Đánh giá món ăn', Icon: Star },
 ]
