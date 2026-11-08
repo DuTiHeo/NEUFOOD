@@ -5,6 +5,7 @@ import { useDishes } from '../../contexts/DishesContext'
 import { reviewService } from '../../services/reviewService'
 import { DishReview } from '../../types/dish'
 import { getDishImageUrl, handleDishImageError } from '../../utils/dishImages'
+import { defaultPortions, resolvePortions } from '../../utils/portions'
 import Footer from '../../components/layout/Footer'
 import styles from './ChiTietMonPage.module.css'
 
@@ -30,7 +31,11 @@ export default function ChiTietMonPage() {
   const { dishes, getById, isLoading, error, refresh } = useDishes()
   const dish = getById(id)
   const { add, getQty, maxDishQuantity } = useCart()
+  const [selections, setSelections] = useState<any[]>([])
+  const [note, setNote] = useState('')
   const [qty, setQty] = useState(1)
+  const portionConfig = JSON.stringify(dish?.portion_groups || [])
+  useEffect(() => { setSelections(defaultPortions(JSON.parse(portionConfig))); setNote('') }, [id, portionConfig])
   const [added, setAdded] = useState(false)
   const [reviews, setReviews] = useState<DishReview[]>([])
   const [reviewsLoading, setReviewsLoading] = useState(false)
@@ -70,14 +75,19 @@ export default function ChiTietMonPage() {
   const reviewCount = Number(dish.reviewCount ?? dish.review_count ?? 0)
   const rating = reviewCount > 0 ? Number(dish.rating || 0) : 0
   const visibleReviews = reviewsExpanded ? reviews : reviews.slice(0, 4)
-  const canAdd = dish.is_active !== false && dish.is_available !== false
+  const groups = dish.portion_groups || []
+  let extraPrice = 0, configError = ''
+  try { extraPrice = resolvePortions(groups, selections).extraPrice } catch { configError = 'Vui lòng chọn lại phần thêm.' }
+  const unitPrice = dish.price + extraPrice
+  const selectionsReady = selections.length === groups.length && groups.every((group: any) => selections.some(p => p.slot_id === group.id && group.choices.some((choice: any) => choice.id === p.choice_id)))
+  const canAdd = dish.is_active !== false && dish.is_available !== false && !configError && selectionsReady
   const reachedCartLimit = getQty(dish.id) >= maxDishQuantity
 
   function handleAddToCart() {
     if (!canAdd) return
     const remaining = Math.max(0, maxDishQuantity - getQty(dish.id))
     const quantityToAdd = Math.min(qty, remaining)
-    if (quantityToAdd > 0 && add(dish.id, quantityToAdd)) {
+    if (quantityToAdd > 0 && add(dish.id, quantityToAdd, { portions: selections, note })) {
       setQty(quantityToAdd)
       setAdded(true)
       window.setTimeout(() => setAdded(false), 1500)
@@ -105,10 +115,32 @@ export default function ChiTietMonPage() {
             <div className={styles.detailInfo}>
               <div>
                 <h1 className={styles.detailName}>{dish.name}</h1>
-                <div className={styles.detailPrices}><span className={styles.detailPrice}>{formatPrice(dish.price)}</span></div>
+                <div className={styles.detailPrices}><span className={styles.detailPrice}>{formatPrice(unitPrice)}</span></div>
                 {dish.is_active === false ? <p role="status">Món đã ngừng kinh doanh.</p> : dish.is_available === false ? <p role="status">Món hiện đã hết.</p> : null}
               </div>
               <div className={styles.detailBlock}><h3 className={styles.detailH}>Mô tả món ăn</h3><p className={styles.detailQuote}>{dish.description || dish.shortDescription || 'Chưa có mô tả cho món ăn này.'}</p></div>
+              {groups.length > 0 && <section className={styles.portions} aria-label="Thêm khẩu phần ăn">
+                <h3>Thêm khẩu phần ăn</h3>
+                <p>Chọn tối đa một phần mỗi loại cho từng suất. Giá tính cho mỗi món/combo.</p>
+                {groups.map((group: any) => {
+                  const selection = selections.find(p => p.slot_id === group.id)
+                  const choice = group.choices.find((c: any) => c.id === selection?.choice_id) || group.choices[0]
+                  return <fieldset key={group.id} disabled={!canAdd || group.is_available === false}>
+                    <legend>{group.label}</legend>
+                    {group.choices.length > 1 ? <label>Món chính
+                      <select aria-label={`${group.label} - Món chính`} value={choice.id} onChange={e => setSelections(prev => prev.map(p => p.slot_id === group.id ? { ...p, choice_id: e.target.value, addon_ids: [] } : p))}>
+                        {group.choices.map((c: any) => <option key={c.id} value={c.id} disabled={c.is_available === false}>{c.name}</option>)}
+                      </select></label> : <p>{choice.name}</p>}
+                    <div className={styles.portionButtons}>{choice.addons.map((addon: any) => {
+                      const selected = selection?.addon_ids.includes(addon.id) || false
+                      return <button key={addon.id} type="button" aria-pressed={selected} disabled={addon.is_available === false} onClick={() => setSelections(prev => prev.map(p => p.slot_id === group.id ? { ...p, addon_ids: selected ? p.addon_ids.filter((a: string) => a !== addon.id) : [...p.addon_ids, addon.id] } : p))}>+ {addon.name} ({addon.price / 1000}k){addon.is_available === false ? ' — Hết' : ''}</button>
+                    })}</div>
+                  </fieldset>
+                })}
+                <label>Ghi chú món (không bắt buộc)<input value={note} maxLength={1000} onChange={e => setNote(e.target.value)} placeholder="Ví dụ: không ớt" /></label>
+                <p aria-live="polite">Giá mỗi món/combo: {formatPrice(unitPrice)} · {qty} phần: {formatPrice(unitPrice * qty)}</p>
+                {configError && <p role="alert">{configError}</p>}
+              </section>}
               <div className={styles.detailBuy}>
                 <div className={styles.qty}>
                   <button type="button" className={styles.qtyBtn} onClick={() => setQty((value) => Math.max(1, value - 1))} disabled={qty <= 1} aria-label="Giảm số lượng"><span className="material-symbols-outlined">remove</span></button>

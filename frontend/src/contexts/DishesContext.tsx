@@ -51,7 +51,7 @@ export function DishesProvider({ children }: { children: React.ReactNode }) {
       console.warn('Backend API offline or unreachable, falling back to local dishes dataset:', loadError);
       setCategories(fallbackCategories as unknown as Category[]);
       setDishes(fallbackDishes as unknown as Dish[]);
-      setError('');
+      setError('Không tải được thực đơn mới nhất. Vui lòng thử lại trước khi đặt món.');
     } finally {
       setIsLoading(false);
     }

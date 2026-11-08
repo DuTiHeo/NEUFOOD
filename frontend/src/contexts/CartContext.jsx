@@ -1,140 +1,61 @@
 import { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react'
 import { useDishes } from './DishesContext'
+import { addCartLine, cartQuantity, restoreCart, resolveCartLine } from '../utils/cartLines'
 
-const STORAGE_KEY = 'neufood-cart-v1'
+const STORAGE_KEY = 'neufood-cart-v2'
 const PENDING_KEY = 'neufood-cart-pending-v1'
-
 const CartContext = createContext(null)
 
 export function CartProvider({ children }) {
   const { dishes, isLoading: menuLoading, error: menuError, maxDishQuantity } = useDishes()
-  const [quantities, setQuantities] = useState(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed
-      }
-    } catch {
-      /* ignore */
-    }
-    return {}
-  })
-
+  const [rows, setRows] = useState(() => restoreCart(localStorage.getItem(STORAGE_KEY), localStorage.getItem('neufood-cart-v1')))
+  useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(rows)); localStorage.removeItem('neufood-cart-v1') }, [rows])
   useEffect(() => {
-    // Merge any pending additions coming from static pages (e.g. RANDOM.html)
     try {
-      const pendingRaw = sessionStorage.getItem(PENDING_KEY)
-      if (pendingRaw) {
-        const pending = JSON.parse(pendingRaw)
-        if (pending && typeof pending === 'object') {
-          const adds = pending.adds
-          if (adds && typeof adds === 'object') {
-            setQuantities((prev) => {
-              const next = { ...(prev && typeof prev === 'object' ? prev : {}) }
-              for (const [id, qty] of Object.entries(adds)) {
-                const delta = Math.max(0, Math.floor(Number(qty)))
-                if (!delta) continue
-                next[id] = Math.max(0, (next[id] ?? 0) + delta)
-              }
-              return next
-            })
-          }
+      const pending = JSON.parse(sessionStorage.getItem(PENDING_KEY) || '{}')
+      if (pending.adds) setRows(prev => {
+        let next = prev
+        for (const [id, qty] of Object.entries(pending.adds)) {
+          const dish = dishes.find(d => d.id === id)
+          if (dish) next = addCartLine(next, dish, Math.min(maxDishQuantity - cartQuantity(next, id), Math.max(0, Math.floor(Number(qty)))), maxDishQuantity)
         }
-        sessionStorage.removeItem(PENDING_KEY)
-      }
-    } catch {
-      /* ignore */
-    }
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(quantities))
-  }, [quantities])
-
-  const getDish = useCallback((id) => dishes.find((d) => d.id === id), [dishes])
-
-  const add = useCallback((id, delta = 1) => {
-    const dish = getDish(id)
-    if (delta > 0 && (!dish || dish.is_available === false || dish.is_active === false)) return false
-    if (delta > 0 && (quantities[id] ?? 0) + delta > maxDishQuantity) return false
-    setQuantities((prev) => {
-      const next = Math.max(0, (prev[id] ?? 0) + delta)
-      if (next === 0) {
-        const { [id]: _, ...rest } = prev
-        return rest
-      }
-      return { ...prev, [id]: next }
-    })
-    return true
-  }, [getDish, quantities, maxDishQuantity])
-
-  const setQuantity = useCallback((id, qty) => {
-    const q = Math.min(maxDishQuantity, Math.max(0, Math.floor(Number(qty))))
-    setQuantities((prev) => {
-      if (q === 0) {
-        const { [id]: _, ...rest } = prev
-        return rest
-      }
-      return { ...prev, [id]: q }
-    })
-  }, [maxDishQuantity])
-
-  const clear = useCallback(() => setQuantities({}), [])
-
-  const lines = useMemo(() => {
-    return Object.entries(quantities)
-      .filter(([, q]) => q > 0)
-      .map(([id, qty]) => {
-        const dish = getDish(id)
-        if (!dish) {
-          const message = menuLoading
-            ? 'Đang tải thông tin món'
-            : menuError ? 'Không tải được thông tin món' : 'Món không còn trong thực đơn'
-          return {
-            dish: { id, name: message, price: 0, image: '/neu-food.png', is_available: false },
-            qty,
-            isMissing: true,
-          }
-        }
-        return { dish, qty }
+        return next
       })
-  }, [quantities, getDish, menuError, menuLoading])
-
-  const totalCount = useMemo(() => lines.reduce((s, l) => s + l.qty, 0), [lines])
-
-  const subtotal = useMemo(
-    () => lines.reduce((s, l) => s + l.dish.price * l.qty, 0),
-    [lines],
-  )
-
-  const getQty = useCallback((id) => quantities[id] ?? 0, [quantities])
-  const unavailableLines = useMemo(
-    () => lines.filter(({ dish, isMissing }) => isMissing || dish.is_available === false || dish.is_active === false),
-    [lines],
-  )
-
-  const value = useMemo(
-    () => ({
-      quantities,
-      add,
-      setQuantity,
-      clear,
-      lines,
-      totalCount,
-      subtotal,
-      getQty,
-      unavailableLines,
-      maxDishQuantity,
-    }),
-    [quantities, add, setQuantity, clear, lines, totalCount, subtotal, getQty, unavailableLines, maxDishQuantity],
-  )
-
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>
+      sessionStorage.removeItem(PENDING_KEY)
+    } catch { /* Ignore malformed pending additions. */ }
+  }, [])
+  const getQty = useCallback(id => cartQuantity(rows, id), [rows])
+  const quantities = useMemo(() => Object.fromEntries(rows.map(row => [row.dishId, getQty(row.dishId)])), [rows, getQty])
+  const add = useCallback((id, delta = 1, config) => {
+    const dish = dishes.find(d => d.id === id)
+    if (!dish || (delta > 0 && (menuLoading || menuError))) return false
+    try {
+      const next = addCartLine(rows, dish, delta, maxDishQuantity, config)
+      if (next === rows) return false
+      setRows(prev => addCartLine(prev, dish, delta, maxDishQuantity, config))
+      return true
+    } catch { return false }
+  }, [dishes, rows, maxDishQuantity, menuLoading, menuError])
+  const setQuantity = useCallback((lineId, qty) => setRows(prev => {
+    const row = prev.find(row => row.lineId === lineId)
+    if (!row) return prev
+    const q = Math.max(0, Math.min(Math.floor(Number(qty)) || 0, maxDishQuantity - cartQuantity(prev.filter(other => other !== row), row.dishId)))
+    return q === 0 ? prev.filter(other => other !== row) : prev.map(other => other === row ? { ...row, qty: q } : other)
+  }), [maxDishQuantity])
+  const clear = useCallback(() => setRows([]), [])
+  const lines = useMemo(() => rows.map(row => resolveCartLine(row, dishes.find(d => d.id === row.dishId), menuLoading ? 'Đang tải thực đơn' : menuError)), [rows, dishes, menuLoading, menuError])
+  const reviewLine = useCallback(lineId => {
+    const line = lines.find(line => line.lineId === lineId)
+    if (!line?.canReview) return
+    setRows(prev => prev.map(row => row.lineId === lineId ? { ...row, unitPrice: line.currentUnitPrice, snapshot: line.currentSnapshot } : row))
+  }, [lines])
+  const totalCount = lines.reduce((sum, line) => sum + line.qty, 0)
+  const subtotal = lines.reduce((sum, line) => sum + line.unitPrice * line.qty, 0)
+  const unavailableLines = lines.filter(line => line.invalidReason)
+  return <CartContext.Provider value={{ quantities, add, setQuantity, clear, lines, totalCount, subtotal, getQty, unavailableLines, maxDishQuantity, reviewLine }}>{children}</CartContext.Provider>
 }
-
 export function useCart() {
-  const c = useContext(CartContext)
-  if (!c) throw new Error('useCart must be used within CartProvider')
-  return c
+  const cart = useContext(CartContext)
+  if (!cart) throw new Error('useCart must be used within CartProvider')
+  return cart
 }

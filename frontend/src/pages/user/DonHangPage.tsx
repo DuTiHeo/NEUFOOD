@@ -1,3 +1,4 @@
+import { portionSummary } from '../../utils/portions'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import OrderReviewModal from '../../components/orders/OrderReviewModal'
@@ -541,7 +542,7 @@ export default function DonHangPage() {
                   const dish = getById(item.dish_id)
                   const quantity = item.quantity || item.qty || 0
                   const price = item.unit_price ?? item.price ?? 0
-                  return <div key={`${item.dish_id || item.id}-${index}`} className={styles.row}><div className={styles.thumb}><img src={getDishImageUrl(dish || { id: String(item.dish_id || item.id || '') })} alt="" onError={handleDishImageError} /></div><div className={styles.rowBody}><h3 className={styles.rowName}>{item.dish_name || item.name}</h3>{item.note ? <p className={styles.rowNote}>{item.note}</p> : null}<div className={styles.rowFoot}><span className={styles.qty}>×{quantity}</span><span className={styles.price}>{formatPrice(price * quantity)}</span></div></div></div>
+                  return <div key={`${item.dish_id || item.id}-${index}`} className={styles.row}><div className={styles.thumb}><img src={getDishImageUrl(dish || { id: String(item.dish_id || item.id || '') })} alt="" onError={handleDishImageError} /></div><div className={styles.rowBody}><h3 className={styles.rowName}>{item.dish_name || item.name}</h3>{portionSummary(item.portions) && <p className={styles.rowNote}>{portionSummary(item.portions)}</p>}{item.note ? <p className={styles.rowNote}>{item.note}</p> : null}<div className={styles.rowFoot}><span className={styles.qty}>×{quantity}</span><span className={styles.price}>{formatPrice(price * quantity)}</span></div></div></div>
                 })}
                 <div className={styles.bill}>
                   <div className={styles.billRow}><span>Tạm tính</span><span>{formatPrice(order.subtotal_amount || 0)}</span></div>

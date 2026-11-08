@@ -53,6 +53,7 @@ def _serialize_order(o: object) -> dict:
                 "base_price": float(i.base_price),
                 "quantity": i.quantity,
                 "note": i.note,
+                "portions": i.portions or [],
                 "subtotal": float(i.subtotal),
             }
             for i in o.items

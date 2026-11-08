@@ -9,6 +9,7 @@ export interface Category {
 }
 
 export interface Dish {
+  portion_groups?: any[];
   id: string;
   name: string;
   basePrice?: number;
@@ -29,6 +30,7 @@ export interface Dish {
   badges?: string[];
   is_available?: boolean;
   is_active?: boolean;
+  is_deleted?: boolean;
   reviews?: DishReview[];
 }
 

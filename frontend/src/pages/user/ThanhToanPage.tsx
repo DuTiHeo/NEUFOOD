@@ -9,6 +9,7 @@ import { dishService } from '../../services/dishService'
 import { orderService } from '../../services/orderService'
 import { getDishImageUrl, handleDishImageError } from '../../utils/dishImages'
 import { CreateOrderPayload, OrderType, PaymentMethod } from '../../types/order'
+import { portionSummary } from '../../utils/portions'
 import Footer from '../../components/layout/Footer'
 import styles from './ThanhToanPage.module.css'
 
@@ -167,7 +168,7 @@ export default function ThanhToanPage() {
         is_preorder: isPreorder,
         scheduled_at: isPreorder ? new Date(scheduledAt).toISOString() : null,
         payment_method: paymentMethod,
-        items: lines.map(({ dish, qty }) => ({ dish_id: dish.id, quantity: qty })),
+        items: lines.map(({ dish, qty, note, portions, unitPrice }) => ({ dish_id: dish.id, quantity: qty, note, portions, expected_unit_price: unitPrice })),
       }
       const order = await orderService.createOrder(payload)
       clear()
@@ -285,7 +286,7 @@ export default function ThanhToanPage() {
                 <div className={styles.billHead}><h2 className={styles.billTitle}>Chi tiết đơn hàng</h2><p className={styles.billHint}>{orderType === 'pickup' ? 'Nhận tại quầy Canteen A2' : 'Giao trong khuôn viên NEU'}</p></div>
                 <div className={styles.billBody}>
                   <div className={styles.billLines}>
-                    {lines.map(({ dish, qty }) => <div className={styles.billLine} key={dish.id}><div className={styles.billThumb}><img alt="" src={getDishImageUrl(dish)} onError={handleDishImageError} /></div><div className={styles.billMid}><h4 className={styles.billName}>{dish.name}</h4><p className={styles.billMeta}>x{qty}</p></div><p className={styles.billP}>{formatPrice(dish.price * qty)}</p></div>)}
+                    {lines.map(({ dish, qty, lineId, unitPrice, snapshot, note }) => <div className={styles.billLine} key={lineId}><div className={styles.billThumb}><img alt="" src={getDishImageUrl(dish)} onError={handleDishImageError} /></div><div className={styles.billMid}><h4 className={styles.billName}>{dish.name}</h4><p className={styles.billMeta}>x{qty}</p><p className={styles.billMeta}>{portionSummary(snapshot)}{note ? ` · ${note}` : ''}</p></div><p className={styles.billP}>{formatPrice(unitPrice * qty)}</p></div>)}
                   </div>
                   <div className={styles.billSep} />
                   <div className={styles.billRows}>

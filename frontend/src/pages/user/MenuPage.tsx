@@ -1,3 +1,4 @@
+import { portionSummary } from '../../utils/portions'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Star, Minus, Plus, ShoppingBag, SlidersHorizontal, ChevronDown, Check, Trash2 } from 'lucide-react'
@@ -299,7 +300,7 @@ const DOCK_FULL_TOP_PX = 68
 const SCROLL_DELTA_PX = 10
 
 export default function MenuPage() {
-  const { add, lines, totalCount, subtotal } = useCart()
+  const { add, setQuantity, lines, totalCount, subtotal } = useCart()
   const { dishes, categories, isLoading, error, refresh } = useDishes()
   const { menuSearch: search, setMenuSearch } = useMenuSearch()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -718,19 +719,19 @@ export default function MenuPage() {
                   </div>
                 ) : (
                   <ul className={styles.cartList}>
-                    {lines.map(({ dish, qty }: any) => (
-                      <li key={dish.id} className={styles.cartLine}>
+                    {lines.map(({ dish, qty, lineId, unitPrice, snapshot, note }: any) => (
+                      <li key={lineId} className={styles.cartLine}>
                         <div className={styles.cartLineThumb}>
                           <img src={getDishImageUrl(dish)} alt={dish.name} onError={handleDishImageError} />
                         </div>
                         <div className={styles.cartLineMain}>
                           <p className={styles.cartLineName}>{dish.name}</p>
-                          <p className={styles.cartLinePrice}>{formatVnd(dish.price)}</p>
+                          <p className={styles.cartLinePrice}>{formatVnd(unitPrice)}</p><p>{portionSummary(snapshot)}{note ? ` · ${note}` : ''}</p>
                           <div className={styles.cartLineQty}>
                             <button
                               type="button"
                               className={styles.qtyBtnSm}
-                              onClick={() => add(dish.id, -1)}
+                              onClick={() => setQuantity(lineId, qty - 1)}
                               aria-label={`Giảm số lượng ${dish.name}`}
                             >
                               <Minus size={13} strokeWidth={2.5} />
@@ -739,7 +740,7 @@ export default function MenuPage() {
                             <button
                               type="button"
                               className={styles.qtyBtnSm}
-                              onClick={() => add(dish.id, 1)}
+                              onClick={() => setQuantity(lineId, qty + 1)}
                               aria-label={`Tăng số lượng ${dish.name}`}
                             >
                               <Plus size={13} strokeWidth={2.5} />

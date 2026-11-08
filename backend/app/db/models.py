@@ -1,6 +1,6 @@
 from datetime import datetime, date, timezone
 from sqlalchemy import (
-    Column, Integer, String, Text, Numeric, Boolean, DateTime, Date, ForeignKey, Table, UniqueConstraint
+    Column, Integer, String, Text, Numeric, Boolean, DateTime, Date, ForeignKey, Table, JSON, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 from .session import Base
@@ -148,6 +148,8 @@ class Dish(Base):
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
+    portion_groups = Column(JSON, nullable=False, default=list, server_default="[]")
+
     categories = relationship("Category", secondary=dish_categories, back_populates="dishes")
     badges = relationship("DishBadge", back_populates="dish", cascade="all, delete-orphan")
     reviews = relationship("Review", back_populates="dish", cascade="all, delete-orphan")
@@ -223,6 +225,8 @@ class OrderItem(Base):
     quantity = Column(Integer, nullable=False, default=1)
     note = Column(Text, nullable=True)
     subtotal = Column(Numeric(12, 2), nullable=False)
+
+    portions = Column(JSON, nullable=False, default=list, server_default="[]")
 
     order = relationship("Order", back_populates="items")
 

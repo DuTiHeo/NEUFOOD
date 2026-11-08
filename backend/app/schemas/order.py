@@ -1,6 +1,7 @@
 from typing import List, Optional
+from decimal import Decimal
 from datetime import datetime
-from pydantic import AwareDatetime, BaseModel, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 from app.schemas.auth import VN_PHONE_REGEX
 
 VALID_ORDER_STATUSES = (
@@ -11,10 +12,19 @@ VALID_ORDER_STATUSES = (
 )
 
 
+class PortionSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    slot_id: str = Field(..., min_length=1, max_length=100)
+    choice_id: str = Field(..., min_length=1, max_length=100)
+    addon_ids: List[str] = Field(default_factory=list, max_length=20)
+
+
 class OrderItemCreate(BaseModel):
     dish_id: str = Field(..., min_length=1, max_length=100)
     quantity: int = Field(..., strict=True, gt=0, le=10)
     note: Optional[str] = None
+    portions: List[PortionSelection] = Field(default_factory=list, max_length=40)
+    expected_unit_price: Optional[Decimal] = Field(default=None, ge=0, allow_inf_nan=False)
 
 
 class OrderItemResponse(BaseModel):
@@ -26,6 +36,7 @@ class OrderItemResponse(BaseModel):
     quantity: int
     note: Optional[str] = None
     subtotal: float
+    portions: list = Field(default_factory=list)
 
     class Config:
         from_attributes = True

@@ -8,6 +8,7 @@ export interface CartItem {
 }
 
 export interface OrderItem {
+  portions?: any[];
   id?: number;
   dish_id?: string;
   name?: string;
@@ -50,7 +51,7 @@ export interface CreateOrderPayload {
   is_preorder: boolean;
   scheduled_at?: string | null;
   payment_method: PaymentMethod;
-  items: Array<{ dish_id: string; quantity: number; note?: string | null }>;
+  items: Array<{ dish_id: string; quantity: number; note?: string | null; portions?: any[]; expected_unit_price?: number }>;
 }
 
 export interface OrderListParams {
