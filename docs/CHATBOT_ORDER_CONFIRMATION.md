@@ -13,6 +13,16 @@
   người nhận/SĐT; delivery/pickup; mã tòa nhà và phòng khi delivery;
   cash/VietQR lúc nhận; `is_preorder`, `scheduled_at` có múi giờ khi hẹn;
   `delivery_note` và `notes_confirmed`. Không dùng SĐT/địa chỉ mẫu hoặc tự bỏ món lỗi.
+- Mặc định đặt cho chủ tài khoản: tự lấy tên và SĐT hợp lệ từ hồ sơ, không hỏi
+  “đặt cho mình hay đặt hộ”. Mặc định `cod_cash`, làm ngay và không có ghi chú;
+  chỉ hỏi những thông tin thực sự thiếu. Chỉ chuyển VietQR/hẹn giờ/thêm ghi chú
+  khi khách chủ động yêu cầu. Các mặc định vẫn xuất hiện trong bản tóm tắt để xác nhận.
+- `ORDER_COLLECTING` có thể trả `draft_id`, `revision`, `recipient` ngay khi còn
+  thiếu địa chỉ; `ORDER_CONFIRMATION` cũng trả `recipient`. Nút “Sửa thông tin
+  đặt hàng” cho phép sửa tên/SĐT bằng `recipient_update: {recipient_name,
+  recipient_phone}` kèm đúng draft/session/revision. Sửa người nhận đánh dấu
+  đặt hộ, chỉ dùng cho đơn đó, giữ địa chỉ đã chọn, không đổi hồ sơ hoặc thông tin
+  mặc định. Bản xác nhận cũ hết hiệu lực, phải xác nhận lại sau cập nhật.
 - Nút xác nhận gửi `decision=confirm` với đúng id/revision và session. Tin nhắn
   đồng ý rõ nghĩa như “đồng ý đặt đơn” cũng phải kèm id/revision từ bản tóm tắt
   hiện tại. Lịch sử client và JSON do AI sinh không phải bằng chứng đồng ý.

@@ -45,7 +45,7 @@ class ChatOrderConfirmationTests(unittest.TestCase):
         reply, action = self.prepare()
         self.assertEqual(action["type"], "ORDER_CONFIRMATION")
         self.assertIn("75.000đ", reply)
-        self.assertIn("0977112233", reply)
+        self.assertIn("0977000001", reply)
         with self.sessions() as db:
             self.assertEqual(db.query(Order).count(), 0)
             self.assertEqual(db.query(ChatDeliveryPreference).count(), 0)
@@ -103,11 +103,13 @@ class ChatOrderConfirmationTests(unittest.TestCase):
         with self.assertRaises(OrderError):
             self.confirm(action, user_id=2)
 
-    def test_missing_phone_and_recipient_kind_are_collected(self):
+    def test_missing_profile_phone_is_collected_without_asking_recipient_kind(self):
+        with self.sessions.begin() as db:
+            db.get(User, 1).phone_number = ''
         reply, action = self.prepare(recipient_phone=None, order_for_self=None)
         self.assertEqual(action["type"], "ORDER_COLLECTING")
         self.assertIn("SĐT", reply)
-        self.assertIn("đặt hộ", reply)
+        self.assertNotIn("đặt cho bạn hay đặt hộ", reply)
 
     def test_proxy_order_does_not_overwrite_saved_details(self):
         _, action = self.prepare()
@@ -232,3 +234,41 @@ class ChatOrderConfirmationTests(unittest.TestCase):
         with self.sessions() as db:
             self.assertEqual(db.query(Order).count(), 1)
             self.assertIsNotNone(db.get(ChatDeliveryPreference, 1))
+
+    def test_minimal_order_uses_profile_and_operational_defaults(self):
+        with self.sessions.begin() as db:
+            reply, action = prepare_draft(db, lock_customer(db, 1), "session", {
+                "items": [{"dish_id": "rice", "quantity": 1}], "order_type": "pickup",
+            })
+            self.assertEqual(action["type"], "ORDER_CONFIRMATION")
+            summary = action["summary"]
+            self.assertEqual(summary["recipient_name"], "Test User")
+            self.assertEqual(summary["recipient_phone"], "0977000001")
+            self.assertEqual(summary["payment_method"], "cod_cash")
+            self.assertIsNone(summary["scheduled_at"])
+            self.assertIsNone(summary["delivery_note"])
+
+    def test_delivery_only_asks_for_missing_address(self):
+        with self.sessions.begin() as db:
+            reply, action = prepare_draft(db, lock_customer(db, 1), "session", {
+                "items": [{"dish_id": "rice", "quantity": 1}], "order_type": "delivery",
+            })
+            missing = reply.split("Bạn cho mình biết thêm: ")[-1]
+            self.assertEqual(missing, "tòa nhà NEU và phòng/vị trí nhận cụ thể.")
+            self.assertEqual(action["recipient"]["recipient_phone"], "0977000001")
+
+    def test_edit_recipient_requotes_without_changing_profile_or_preferences(self):
+        _, action = self.prepare()
+        response = self.chat({"message": "Cập nhật người nhận", "draft_id": action["draft_id"],
+                              "revision": action["revision"], "recipient_update": {
+                                  "recipient_name": "Người Bạn", "recipient_phone": "0988112233"}})
+        updated = response.get_json()["data"]["action"]
+        self.assertEqual(updated["summary"]["recipient_name"], "Người Bạn")
+        self.assertGreater(updated["revision"], action["revision"])
+        with self.assertRaises(OrderError):
+            self.confirm(action)
+        self.confirm(updated)
+        with self.sessions() as db:
+            self.assertEqual(db.get(User, 1).full_name, "Test User")
+            self.assertEqual(db.get(User, 1).phone_number, "0977000001")
+            self.assertIsNone(db.get(ChatDeliveryPreference, 1))
