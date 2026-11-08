@@ -1,0 +1,18 @@
+-- Existing master-schema databases only. Back up first; see migrations/README.md.
+-- No migration ledger: do not replay after changing menu/settings/demo profiles.
+\set ON_ERROR_STOP on
+\encoding UTF8
+\echo Applying NEUFood feature migrations; each SQL file commits separately.
+\ir migrations/001_chat_orders.sql
+\ir migrations/20261107_add_shipper_id_to_orders.sql
+\ir migrations/002_extra_portions.sql
+\ir migrations/003_ordering_hours.sql
+\ir migrations/004_bulk_discounts.sql
+\ir migrations/005_dish_images.sql
+\ir migrations/006_food_drink_servings.sql
+\ir migrations/007_order_quantity_50.sql
+\ir migrations/008_recruitment.sql
+\ir migrations/009_employee_sample_contacts.sql
+\ir migrations/010_articles.sql
+\ir migrations/011_story_hyphens.sql
+\echo Feature migrations complete. See migrations/README.md for verification and optional demo employees.
