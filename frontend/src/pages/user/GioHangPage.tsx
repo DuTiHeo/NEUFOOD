@@ -101,8 +101,7 @@ export default function GioHangPage() {
                   <span className={styles.sumRowAccent}>{bulkPricing.eligible_servings >= 5 ? "Miễn phí" : formatVnd(bulkPricing.shipping_fee)}</span>
                 </div>
               </div>
-              <p>Suất đủ điều kiện: {bulkPricing.eligible_servings} · Giảm {bulkPricing.discount_rate}%: {formatVnd(bulkPricing.discount_amount)}</p>
-              <p>Dự kiến giao tận nơi; chọn nhận tại quầy ở bước thanh toán.</p>
+              <p>Với số lượng từ 5 đơn hàng trở lên sẽ được freeship, từ 10 suất trở lên sẽ được giảm giá 6% giá trị đơn hàng, từ 20 suất trở lên sẽ được giảm giá 8% giá trị đơn hàng, từ 30 suất thì được giảm giá 12% giá trị đơn hàng.</p>
               <div className={styles.sumTotal}>
                 <span className={styles.sumTotalLabel}>Tổng cộng</span>
                   <span className={styles.sumTotalValue}>{formatVnd(bulkPricing.total_amount)}</span>

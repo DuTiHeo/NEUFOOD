@@ -658,7 +658,7 @@ export default function MenuPage() {
                     <ShoppingBag size={18} />
                     <span>Xem giỏ & thanh toán</span>
                   </Link>
-                  {totalCount > 0 && <p>{bulkPricing.eligible_servings} suất đủ điều kiện · Giảm {bulkPricing.discount_rate}%{bulkPricing.eligible_servings >= 5 ? ' · Miễn phí giao hàng' : ''}</p>}
+                  {totalCount > 0 && <p>Với số lượng từ 5 đơn hàng trở lên sẽ được freeship, từ 10 suất trở lên sẽ được giảm giá 6% giá trị đơn hàng, từ 20 suất trở lên sẽ được giảm giá 8% giá trị đơn hàng, từ 30 suất thì được giảm giá 12% giá trị đơn hàng.</p>}
                   <p className={styles.cartHint}>⚡ Giao nhanh 15–20p tại khuôn viên NEU</p>
                 </div>
               </div>

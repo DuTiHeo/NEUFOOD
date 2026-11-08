@@ -281,7 +281,6 @@ export default function ThanhToanPage() {
                     Hẹn trước thời gian nhận (tối thiểu {policy?.min_lead_minutes || 30} phút)
                   </label>
                   <p>Canteen phục vụ thứ Hai–thứ Bảy, nghỉ Chủ nhật. Thời gian theo giờ Việt Nam (UTC+7). {policy && `Đặt ngay: ${policy.open_time}–${policy.order_cutoff_time}; phục vụ/hẹn nhận: ${policy.open_time}–${policy.close_time}.`}</p>
-                  <p>Đặt ngay: xong sớm giao sớm, không chờ 30 phút. Đặt hẹn giờ: được tạo cả ngoài giờ, tối thiểu {policy?.min_lead_minutes || 30} phút trước lúc nhận, trong hôm nay và 7 ngày tiếp theo.</p>
                   {policy?.exempt_hours && <p>Tài khoản kiểm thử được miễn khung giờ và ngày nghỉ Chủ nhật; vẫn áp dụng thời gian hẹn tối thiểu và giới hạn ngày.</p>}
                   {timeError && <p role="status">{timeError}</p>}
                   {isPreorder ? <div className={styles.field}><label htmlFor="scheduledAt" className={styles.fieldLbl}>Thời gian nhận</label><input id="scheduledAt" className={styles.fieldInput} type="datetime-local" min={bounds.min} max={bounds.max} value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} required /></div> : null}
