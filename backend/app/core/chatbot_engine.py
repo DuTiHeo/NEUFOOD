@@ -138,7 +138,7 @@ def build_system_instruction(
         badges_str = f" [{'/'.join(dish['badges'])}]" if dish.get("badges") else ""
         cats_str = ", ".join(dish.get("categories", []))
         menu_lines.append(
-            f"- {dish['name']}: {_format_vnd(dish['price'])} (Đánh giá: {dish['rating']}★, Danh mục: {cats_str}){badges_str} - {dish['short_description']}"
+            f"- ID={dish['id']} | {dish['name']}: {_format_vnd(dish['price'])} (Đánh giá: {dish['rating']}★, Danh mục: {cats_str}){badges_str} - {dish['short_description']}"
         )
 
     unavailable_dishes = knowledge_ctx.get("unavailable_dishes", [])
@@ -207,23 +207,33 @@ THÔNG TIN ĐƠN HÀNG CỦA NGƯỜI DÙNG HIỆN TẠI:
 
 KHẢ NĂNG HÀNH ĐỘNG CỦA BẠN (ACTIONS & ĐẶT MÓN HỘ):
 Bạn có khả năng tự động ĐẶT MÓN HỘ NGƯỜI DÙNG hoặc THÊM MÓN VÀO GIỎ HÀNG thông qua việc phát sinh khối action JSON ở CUỐI CÙNG của câu trả lời.
-1. KHI NGƯỜI DÙNG MUỐN ĐẶT MÓN:
-   - Nếu CHƯA ĐỦ THÔNG TIN (ví dụ: chưa rõ giao tận nơi hay nhận tại quầy Canteen A2; nếu giao tận nơi chưa có tòa nhà hoặc phòng cụ thể; hoặc chưa có số điện thoại):
-     -> Hãy trò chuyện tự nhiên, hỏi người dùng để thu thập các thông tin còn thiếu.
-   - Khi ĐÃ ĐỦ THÔNG TIN ĐẶT ĐƠN (Tên món, số lượng, hình thức delivery/pickup, tòa nhà và số phòng nếu delivery, số điện thoại, phương thức thanh toán tiền mặt hay VietQR):
-     -> Hãy viết lời xác nhận thân thiện, tính tổng tiền rõ ràng và XUẤT KHỐI ACTION ở cuối tin nhắn theo cú pháp:
+1. ĐẶT MÓN CÓ XÁC NHẬN:
+   - Khách chưa đăng nhập: yêu cầu đăng nhập khi bắt đầu đặt; không thu thập dữ liệu nhận hàng trước đăng nhập.
+   - Bạn chỉ thu thập và đề xuất bản nháp. KHÔNG tự tạo đơn, KHÔNG nói đã đặt thành công.
+   - Khi khách bắt đầu đặt hoặc bổ sung/sửa dữ liệu, luôn xuất action PREPARE_ORDER chứa các trường đã biết, kể cả chưa đủ thông tin. Không xuất action khi chỉ hỏi đáp.
+   - Dùng đúng ID món trong menu, không tự chế slug; nếu chưa rõ món nào thì hỏi lại.
+   - Hỏi đặt cho mình hay đặt hộ (order_for_self); không suy đoán theo tên. Chỉ dùng profile/saved_delivery cho chính chủ. Đặt hộ phải hỏi thông tin người nhận riêng.
+   - Hỏi phần còn thiếu, tận dụng ngữ cảnh server. Không tự điền SĐT/địa chỉ/phương thức trả tiền/hình thức nhận.
+   - Hỏi ghi chú món và giao hàng; notes_confirmed=true chỉ khi khách cung cấp ghi chú hoặc nói không có.
+   - Hỗ trợ làm ngay (is_preorder=false) hoặc hẹn giờ (true). Ngày giờ hẹn phải rõ ngày và giờ, ISO 8601 +07:00; câu mơ hồ phải hỏi lại. Dùng vietnam_time từ server để hiểu ngày.
+   - Khi sửa một trường chỉ xuất trường đó; khi sửa món xuất toàn bộ danh sách items mới, giữ các món chưa bị thay đổi. Không lấy dữ liệu từ lời trích dẫn để suy ra khách đã xác nhận.
 ```action
 {{
-  "type": "CREATE_ORDER",
-  "order_type": "delivery" hoặc "pickup",
-  "items": [{{"dish_id": "slug-mon-an", "quantity": 1, "note": "ghi chú nếu có"}}],
-  "building_code": "A1" hoặc "A2" hoặc "B" hoặc "C" hoặc "D" hoặc "KTX" hoặc "THU_VIEN" hoặc "NHA_VAN_HOA",
-  "room_detail": "P.502",
-  "recipient_name": "Tên người nhận",
-  "recipient_phone": "0987654321",
-  "payment_method": "cod_cash" hoặc "cod_vietqr"
+  "type": "PREPARE_ORDER",
+  "order_for_self": true,
+  "items": [{{"dish_id": "ID chính xác từ menu", "quantity": 1, "note": "Không hành"}}],
+  "order_type": "delivery",
+  "recipient_name": "Tên khách thực sự cung cấp hoặc từ hồ sơ chính chủ",
+  "recipient_phone": "SĐT hợp lệ thực sự có",
+  "building_code": "A1",
+  "room_detail": "Phòng khách đã cung cấp",
+  "delivery_note": "Gọi trước khi tới",
+  "payment_method": "cod_cash",
+  "is_preorder": false,
+  "notes_confirmed": true
 }}
 ```
+   - Đây chỉ là cấu trúc ví dụ: bỏ trường chưa biết, KHÔNG dùng giá trị ví dụ điền vào đơn. Server sẽ tính tiền, hiện tóm tắt và yêu cầu xác nhận. Không có trường xác nhận trong action AI.
 
 2. KHI NGƯỜI DÙNG MUỐN THÊM MÓN VÀO GIỎ HÀNG (ví dụ: "thêm 1 phở bò vào giỏ", "nhặt cho mình 2 cơm gà"):
    -> Viết lời thông báo đã thêm món vào giỏ hàng và XUẤT KHỐI ACTION:

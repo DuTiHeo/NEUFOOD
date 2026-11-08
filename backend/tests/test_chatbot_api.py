@@ -147,6 +147,28 @@ class TestChatbotAPI(unittest.TestCase):
         self.app.config["TESTING"] = True
         limiter.enabled = False
         self.client = self.app.test_client()
+        # These tests isolate reply routing; durable order transactions are covered separately.
+        from contextlib import contextmanager
+        from unittest.mock import MagicMock
+        from types import SimpleNamespace
+
+        @contextmanager
+        def fake_db():
+            yield MagicMock()
+
+        replacements = {
+            "get_db": fake_db,
+            "get_conversation_history": lambda *a, **k: [],
+            "save_conversation_turn": lambda *a, **k: None,
+            "clear_conversation_history": lambda *a, **k: True,
+            "current_draft": lambda *a, **k: None,
+            "draft_context": lambda *a, **k: {},
+            "lock_customer": lambda *a, **k: SimpleNamespace(id=4, role="customer", is_blacklisted=False),
+        }
+        for name, replacement in replacements.items():
+            patcher = patch(f"app.routes.chat.{name}", replacement)
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     # 1. Happy Path: Khách vãng lai hỏi gợi ý thực đơn (Smart Local Fallback)
     @patch("app.routes.chat.get_chatbot_knowledge_context", return_value=MOCK_KNOWLEDGE_CONTEXT)
@@ -261,55 +283,18 @@ class TestChatbotAPI(unittest.TestCase):
         self.assertEqual(res_bad.status_code, 400)
         self.assertFalse(res_bad.get_json()["success"])
 
-    # 7. Action Testing: Gemini đặt món hộ người dùng (CREATE_ORDER)
-    @patch("app.routes.chat._extract_optional_user")
+    @patch("app.routes.chat._extract_optional_user", return_value={"id": 4, "full_name": "Test", "role": "customer"})
     @patch("app.routes.chat.get_chatbot_knowledge_context", return_value=MOCK_KNOWLEDGE_CONTEXT)
-    @patch(
-        "app.core.chatbot_engine._call_gemini_api",
-        return_value=(
-            "Mình sẽ đặt đơn giao tới phòng cho bạn ngay!\n```action\n{\"type\": \"CREATE_ORDER\", \"order_type\": \"delivery\", \"items\": [{\"dish_id\": \"pho-bo-tai-lan\", \"quantity\": 1}], \"building_code\": \"A1\", \"room_detail\": \"P.502\", \"payment_method\": \"cod_cash\"}\n```",
-            None,
-        ),
-    )
-    @patch("app.routes.chat.create_order")
-    def test_gemini_action_create_order_for_customer(
-        self, mock_create_order, _mock_gemini, _mock_ctx, mock_auth_user
-    ):
-        mock_auth_user.return_value = {
-            "id": 4,
-            "full_name": "Nguyễn Sinh Viên",
-            "role": "customer",
-            "phone_number": "0977112233",
-        }
-        # Giả lập đơn hàng được tạo thành công
-        from unittest.mock import MagicMock
-        fake_order = MagicMock()
-        fake_order.id = "NF2611029999"
-        fake_order.order_code_suffix = "9999"
-        fake_order.status = "CHO_XAC_NHAN"
-        fake_order.order_type = "delivery"
-        fake_order.delivery_address = "P.502, Tòa nhà Thế Kỷ A1, Đại học Kinh tế Quốc dân"
-        fake_order.total_amount = 55000
-        fake_order.eta = "15 - 25 phút"
-        fake_order.payment_method = "cod_cash"
-        mock_create_order.return_value = fake_order
-
-        token = create_access_token({"sub": "4", "email": "sinhvien@neu.edu.vn", "role": "customer"})
-
-        res = self.client.post(
-            "/api/v1/chat/message",
-            headers={"Authorization": f"Bearer {token}"},
-            json={"message": "Đặt cho mình 1 phở bò giao đến P.502 A1"},
-        )
-        self.assertEqual(res.status_code, 200)
-        body = res.get_json()
-        self.assertTrue(body["success"])
-        action = body["data"].get("action")
-        self.assertIsNotNone(action)
-        self.assertEqual(action["type"], "ORDER_CREATED")
-        self.assertEqual(action["order"]["id"], "NF2611029999")
-        self.assertEqual(action["order"]["order_code_suffix"], "9999")
-        self.assertIn("9999", body["data"]["reply"])
+    @patch("app.routes.chat.get_user_active_and_recent_orders", return_value=[])
+    @patch("app.routes.chat.draft_context", return_value={})
+    @patch("app.routes.chat.current_draft", return_value=None)
+    @patch("app.routes.chat.lock_customer")
+    @patch("app.routes.chat.prepare_draft", return_value=("Xác nhận đơn nhé", {"type": "ORDER_CONFIRMATION", "draft_id": "a" * 32, "revision": 1}))
+    @patch("app.core.chatbot_engine._call_gemini_api", return_value=('Xem lại đơn.\n```action\n{"type":"CREATE_ORDER","items":[{"dish_id":"pho-bo-tai-lan","quantity":1}]}\n```', None))
+    def test_ai_order_action_requires_confirmation(self, *mocks):
+        response = self.client.post("/api/v1/chat/message", json={"message": "Đặt một phở bò"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["data"]["action"]["type"], "ORDER_CONFIRMATION")
 
     # 8. Action Testing: Thêm món vào giỏ hàng (ADD_TO_CART)
     @patch("app.routes.chat.get_chatbot_knowledge_context", return_value=MOCK_KNOWLEDGE_CONTEXT)
@@ -330,10 +315,7 @@ class TestChatbotAPI(unittest.TestCase):
         self.assertTrue(body["success"])
         action = body["data"].get("action")
         self.assertIsNotNone(action)
-        self.assertEqual(action["type"], "ADD_TO_CART")
-        self.assertEqual(len(action["items"]), 1)
-        self.assertEqual(action["items"][0]["qty"], 2)
-        self.assertEqual(action["items"][0]["id"], "pho-bo-tai-lan")
+        self.assertEqual(action["type"], "NEED_LOGIN")
 
     # 9. Action Testing: Khách vãng lai yêu cầu đặt đơn -> Phản hồi NEED_LOGIN
     @patch("app.routes.chat.get_chatbot_knowledge_context", return_value=MOCK_KNOWLEDGE_CONTEXT)

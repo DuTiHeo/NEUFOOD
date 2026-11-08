@@ -19,6 +19,9 @@ class ChatMessageRequest(BaseModel):
     """DTO kiểm tra đầu vào cho API gửi tin nhắn tới Chatbot AI (/api/v1/chat/message)."""
     message: str = Field(..., min_length=1, max_length=500, description="Câu hỏi hoặc yêu cầu của người dùng")
     session_id: Optional[str] = Field(default=None, max_length=64, description="Định danh phiên hội thoại")
+    draft_id: Optional[str] = Field(default=None, pattern=r"^[a-f0-9]{32}$")
+    revision: Optional[int] = Field(default=None, strict=True, ge=1)
+    decision: Optional[Literal["confirm", "cancel"]] = None
     history: Optional[List[ChatHistoryItem]] = Field(
         default=None,
         max_length=20,
