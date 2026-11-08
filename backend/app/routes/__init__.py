@@ -8,6 +8,7 @@ from .order import order_bp
 from .review import review_bp
 from .complaint import complaint_bp
 from .shift import shift_bp
+from .chat import chat_bp
 
 
 def register_routes(app: Flask):
@@ -29,3 +30,6 @@ def register_routes(app: Flask):
     app.register_blueprint(review_bp, url_prefix=f"{api_prefix}/reviews")
     app.register_blueprint(complaint_bp, url_prefix=f"{api_prefix}/complaints")
     app.register_blueprint(shift_bp, url_prefix=f"{api_prefix}/shifts")
+
+    # Module Trợ lý ảo AI Chatbot (Google Gemini + Smart Local Fallback)
+    app.register_blueprint(chat_bp, url_prefix=f"{api_prefix}/chat")

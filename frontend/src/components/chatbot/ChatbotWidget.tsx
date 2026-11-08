@@ -1,74 +1,75 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useCart } from '../../contexts/CartContext'
+import { chatService, ChatMessage } from '../../services/chatService'
 import styles from './ChatbotWidget.module.css'
 
-const API_BASE = import.meta.env.VITE_CHAT_API_URL ?? ''
-
-// Parse markdown text to JSX
-function parseMarkdown(text) {
+// Parse markdown text (**bold** and line breaks) to JSX
+function parseMarkdown(text: string): React.ReactNode {
   if (!text) return null
-  
-  // Split by lines first to handle line breaks
+
   const lines = text.split('\n')
-  
+
   return lines.map((line, lineIdx) => {
     if (!line.trim()) {
       return <br key={`br-${lineIdx}`} />
     }
-    
-    // Parse bold text (**text**)
-    const parts = []
+
+    const parts: React.ReactNode[] = []
     let lastIndex = 0
     const boldRegex = /\*\*(.+?)\*\*/g
-    let match
-    
+    let match: RegExpExecArray | null
+
     while ((match = boldRegex.exec(line)) !== null) {
-      // Add text before the match
       if (match.index > lastIndex) {
         parts.push(line.substring(lastIndex, match.index))
       }
-      // Add bold text
-      parts.push(<strong key={`bold-${match.index}`}>{match[1]}</strong>)
+      parts.push(<strong key={`bold-${lineIdx}-${match.index}`}>{match[1]}</strong>)
       lastIndex = boldRegex.lastIndex
     }
-    
-    // Add remaining text
+
     if (lastIndex < line.length) {
       parts.push(line.substring(lastIndex))
     }
-    
-    // If no parts, just return the line
+
     if (parts.length === 0) {
       return <div key={`line-${lineIdx}`}>{line}</div>
     }
-    
+
     return <div key={`line-${lineIdx}`}>{parts}</div>
   })
 }
 
-const QUICK_PROMPTS = [
-  'Gợi ý món cho bữa trưa',
-  'Cách đặt hàng trên web?',
-  'Mất bao lâu để giao?',
+const QUICK_PROMPTS: string[] = [
+  'Gợi ý món ngon cho bữa trưa',
+  'Đơn hàng của mình đến đâu rồi?',
+  'Phí ship và cách đặt hàng?',
+  'Canteen giao tới những tòa nào?',
 ]
 
 export default function ChatbotWidget() {
   const { pathname } = useLocation()
-  const hasBottomDock = ['/', '/menu', '/gio-hang', '/tai-khoan', '/lich-su-don'].includes(pathname)
+  const navigate = useNavigate()
+  const cart = useCart()
+  const hasBottomDock = ['/', '/khach-hang', '/menu', '/gio-hang', '/tai-khoan', '/lich-su-don'].includes(pathname)
   // Hide chatbot on checkout page to avoid obscuring form inputs and the submit order button
   const isCheckout = pathname === '/thanh-toan'
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
-  const [messages, setMessages] = useState([])
+  const [messages, setMessages] = useState<ChatMessage[]>(() => chatService.loadStoredMessages())
   const [loading, setLoading] = useState(false)
   const [cooldownSec, setCooldownSec] = useState(0)
-  const listRef = useRef(null)
-  const inputRef = useRef(null)
+  const listRef = useRef<HTMLDivElement | null>(null)
+  const inputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    chatService.saveStoredMessages(messages)
+  }, [messages])
 
   useEffect(() => {
     if (!open || !listRef.current) return
     listRef.current.scrollTop = listRef.current.scrollHeight
-  }, [messages, open])
+  }, [messages, open, loading])
 
   useEffect(() => {
     if (open) {
@@ -84,65 +85,65 @@ export default function ChatbotWidget() {
     return () => clearInterval(timer)
   }, [cooldownSec])
 
-  const postJson = useCallback(async (path: string, body?: any) => {
-    const url = `${API_BASE}${path}`
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: body != null ? JSON.stringify(body) : undefined,
-    })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) {
-      const error: any = new Error(data.error || data.reply || `Lỗi ${res.status}`)
-      error.status = res.status
-      throw error
-    }
-    return data
-  }, [])
+  const sendMessage = useCallback(
+    async (overrideText?: string) => {
+      const text = (typeof overrideText === 'string' ? overrideText : input).trim()
+      if (!text || loading || cooldownSec > 0) return
+      setInput('')
 
-  const sendMessage = useCallback(async (overrideText?: any) => {
-    const text = (overrideText != null ? String(overrideText) : input).trim()
-    if (!text || loading || cooldownSec > 0) return
-    setInput('')
-    setMessages((prev) => [...prev, { role: 'user', text }])
-    setLoading(true)
-    try {
-      const data = await postJson('/api/chat', { message: text })
-      const reply = data.reply ?? 'Không có phản hồi'
-      setMessages((prev) => [...prev, { role: 'bot', text: reply }])
-    } catch (e: any) {
-      if (e?.status === 429) {
-        const waitSeconds =
-          Number(e?.message?.match(/sau khoảng (\d+) giây/i)?.[1]) ||
-          Number(e?.message?.match(/retry in ([0-9.]+)s/i)?.[1]) ||
-          10
-        setCooldownSec(Math.max(Math.ceil(waitSeconds), 5))
+      const historySnapshot = messages
+      const userTurn: ChatMessage = { role: 'user', text }
+      setMessages((prev) => [...prev, userTurn])
+      setLoading(true)
+
+      try {
+        const data = await chatService.sendMessage(text, historySnapshot)
+        const reply = data?.reply || 'Không có phản hồi từ trợ lý.'
+
+        if (data?.action?.type === 'ADD_TO_CART' && Array.isArray(data.action.items)) {
+          data.action.items.forEach((item) => {
+            cart?.add?.(item.id, item.qty || 1)
+          })
+        }
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'bot',
+            text: reply,
+            action: data?.action,
+            suggested_dishes: data?.suggested_dishes,
+          },
+        ])
+      } catch (e: any) {
+        if (e?.status === 429) {
+          const waitSeconds =
+            Number(e?.message?.match(/sau khoảng (\d+) giây/i)?.[1]) ||
+            Number(e?.message?.match(/retry in ([0-9.]+)s/i)?.[1]) ||
+            10
+          setCooldownSec(Math.max(Math.ceil(waitSeconds), 5))
+        }
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'bot',
+            text: e?.message || 'Không gửi được tin nhắn, vui lòng thử lại.',
+          },
+        ])
+      } finally {
+        setLoading(false)
       }
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'bot',
-          text:
-            e.message ||
-            'Không gửi được tin.',
-        },
-      ])
-    } finally {
-      setLoading(false)
-    }
-  }, [input, loading, postJson, cooldownSec])
+    },
+    [input, loading, cooldownSec, messages]
+  )
 
   const resetChat = useCallback(async () => {
     if (!window.confirm('Bạn có chắc muốn xóa toàn bộ đoạn chat?')) return
-    try {
-      await postJson('/api/reset')
-      setMessages([])
-    } catch {
-      setMessages([])
-    }
-  }, [postJson])
+    await chatService.resetChat()
+    setMessages([])
+  }, [])
 
-  const onKeyDown = (e: React.KeyboardEvent) => {
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       sendMessage()
@@ -150,7 +151,7 @@ export default function ChatbotWidget() {
   }
 
   const onQuick = (q: string) => {
-    setInput(q)
+    setInput('')
     sendMessage(q)
   }
 
@@ -178,7 +179,7 @@ export default function ChatbotWidget() {
               <span className={styles.headBadge}>AI</span>
               <div>
                 <p className={styles.headName}>Trợ lý NEUFood</p>
-                <p className={styles.headSub}>Hỏi về menu, đặt món, giao hàng</p>
+                <p className={styles.headSub}>Hỏi về menu, đặt món, đơn hàng</p>
               </div>
             </div>
             <div className={styles.headActions}>
@@ -207,8 +208,7 @@ export default function ChatbotWidget() {
             {messages.length === 0 && !loading && (
               <>
                 <p className={styles.hint}>
-                  Chào bạn! Mình là trợ lý NEUFood — hỏi về menu, đặt món hoặc giao hàng
-                  trong campus nhé.
+                  Chào bạn! Mình là trợ lý AI NEUFood — hỏi về thực đơn Canteen A2, gợi ý món, quy định giao hàng hoặc tra cứu đơn hàng nhé.
                 </p>
                 <div className={styles.quickRow} role="group" aria-label="Gợi ý nhanh">
                   {QUICK_PROMPTS.map((q) => (
@@ -235,7 +235,84 @@ export default function ChatbotWidget() {
                 <span className={styles.bubbleLabel}>
                   {m.role === 'user' ? 'Bạn' : 'Trợ lý'}
                 </span>
-                <p className={styles.bubbleText}>{parseMarkdown(m.text)}</p>
+                <div className={styles.bubbleText}>{parseMarkdown(m.text)}</div>
+
+                {m.action?.type === 'ORDER_CREATED' && m.action.order && (
+                  <div className={`${styles.actionCard} ${styles.orderSuccessCard}`}>
+                    <div className={styles.cardHead}>
+                      <span className={styles.badgeSuccess}>✅ Đặt đơn thành công</span>
+                      <span className={styles.suffixBadge}>
+                        Mã nhận: <span className={styles.suffixNum}>{m.action.order.order_code_suffix}</span>
+                      </span>
+                    </div>
+                    <div className={styles.cardRow}>
+                      <strong>Mã đơn:</strong> {m.action.order.id}
+                    </div>
+                    <div className={styles.cardRow}>
+                      <strong>Địa chỉ:</strong> {m.action.order.delivery_address}
+                    </div>
+                    <div className={styles.cardRow}>
+                      <strong>Tổng thanh toán:</strong> {m.action.order.total_amount?.toLocaleString('vi-VN')}đ ({m.action.order.payment_method})
+                    </div>
+                    <button
+                      type="button"
+                      className={styles.actionBtn}
+                      onClick={() => {
+                        setOpen(false)
+                        navigate('/don-hang')
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>local_shipping</span>
+                      Theo dõi đơn hàng
+                    </button>
+                  </div>
+                )}
+
+                {m.action?.type === 'ADD_TO_CART' && m.action.items && (
+                  <div className={styles.actionCard}>
+                    <div className={styles.cardHead}>
+                      <span className={styles.badgeSuccess}>🛒 Đã thêm vào giỏ hàng</span>
+                    </div>
+                    <div className={styles.cartList}>
+                      {m.action.items.map((it) => (
+                        <div key={it.id} className={styles.cartItemRow}>
+                          <span>{it.name} (x{it.qty})</span>
+                          <span>{(it.price * it.qty).toLocaleString('vi-VN')}đ</span>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      className={styles.actionBtn}
+                      onClick={() => {
+                        setOpen(false)
+                        navigate('/gio-hang')
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>shopping_cart</span>
+                      Xem giỏ hàng
+                    </button>
+                  </div>
+                )}
+
+                {m.action?.type === 'NEED_LOGIN' && (
+                  <div className={styles.actionCard}>
+                    <div className={styles.cardRow}>
+                      Vui lòng đăng nhập tài khoản sinh viên để hoàn tất đặt đơn:
+                    </div>
+                    <button
+                      type="button"
+                      className={styles.actionBtn}
+                      onClick={() => {
+                        setOpen(false)
+                        navigate('/dang-nhap')
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>login</span>
+                      Đăng nhập để đặt hàng
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
             {loading && (
@@ -259,11 +336,12 @@ export default function ChatbotWidget() {
               disabled={loading || cooldownSec > 0}
               aria-label="Nội dung tin nhắn"
               autoComplete="off"
+              maxLength={500}
             />
             <button
               type="button"
               className={styles.sendBtn}
-              onClick={sendMessage}
+              onClick={() => sendMessage()}
               disabled={loading || cooldownSec > 0 || !input.trim()}
               aria-label="Gửi"
             >

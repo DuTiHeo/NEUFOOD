@@ -59,6 +59,9 @@ Thumbs.db
 # AI agent instructions and configuration
 /.agents/
 /AGENTS.md
+/specs/
+/.specify/
+/.playwright-mcp/
 
 # Build Outputs
 dist/
