@@ -404,7 +404,7 @@ VALUES
 ('complaint_window_hours', '24', 'Thời gian tối đa cho phép khách hàng gửi ticket khiếu nại sau khi nhận hàng (giờ)'),
 ('system_maintenance_fee', '5000', 'Phụ phí bảo trì hệ thống trực tuyến cộng vào giá niêm yết mỗi món (VNĐ)'),
 ('delivery_fee', '5000', 'Phí vận chuyển cố định cho đơn giao tận nơi nội khu NEU (VNĐ)'),
-('max_dish_quantity_per_order', '10', 'Số lượng tối đa của một món ăn trong một đơn hàng (phần)'),
+('max_dish_quantity_per_order', '50', 'Số lượng tối đa của một món ăn trong một đơn hàng (phần)'),
 ('min_preorder_lead_minutes', '30', 'Thời gian đặt trước tối thiểu cho đơn hẹn giờ (phút)'),
 ('canteen_open_time', '07:30', 'Giờ mở cửa phục vụ hàng ngày của Canteen A2'),
 ('canteen_order_cutoff_time', '18:30', 'Giờ ngừng nhận đơn đặt ngay (bao gồm đúng mốc HH:MM:00)'),

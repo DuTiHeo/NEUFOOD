@@ -20,7 +20,7 @@ class PortionSelection(BaseModel):
 
 class OrderItemCreate(BaseModel):
     dish_id: str = Field(..., min_length=1, max_length=100)
-    quantity: int = Field(..., strict=True, gt=0, le=10)
+    quantity: int = Field(..., strict=True, gt=0, le=50)
     note: Optional[str] = None
     portions: List[PortionSelection] = Field(default_factory=list, max_length=40)
     expected_unit_price: Optional[Decimal] = Field(default=None, ge=0, allow_inf_nan=False)

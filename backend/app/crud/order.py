@@ -68,7 +68,7 @@ def create_order(
         scheduled_at = scheduled_at.astimezone(timezone.utc)
 
     quantities = Counter()
-    max_quantity = min(10, get_setting_int(db, "max_dish_quantity_per_order", 10))
+    max_quantity = min(50, get_setting_int(db, "max_dish_quantity_per_order", 50))
     if not items_data:
         raise OrderError("Đơn hàng phải có ít nhất một món", "EX-05")
     for item in items_data:

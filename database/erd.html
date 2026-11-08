@@ -636,7 +636,7 @@ erDiagram
         string dish_name "Ten mon luc dat"
         numeric unit_price "Gia niem yet chot"
         numeric base_price "Gia goc chot"
-        int quantity "BR-07 1 den 10 phan"
+        int quantity "BR-07 1 den 50 phan"
         string note "Ghi chu mon"
         numeric subtotal "Thanh tien"
     }
@@ -804,7 +804,7 @@ erDiagram
               <tr><td><span class="badge-key badge-fk">FK</span><span class="col-name">dish_id</span></td><td class="col-type">VARCHAR(100)</td><td>SET NULL khi xóa món</td></tr>
               <tr><td><span class="col-name">dish_name</span></td><td class="col-type">VARCHAR(200)</td><td>Lưu tên món cố định</td></tr>
               <tr><td><span class="col-name">unit_price</span></td><td class="col-type">NUMERIC(12,2)</td><td>BR-05 Chốt giá niêm yết</td></tr>
-              <tr><td><span class="col-name">quantity</span></td><td class="col-type">INT</td><td>BR-07: 1 <= quantity <= 10</td></tr>
+              <tr><td><span class="col-name">quantity</span></td><td class="col-type">INT</td><td>BR-07: 1 <= quantity <= 50</td></tr>
               <tr><td><span class="col-name">subtotal</span></td><td class="col-type">NUMERIC(12,2)</td><td>unit_price * quantity</td></tr>
             </tbody>
           </table>
@@ -1101,9 +1101,9 @@ flowchart TD
             </tr>
             <tr>
               <td><span class="rule-code">BR-07</span></td>
-              <td>Mỗi món chỉ được đặt tối đa 10 phần trong một đơn.</td>
+              <td>Mỗi món chỉ được đặt tối đa 50 phần trong một đơn.</td>
               <td><code>order_items.quantity</code></td>
-              <td><code>CHECK (quantity > 0 AND quantity <= 10)</code> (EX-06).</td>
+              <td><code>CHECK (quantity > 0 AND quantity <= 50)</code> (EX-06).</td>
             </tr>
             <tr>
               <td><span class="rule-code">BR-08</span></td>

@@ -165,7 +165,7 @@ CREATE TABLE IF NOT EXISTS order_items (
     dish_name VARCHAR(200) NOT NULL,
     unit_price NUMERIC(12, 2) NOT NULL CHECK (unit_price >= 0),
     base_price NUMERIC(12, 2) NOT NULL DEFAULT 0,
-    quantity INT NOT NULL CHECK (quantity > 0 AND quantity <= 10),
+    quantity INT NOT NULL CHECK (quantity > 0 AND quantity <= 50),
     note TEXT,
     subtotal NUMERIC(12, 2) NOT NULL CHECK (subtotal >= 0)
 );

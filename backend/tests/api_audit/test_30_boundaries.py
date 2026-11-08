@@ -11,7 +11,7 @@ class Test30Boundaries(ApiTestCase):
     """
 
     def test_br07_dish_quantity_boundaries(self):
-        """Số lượng món từ 1 đến 10 phần; 11 phần hoặc chia 2 dòng (6+5=11) bị chặn EX-06 (BR-07)."""
+        """Số lượng món từ 1 đến 50 phần; 51 phần hoặc chia 2 dòng (26+25=51) bị chặn EX-06 (BR-07)."""
         cust_token = self.login("sinhvien@neu.edu.vn")
         self.execute_sql("UPDATE orders SET status = 'HOAN_THANH' WHERE user_id = 4")
 
@@ -29,23 +29,23 @@ class Test30Boundaries(ApiTestCase):
         })
         self.assertIn(resp_0.status_code, (400, 422))
 
-        # 2. Số lượng = 11 phần trên 1 dòng -> Bị chặn (400 hoặc 422 Pydantic Validation)
-        resp_11 = self.request("POST", "/api/v1/orders", token=cust_token, json={
-            **base_payload, "items": [{"dish_id": "pho-bo-tai-lan", "quantity": 11}]
+        # 2. Số lượng = 51 phần trên 1 dòng -> Bị chặn (400 hoặc 422 Pydantic Validation)
+        resp_51 = self.request("POST", "/api/v1/orders", token=cust_token, json={
+            **base_payload, "items": [{"dish_id": "pho-bo-tai-lan", "quantity": 51}]
         })
-        self.assertIn(resp_11.status_code, (400, 422))
+        self.assertIn(resp_51.status_code, (400, 422))
 
-        # 3. Cố tình chia cùng 1 món thành 2 dòng (6 + 5 = 11 phần) -> Counter phát hiện và chặn EX-06
+        # 3. Cố tình chia cùng 1 món thành 2 dòng (26 + 25 = 51 phần) -> Counter phát hiện và chặn EX-06
         resp_split = self.request("POST", "/api/v1/orders", token=cust_token, json={
             **base_payload, "items": [
-                {"dish_id": "pho-bo-tai-lan", "quantity": 6, "note": "Ít ớt"},
-                {"dish_id": "pho-bo-tai-lan", "quantity": 5, "note": "Nhiều chanh"}
+                {"dish_id": "pho-bo-tai-lan", "quantity": 26, "note": "Ít ớt"},
+                {"dish_id": "pho-bo-tai-lan", "quantity": 25, "note": "Nhiều chanh"}
             ]
         })
         self.assertEqual(resp_split.status_code, 400)
         self.assertIn("EX-06", str(resp_split.get_json()))
 
-        # 4. Số lượng biên hợp lệ: đúng 10 phần -> Thành công
+        # 4. Số lượng hợp lệ trong giới hạn mới: 10 phần
         resp_10 = self.request("POST", "/api/v1/orders", token=cust_token, json={
             **base_payload, "items": [{"dish_id": "pho-bo-tai-lan", "quantity": 10}]
         })

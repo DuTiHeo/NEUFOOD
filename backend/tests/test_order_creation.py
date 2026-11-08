@@ -169,9 +169,12 @@ class OrderCreationTests(unittest.TestCase):
 
     def test_duplicate_dish_cannot_bypass_quantity_limit(self):
         payload = self.payload()
-        payload["items"] = [{"dish_id": "rice", "quantity": 6}, {"dish_id": "rice", "quantity": 5}]
+        with self.sessions.begin() as db:
+            db.get(Dish, "rice").price = Decimal("5000")
+            db.get(Dish, "rice").base_price = Decimal("0")
+        payload["items"] = [{"dish_id": "rice", "quantity": 26}, {"dish_id": "rice", "quantity": 25}]
         self.assert_rejected(payload, "EX-06")
-        payload["items"][1]["quantity"] = 4
+        payload["items"][1]["quantity"] = 24
         self.assertEqual(self.post(payload).status_code, 201)
 
     def test_delivery_requires_active_location(self):
@@ -254,15 +257,15 @@ class OrderCreationTests(unittest.TestCase):
     def test_settings_cannot_raise_existing_schema_caps(self):
         with self.sessions.begin() as db:
             db.add_all([SystemSetting(setting_key=key, setting_value=value) for key, value in
-                        [("max_cod_amount", "1000000"), ("max_dish_quantity_per_order", "20")]])
+                        [("max_cod_amount", "1000000"), ("max_dish_quantity_per_order", "100")]])
         payload = self.payload()
-        payload["items"] = [{"dish_id": "rice", "quantity": 6}, {"dish_id": "rice", "quantity": 5}]
+        payload["items"] = [{"dish_id": "rice", "quantity": 26}, {"dish_id": "rice", "quantity": 25}]
         self.assert_rejected(payload, "EX-06")
         payload["items"] = [{"dish_id": "premium", "quantity": 10}]
         self.assert_rejected(payload, "DEPOSIT_CONFIRMATION_REQUIRED",409)
 
     def test_schema_rejects_bad_input(self):
-        for quantity in (0, 11, True, 1.5, "2"):
+        for quantity in (0, 51, True, 1.5, "2"):
             with self.subTest(quantity=quantity):
                 payload = self.payload()
                 payload["items"][0]["quantity"] = quantity
