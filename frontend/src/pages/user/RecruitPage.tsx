@@ -62,6 +62,11 @@ export default function RecruitPage() {
       return
     }
 
+    if (!formData.studentId.trim()) {
+      setErrorMsg('Vui lòng nhập mã sinh viên NEU của bạn.')
+      return
+    }
+
     if (!formData.email.trim() || !formData.email.includes('@')) {
       setErrorMsg('Vui lòng nhập địa chỉ email hợp lệ.')
       return
@@ -116,30 +121,26 @@ export default function RecruitPage() {
           </nav>
 
           <header className={styles.header}>
-            <div className={styles.badgeWrap}>
-              <span className={styles.badge}>Gia nhập đội ngũ NEUFood</span>
-            </div>
-            <h1 className={styles.title}>Cùng NEUFood mang bữa ăn đến gần sinh viên hơn!</h1>
+            <h1 className={styles.title}>NEU FOOD ĐANG TUYỂN DỤNG NHÂN SỰ PARTIME</h1>
             <p className={styles.subtitle}>
-              Cơ hội việc làm linh hoạt theo lịch học, thu nhập hấp dẫn và môi trường năng động ngay tại trường.
+              Cơ hội việc làm linh hoạt theo lịch học, có thêm thu nhập và môi trường năng động ngay tại trường học.
             </p>
           </header>
 
           <article className={styles.article} aria-label="Thông tin tuyển dụng NEUFood">
             <section>
-              <h2>Từ giờ nghỉ vội đến những bữa ăn trọn vẹn</h2>
-              <p>Giờ nghỉ ngắn, canteen đông, nhiều bạn học ở tầng cao chưa kịp mua đồ ăn đã phải quay lại lớp. NEUFood giúp sinh viên NEU đặt món trước, nhận tại quầy hoặc được giao tận phòng học, để mỗi bữa ăn thuận tiện hơn.</p>
-              <p>Chúng mình tìm kiếm sinh viên NEU chủ động, có trách nhiệm, đúng giờ và thân thiện để cùng mang những bữa ăn chu đáo đến cộng đồng sinh viên.</p>
+              <p>Hiện nay, do nhu cầu đơn hàng tăng cao, NEUFOOD cần tuyển thêm nhân sự để hỗ trợ đóng gói, điều phối, giao món và chăm sóc khách hàng, đồng thời đồng hành trong các hoạt động truyền thông và sự kiện. Đây là cơ hội để các bạn sinh viên vừa có thêm thu nhập, vừa tích lũy kinh nghiệm và rèn luyện kỹ năng làm việc ngay trong khuôn viên trường.</p>
+              <p>Chúng mình tìm kiếm những sinh viên NEU chủ động, có trách nhiệm, đúng giờ và thân thiện để cùng mang những bữa ăn chu đáo đến cộng đồng sinh viên. Hãy gia nhập ngay đội ngũ NEUFOOD của chúng tôi!</p>
             </section>
             <section>
-              <h2>4 vị trí, cùng một hành trình</h2>
+              <h2 className={styles.positionsTitle}>4 vị trí, cùng một hành trình</h2>
               <div className={styles.positionGrid}>{POSITIONS.map(position => <section key={position.value} className={styles.positionCard}>
                 <h3>{position.name}</h3><p>{position.description}</p><strong>25.000đ/giờ</strong>
                 <a href="#recruit-form" className={styles.positionLink} onClick={() => { setFormData(prev => ({ ...prev, role: position.value })); setSubmittedData(null) }}>Chọn vị trí này</a>
               </section>)}</div>
             </section>
             <section>
-              <h2>Chủ động lịch làm, tối thiểu 4 buổi/tuần</h2>
+              <h2 className={styles.positionsTitle}>Chủ động lịch làm, tối thiểu 4 buổi/tuần</h2>
               <p><strong>Thu nhập 25.000đ/giờ</strong>, áp dụng cho cả 4 vị trí. Làm việc trong khuôn viên NEU, được hướng dẫn công việc, rèn luyện kỹ năng giao tiếp và làm việc nhóm.</p>
               <p>Bạn được chọn từng ngày và ca phù hợp với lịch học từ <strong>thứ Hai đến thứ Bảy</strong>; <strong>nghỉ Chủ nhật</strong>.</p>
               <ul><li>Ca sáng: <strong>07:00–12:00</strong>.</li><li>Ca chiều: <strong>12:00–19:00</strong>.</li></ul>
@@ -221,12 +222,13 @@ export default function RecruitPage() {
 
                   <div className={styles.field}>
                     <label htmlFor="studentId" className={styles.label}>
-                      Mã sinh viên NEU (nếu có)
+                      Mã sinh viên NEU <span className={styles.req}>*</span>
                     </label>
                     <input
                       id="studentId"
                       name="studentId"
                       type="text"
+                      required
                       className={styles.input}
                       placeholder="Ví dụ: 11210001"
                       value={formData.studentId}

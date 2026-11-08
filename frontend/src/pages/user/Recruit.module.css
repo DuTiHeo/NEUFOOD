@@ -66,7 +66,7 @@
   font-family: var(--font-headline);
   font-size: 2.25rem;
   font-weight: 800;
-  color: var(--color-ink);
+  color: var(--color-brand);
   letter-spacing: -0.025em;
   line-height: 1.25;
   margin: 0 0 0.75rem;
@@ -166,6 +166,7 @@
 }
 
 .article h2 { font-size: 1.5rem; line-height: 1.35; }
+.positionsTitle { text-align: center; font-weight: 800; color: var(--color-brand); }
 .article h3 { font-size: 1.25rem; line-height: 1.4; margin: 0; }
 .positionGrid, .scheduleGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .positionCard { display: flex; flex-direction: column; align-items: flex-start; padding: 1.25rem; border: 1px solid var(--color-edge); border-radius: 1rem; background: var(--color-panel); }
