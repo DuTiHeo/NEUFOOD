@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useCart } from '../../contexts/CartContext'
-import { chatService, ChatMessage } from '../../services/chatService'
+import { useAuth } from '../../hooks/useAuth'
+import { chatService, ChatMessage, pendingConfirmation } from '../../services/chatService'
 import styles from './ChatbotWidget.module.css'
 
 // Parse markdown text (**bold** and line breaks) to JSX
@@ -48,9 +49,20 @@ const QUICK_PROMPTS: string[] = [
 ]
 
 export default function ChatbotWidget() {
+  const { user } = useAuth()
+  return <ChatbotSession key={user?.id ?? 'guest'} userId={user?.id} />
+}
+
+function ChatbotSession({ userId }: { userId?: number }) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const cart = useCart()
+  chatService.setOwner(userId)
+  const owner = userId ?? null
+  const ownerRef = useRef(owner)
+  ownerRef.current = owner
+  const inFlight = useRef(false)
+  const skipSave = useRef(false)
   const hasBottomDock = ['/', '/khach-hang', '/menu', '/gio-hang', '/tai-khoan', '/lich-su-don'].includes(pathname)
   // Hide chatbot on checkout page to avoid obscuring form inputs and the submit order button
   const isCheckout = pathname === '/thanh-toan'
@@ -63,8 +75,25 @@ export default function ChatbotWidget() {
   const inputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
+    chatService.setOwner(userId)
+    ownerRef.current = owner
+    skipSave.current = true
+    setMessages(chatService.loadStoredMessages())
+    setInput('')
+    setLoading(false)
+    inFlight.current = false
+    return () => {
+      ownerRef.current = null
+      chatService.invalidateOwnerSession(userId)
+    }
+  }, [userId])
+
+  useEffect(() => {
+    if (skipSave.current) { skipSave.current = false; return }
     chatService.saveStoredMessages(messages)
   }, [messages])
+
+  const pending = pendingConfirmation(messages)
 
   useEffect(() => {
     if (!open || !listRef.current) return
@@ -86,9 +115,11 @@ export default function ChatbotWidget() {
   }, [cooldownSec])
 
   const sendMessage = useCallback(
-    async (overrideText?: string) => {
+    async (overrideText?: string, decision?: 'confirm' | 'cancel') => {
       const text = (typeof overrideText === 'string' ? overrideText : input).trim()
-      if (!text || loading || cooldownSec > 0) return
+      if (!text || inFlight.current || loading || cooldownSec > 0) return
+      inFlight.current = true
+      const requestOwner = owner
       setInput('')
 
       const historySnapshot = messages
@@ -97,7 +128,8 @@ export default function ChatbotWidget() {
       setLoading(true)
 
       try {
-        const data = await chatService.sendMessage(text, historySnapshot)
+        const data = await chatService.sendMessage(text, historySnapshot, decision)
+        if (ownerRef.current !== requestOwner) return
         const reply = data?.reply || 'Không có phản hồi từ trợ lý.'
 
         if (data?.action?.type === 'ADD_TO_CART' && Array.isArray(data.action.items)) {
@@ -116,6 +148,7 @@ export default function ChatbotWidget() {
           },
         ])
       } catch (e: any) {
+        if (ownerRef.current !== requestOwner) return
         if (e?.status === 429) {
           const waitSeconds =
             Number(e?.message?.match(/sau khoảng (\d+) giây/i)?.[1]) ||
@@ -131,17 +164,35 @@ export default function ChatbotWidget() {
           },
         ])
       } finally {
-        setLoading(false)
+        if (ownerRef.current === requestOwner) {
+          setLoading(false)
+          inFlight.current = false
+        }
       }
     },
-    [input, loading, cooldownSec, messages]
+    [input, loading, cooldownSec, messages, owner]
   )
 
   const resetChat = useCallback(async () => {
-    if (!window.confirm('Bạn có chắc muốn xóa toàn bộ đoạn chat?')) return
-    await chatService.resetChat()
+    if (inFlight.current) return
+    const requestOwner = owner
+    inFlight.current = true
     setMessages([])
-  }, [])
+    setInput('')
+    setCooldownSec(0)
+    setLoading(true)
+    try {
+      const synced = await chatService.resetChat()
+      if (!synced && ownerRef.current === requestOwner) {
+        setMessages([{ role: 'bot', text: 'Đã xóa lịch sử trên thiết bị. Chưa đồng bộ được với máy chủ; cuộc trò chuyện mới dùng phiên mới.' }])
+      }
+    } finally {
+      if (ownerRef.current === requestOwner) {
+        inFlight.current = false
+        setLoading(false)
+      }
+    }
+  }, [owner])
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -187,6 +238,7 @@ export default function ChatbotWidget() {
                 type="button"
                 className={styles.iconBtn}
                 onClick={resetChat}
+                disabled={loading}
                 title="Xóa lịch sử chat"
                 aria-label="Xóa lịch sử chat"
               >
@@ -237,6 +289,15 @@ export default function ChatbotWidget() {
                 </span>
                 <div className={styles.bubbleText}>{parseMarkdown(m.text)}</div>
 
+                {m.action?.type === 'ORDER_CONFIRMATION' && pending?.draft_id === m.action.draft_id && pending?.revision === m.action.revision && (
+                  <div className={styles.actionCard} role="group" aria-label="Xác nhận đơn hàng">
+                    <button type="button" className={styles.actionBtn} disabled={loading || cooldownSec > 0 || Date.parse(m.action.expires_at) <= Date.now()} onClick={() => sendMessage('Đồng ý đặt đơn', 'confirm')}>Xác nhận đặt đơn</button>
+                    <button type="button" className={styles.actionBtn} disabled={loading} onClick={() => { setInput('Tôi muốn sửa '); inputRef.current?.focus() }}>Sửa thông tin</button>
+                    <button type="button" className={styles.actionBtn} disabled={loading} onClick={() => sendMessage('Bỏ đơn nháp', 'cancel')}>Bỏ đơn nháp</button>
+                    <p className={styles.hint}>Đơn chỉ được tạo sau khi bạn xác nhận. Bạn có thể nhắn “đồng ý đặt đơn”.</p>
+                  </div>
+                )}
+
                 {m.action?.type === 'ORDER_CREATED' && m.action.order && (
                   <div className={`${styles.actionCard} ${styles.orderSuccessCard}`}>
                     <div className={styles.cardHead}>
@@ -252,7 +313,7 @@ export default function ChatbotWidget() {
                       <strong>Địa chỉ:</strong> {m.action.order.delivery_address}
                     </div>
                     <div className={styles.cardRow}>
-                      <strong>Tổng thanh toán:</strong> {m.action.order.total_amount?.toLocaleString('vi-VN')}đ ({m.action.order.payment_method})
+                      <strong>Tổng thanh toán:</strong> {Number(m.action.order.total_amount).toLocaleString('vi-VN')}đ ({m.action.order.payment_method === 'cod_cash' ? 'Tiền mặt khi nhận' : 'VietQR khi nhận'})
                     </div>
                     <button
                       type="button"
