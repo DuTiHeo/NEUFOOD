@@ -8,6 +8,7 @@ export interface Category {
 }
 
 export interface Dish {
+  portion_groups?: any[];
   id: string;
   name: string;
   basePrice?: number;

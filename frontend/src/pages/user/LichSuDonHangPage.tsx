@@ -1,3 +1,4 @@
+import { portionSummary } from '../../utils/portions'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useOrderHistory } from '../../contexts/OrderHistoryContext'
@@ -157,7 +158,7 @@ export default function LichSuDonHangPage() {
             const status = statusUi[order.status] || { label: order.status, cls: styles.badgeWait }
             const firstItem = order.items?.[0]
             const firstDish = getById(firstItem?.dish_id)
-            const summary = order.items?.map((item) => `${item.dish_name} ×${item.quantity}`).join(', ') || 'Đơn hàng NEUFood'
+            const summary = order.items?.map((item) => `${item.dish_name} ×${item.quantity}${portionSummary(item.portions) ? " · " + portionSummary(item.portions) : ""}`).join(', ') || 'Đơn hàng NEUFood'
             const place = order.order_type === 'pickup' ? 'Nhận tại quầy Canteen A2' : order.delivery_address || 'Trong khuôn viên NEU'
             return (
               <article key={order.id} className={styles.card}>

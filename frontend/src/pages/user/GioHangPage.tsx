@@ -3,13 +3,14 @@ import { Link } from 'react-router-dom'
 import { useCart } from '../../contexts/CartContext'
 import { formatVnd } from '../../utils/money'
 import { getDishImageUrl, handleDishImageError } from '../../utils/dishImages'
+import { portionSummary } from '../../utils/portions'
 import Footer from '../../components/layout/Footer'
 import styles from './GioHangPage.module.css'
 
 export default function GioHangPage() {
-  const { lines, add, setQuantity, totalCount, subtotal, unavailableLines, maxDishQuantity } = useCart()
+  const { lines, add, setQuantity, totalCount, subtotal, unavailableLines, maxDishQuantity, reviewLine, getQty } = useCart()
 
-  const visibleItems = useMemo(() => lines.map((l) => ({ ...l.dish, qty: l.qty, key: l.dish.id, isMissing: l.isMissing })), [lines])
+  const visibleItems = useMemo(() => lines.map((l) => ({ ...l.dish, price: l.unitPrice, qty: l.qty, key: l.lineId, line: l, isMissing: l.isMissing })), [lines])
 
   return (
     <>
@@ -44,6 +45,10 @@ export default function GioHangPage() {
                 </div>
                 <div className={styles.lineMain}>
                   <h3 className={styles.lineName}>{item.name}</h3>
+                  {portionSummary(item.line.snapshot) && <p>{portionSummary(item.line.snapshot)}</p>}
+                  {item.line.note && <p>{item.line.note}</p>}
+                  {item.line.invalidReason && <p role="alert">{item.line.invalidReason}</p>}
+                  {item.line.canReview && <button type="button" onClick={() => reviewLine(item.key)}>Xác nhận giá mới {formatVnd(item.line.currentUnitPrice)}</button>}
                   <p className={styles.linePrice}>{item.isMissing ? '—' : formatVnd(item.price)}</p>
                   {item.isMissing ? <p role="alert">{item.name === 'Đang tải thông tin món' ? 'Đang tải chi tiết món từ thực đơn…' : item.name === 'Không tải được thông tin món' ? 'Không tải được dữ liệu món. Hãy thử tải lại trang.' : 'Món này không còn trong thực đơn. Hãy xóa món khỏi giỏ.'}</p> : item.is_available === false ? <p role="alert">Món hiện đã hết, hãy xóa món khỏi giỏ.</p> : null}
                   {item.qty >= maxDishQuantity ? <p>Đã đạt tối đa {maxDishQuantity} phần cho món này.</p> : null}
@@ -52,7 +57,7 @@ export default function GioHangPage() {
                       <button
                         type="button"
                         className={styles.stepperBtn}
-                        onClick={() => add(item.id, -1)}
+                        onClick={() => setQuantity(item.key, item.qty - 1)}
                         aria-label={`Giảm số lượng ${item.name}`}
                       >
                         <span className={`material-symbols-outlined ${styles.stepperIcon}`}>remove</span>
@@ -61,8 +66,8 @@ export default function GioHangPage() {
                       <button
                         type="button"
                         className={styles.stepperBtn}
-                        onClick={() => add(item.id, 1)}
-                        disabled={item.qty >= maxDishQuantity || item.is_available === false}
+                        onClick={() => setQuantity(item.key, item.qty + 1)}
+                        disabled={getQty(item.id) >= maxDishQuantity || Boolean(item.line.invalidReason)}
                         aria-label={`Tăng số lượng ${item.name}`}
                       >
                         <span className={`material-symbols-outlined ${styles.stepperIcon}`}>add</span>
@@ -73,7 +78,7 @@ export default function GioHangPage() {
                 <button
                   type="button"
                   className={styles.lineDel}
-                  onClick={() => setQuantity(item.id, 0)}
+                  onClick={() => setQuantity(item.key, 0)}
                   aria-label={`Xóa ${item.name} khỏi giỏ hàng`}
                 >
                   <span className="material-symbols-outlined">delete</span>

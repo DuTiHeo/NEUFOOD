@@ -30,7 +30,9 @@ Giới hạn 10 áp dụng tổng số món cùng `dish_id` trên mọi dòng. T
 
 ## Nâng cấp và kiểm thử
 
-Database đang có dữ liệu: chạy `database/migrations/002_extra_portions.sql` bằng psql. Migration chỉ thêm cột và nạp cấu hình cho món chưa có cấu hình; không xóa đơn/người dùng. Khởi tạo mới qua compose tự chạy init, sample và extra_portions theo thứ tự. Sau migration xóa riêng cache `neufood:dishes:*` hoặc đợi TTL 300 giây; không flush Redis/session. Giữ backend mới trước khi dùng frontend mới. Không rollback bằng cách xóa snapshot khi đã có đơn.
+Database đang có dữ liệu: chạy `database/migrations/002_extra_portions.sql` bằng psql. Migration chỉ thêm cột và nạp cấu hình cho món chưa có cấu hình; không xóa đơn/người dùng. Khởi tạo mới qua compose chạy init và sample; sample đã chứa cấu hình phần thêm. Sau migration xóa riêng cache `neufood:dishes:*` hoặc đợi TTL 300 giây; không flush Redis/session. Giữ backend mới trước khi dùng frontend mới. Không rollback bằng cách xóa snapshot khi đã có đơn.
 
 Kiểm thử tích hợp: đặt `TEST_DATABASE_URL` tới database PostgreSQL riêng có hậu tố `_orders_test`, chạy `python -m unittest discover -s tests -p test_extra_portions.py -v` tại `backend`. Suite tự thay dữ liệu chỉ trong database kiểm thử và từ chối database không đúng hậu tố. Bao phủ dữ liệu 65 món, tiền/báo cáo, snapshot, combo, lựa chọn không hợp lệ, giá thay đổi, giới hạn COD/số lượng, caller cũ và đặt đồng thời.
+
+Frontend: tại `frontend`, chạy `node --test scripts/extra-portions.test.mjs`, `npx tsc --noEmit` và `npm run build`. Kiểm tra giỏ tách/gộp cấu hình, chuyển giỏ cũ, đổi giá và combo. Khách cần quay lại chi tiết món để chọn cấu hình khác; checkout chỉ hiển thị. Không cho thêm món khi thực đơn hoặc cấu hình lựa chọn chưa tải xong.
 
