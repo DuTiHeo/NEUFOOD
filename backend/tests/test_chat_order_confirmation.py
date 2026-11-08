@@ -1,6 +1,6 @@
 """PostgreSQL integration: requires disposable TEST_DATABASE_URL ending _orders_test."""
 from concurrent.futures import ThreadPoolExecutor
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import patch
 from contextlib import contextmanager
@@ -152,7 +152,7 @@ class ChatOrderConfirmationTests(unittest.TestCase):
         with self.sessions.begin() as db:
             db.get(User, 1).is_blacklisted = False
         with self.assertRaises(OrderError):
-            self.prepare(items=[{"dish_id": "rice", "quantity": 6}, {"dish_id": "rice", "quantity": 5}])
+            self.prepare(items=[{"dish_id": "rice", "quantity": 26}, {"dish_id": "rice", "quantity": 25}])
         _, action = self.prepare()
         self.confirm(action)
         with self.assertRaises(OrderError):
@@ -200,6 +200,78 @@ class ChatOrderConfirmationTests(unittest.TestCase):
             self.assertEqual(db.query(Order).count(), 0)
         response = self.chat({"message": "đồng ý đặt đơn", "draft_id": action["draft_id"], "revision": action["revision"]})
         self.assertEqual(response.get_json()["data"]["action"]["type"], "ORDER_CREATED")
+
+    def test_ai_preorder_alias_and_immediate_full_api_flow(self):
+        from app.core.security import create_access_token
+        for preorder in (True, False):
+            with self.subTest(preorder=preorder):
+                self.setUp()
+                with self.sessions.begin() as db:
+                    db.get(User, 1).ordering_hours_exempt = False
+                # 02:00 VN for a preorder; 10:00 VN for an immediate order, on Monday.
+                moment = datetime(2026, 11, 8, 19, tzinfo=timezone.utc) if preorder else datetime(2026, 11, 9, 3, tzinfo=timezone.utc)
+                payload = self.payload(order_type="pickup", is_preorder=preorder, order_for_self=False)
+                if preorder:
+                    payload["preorder_time"] = "2026-11-09T09:00:00+07:00"
+                with patch("app.crud.order.datetime") as clock, patch("app.crud.chat_order.now", return_value=moment):
+                    clock.now.return_value = moment
+                    result = self.chat({"message": "Đặt món"}, {"type": "PREPARE_ORDER", **payload}).get_json()["data"]
+                    action = result["action"]
+                    self.assertEqual(action["type"], "ORDER_CONFIRMATION", result)
+                    with self.sessions() as db:
+                        self.assertEqual(db.query(Order).count(), 0)
+                        draft = db.query(ChatOrderDraft).one()
+                        self.assertNotIn("preorder_time", draft.payload)
+                        if preorder:
+                            self.assertEqual(draft.payload["scheduled_at"], payload["preorder_time"])
+                    consent = {"message": "Xác nhận đặt đơn", "decision": "confirm", "draft_id": action["draft_id"], "revision": action["revision"]}
+                    created = self.chat(consent).get_json()["data"]["action"]
+                    self.assertEqual(created["type"], "ORDER_CREATED")
+                    self.assertEqual(self.chat(consent).get_json()["data"]["action"]["order"]["id"], created["order"]["id"])
+                    with self.sessions() as db:
+                        order = db.query(Order).one()
+                        self.assertEqual(order.id, created["order"]["id"])
+                        self.assertEqual(order.is_preorder, preorder)
+                        self.assertEqual(order.status, "CHO_XAC_NHAN")
+                        self.assertEqual(order.total_amount, Decimal("70000"))
+                    token = create_access_token({"sub": "1", "role": "customer"})
+                    response = self.app.test_client().post(f"/api/v1/orders/{created['order']['id']}/cancel", json={}, headers={"Authorization": f"Bearer {token}"})
+                    self.assertEqual(response.status_code, 200, response.get_json())
+                    with self.sessions() as db:
+                        self.assertEqual(db.query(Order).one().status, "DA_HUY_KHACH")
+
+    def test_preorder_alias_preserves_time_validation(self):
+        cases = (
+            ("2026-11-09T02:20:00+07:00", "EX-08"),
+            ("2026-11-15T09:00:00+07:00", "SCHEDULE_CLOSED_DAY"),
+            ("2026-11-09T20:00:00+07:00", "SCHEDULE_OUTSIDE_HOURS"),
+            ("2026-11-17T09:00:00+07:00", "SCHEDULE_DATE_RANGE"),
+            ("2026-11-09T09:00:00", "INVALID_INPUT"),
+        )
+        for scheduled, code in cases:
+            with self.subTest(scheduled=scheduled):
+                self.setUp()
+                with self.sessions.begin() as db:
+                    db.get(User, 1).ordering_hours_exempt = False
+                with patch("app.crud.order.datetime") as clock:
+                    clock.now.return_value = datetime(2026, 11, 8, 19, tzinfo=timezone.utc)
+                    payload = self.payload(order_type="pickup", is_preorder=True, preorder_time=scheduled)
+                    result = self.chat({"message": "Đặt hẹn"}, {"type": "PREPARE_ORDER", **payload}).get_json()["data"]["action"]
+                    self.assertEqual(result["type"], "ORDER_FAILED")
+                    self.assertEqual(result["code"], code)
+                with self.sessions() as db:
+                    self.assertEqual(db.query(Order).count(), 0)
+
+    def test_schedule_alias_does_not_allow_unknown_or_conflicting_fields(self):
+        from pydantic import ValidationError
+        from app.crud.chat_order import DraftUpdate
+        for payload in (
+            {"scheduled_at": "2026-11-09T09:00:00+07:00", "preorder_time": "2026-11-09T10:00:00+07:00"},
+            {"unrecognized_time": "2026-11-09T09:00:00+07:00"},
+            {"is_preorder": "true", "preorder_time": "2026-11-09T09:00:00+07:00"},
+        ):
+            with self.subTest(payload=payload), self.assertRaises(ValidationError):
+                DraftUpdate.model_validate(payload)
 
     def test_negative_or_modified_agreement_does_not_confirm(self):
         for text in ("không đồng ý", "đồng ý nhưng đổi sang nhận quầy"):

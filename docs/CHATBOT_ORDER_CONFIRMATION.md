@@ -49,3 +49,40 @@ chạy backend mới. Migration chỉ thêm `chat_order_drafts`,
 PostgreSQL riêng có tên kết thúc `_orders_test`, đã khởi tạo bằng init_db.sql.
 Test xóa fixture trong database đó; không dùng database ứng dụng.
 `test_chatbot_api.py` kiểm tra routing/provider với dữ liệu giả lập.
+
+## Sửa lỗi giờ hẹn từ Gemini (09/11/2026)
+
+Trường giờ hẹn chuẩn trong action là `scheduled_at`, chuỗi ISO 8601 có múi giờ
+(ví dụ `2026-11-09T09:00:00+07:00`). Backend nhận thêm tên `preorder_time` đã
+quan sát thấy từ Gemini và chuẩn hóa về `scheduled_at` trước khi lưu nháp.
+Không gửi cả hai trường cùng lúc. Các trường lạ khác vẫn bị từ chối; không bỏ
+kiểm tra múi giờ, tối thiểu 30 phút, tối đa 7 ngày, giờ phục vụ hoặc nghỉ Chủ nhật.
+Đặt ngay trong giờ và đặt hẹn ngoài giờ vẫn phải xem tóm tắt và xác nhận trước khi tạo Order.
+
+Giữ cấu hình Gemini đã hoạt động trên server. Với localhost, Compose hiện có
+`environment` ghi đè `env_file`: chỉ đặt khóa trong `backend/.env` có thể chưa đủ.
+Dùng `--env-file backend/.env` ở lệnh Compose để cung cấp cả biến nội suy khóa/model.
+Không commit khóa API vào Git và không thay chuỗi kết nối database cho bản sửa này.
+
+Sau khi tích hợp bản sửa, chạy tại gốc repo trên từng máy cần cập nhật:
+
+```bash
+git pull
+docker compose up -d --build --no-deps --force-recreate backend
+```
+
+Nếu Gemini chỉ được cấu hình trong `backend/.env` và container đang nhận khóa rỗng,
+thay lệnh Docker phía trên bằng:
+
+```bash
+docker compose --env-file backend/.env up -d --build --no-deps --force-recreate backend
+```
+
+Nếu server còn dùng file `.env` ở gốc để cấu hình database/cổng riêng, giữ file
+triển khai đó bằng `--env-file .env --env-file backend/.env` theo đúng thứ tự.
+
+Lệnh này build/tạo lại riêng backend và nhận lại biến môi trường; giữ database,
+Redis và ảnh upload. Không cần cài thư viện frontend, migration mới hoặc `down -v`
+cho bản sửa này. Server ở địa chỉ IP và localhost là hai môi trường độc lập:
+chạy lệnh ở localhost không cập nhật server. Chỉ pull `master` sau khi PR bản sửa
+đã được merge; trước đó dùng nhánh `feature/chatbot-ai` khi kiểm thử riêng.

@@ -3,7 +3,7 @@ import re
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from typing import Optional, Literal
 
 from app.crud.order import create_order, OrderError
@@ -23,7 +23,8 @@ class DraftUpdate(BaseModel):
     delivery_note: Optional[str] = Field(default=None, max_length=1000)
     payment_method: Optional[Literal["cod_cash", "cod_vietqr"]] = None
     is_preorder: Optional[bool] = Field(default=None, strict=True)
-    scheduled_at: Optional[str] = Field(default=None, max_length=50)
+    scheduled_at: Optional[str] = Field(default=None, max_length=50,
+        validation_alias=AliasChoices("scheduled_at", "preorder_time"))
     order_for_self: Optional[bool] = Field(default=None, strict=True)
     notes_confirmed: Optional[bool] = Field(default=None, strict=True)
 

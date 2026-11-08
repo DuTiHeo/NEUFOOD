@@ -198,7 +198,7 @@ class OrderingHoursIntegrationTests(unittest.TestCase):
     def test_tester_still_checks_cod_quantity_location_blacklist(self):
         with self.sessions.begin() as db:set_exemption(db,'orders-test-1@example.com',True)
         for changes,code in [({'items':[{'dish_id':'premium','quantity':10}]},'DEPOSIT_CONFIRMATION_REQUIRED'),
-                ({'items':[{'dish_id':'rice','quantity':6},{'dish_id':'rice','quantity':5}]},'EX-06'),({'campus_location_id':999},'EX-07')]:
+                ({'items':[{'dish_id':'rice','quantity':26},{'dish_id':'rice','quantity':25}]},'EX-06'),({'campus_location_id':999},'EX-07')]:
             payload=self.payload();payload.update(changes)
             self.assertEqual(self.post(payload).get_json()['errors'][0]['code'],code)
         with self.sessions.begin() as db:db.get(User,1).is_blacklisted=True

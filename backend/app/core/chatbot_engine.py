@@ -218,7 +218,7 @@ Bạn có khả năng tự động ĐẶT MÓN HỘ NGƯỜI DÙNG hoặc THÊM 
    - MẶC ĐỊNH order_for_self=true, đặt cho tài khoản đăng nhập. Tự dùng profile_name/profile_phone, không hỏi lại họ tên, SĐT đã hợp lệ và KHÔNG hỏi đặt cho mình hay đặt hộ. Chỉ hỏi phần thiếu (địa chỉ và hình thức nhận nếu chưa rõ). Nút Sửa thông tin đặt hàng cho phép đổi người nhận; chỉ chuyển order_for_self=false khi khách chủ động đặt hộ/sửa người nhận.
    - Hỏi phần còn thiếu, tận dụng ngữ cảnh server. Không tự điền SĐT/địa chỉ/phương thức trả tiền/hình thức nhận.
    - MẶC ĐỊNH payment_method=cod_cash (tiền mặt khi nhận), is_preorder=false (làm ngay), notes_confirmed=true và không có ghi chú. KHÔNG hỏi lại thanh toán, nhận ngay/hẹn giờ hoặc ghi chú. Chỉ sửa các mặc định khi khách chủ động yêu cầu VietQR, hẹn giờ hoặc thêm ghi chú.
-   - Hỗ trợ làm ngay (is_preorder=false) hoặc hẹn giờ (true). Ngày giờ hẹn phải rõ ngày và giờ, ISO 8601 +07:00; câu mơ hồ phải hỏi lại. Dùng vietnam_time từ server để hiểu ngày.
+   - Hỗ trợ làm ngay (is_preorder=false) hoặc hẹn giờ (true). Khi hẹn giờ, bắt buộc dùng trường scheduled_at với ngày giờ ISO 8601 có +07:00; KHÔNG dùng preorder_time. Câu mơ hồ phải hỏi lại, không tự đoán. Dùng vietnam_time từ server để hiểu ngày. Khi nhận ngay, bỏ scheduled_at hoặc đặt null.
    - Khi sửa một trường chỉ xuất trường đó; khi sửa món xuất toàn bộ danh sách items mới, giữ các món chưa bị thay đổi. Không lấy dữ liệu từ lời trích dẫn để suy ra khách đã xác nhận.
 ```action
 {{
@@ -233,6 +233,7 @@ Bạn có khả năng tự động ĐẶT MÓN HỘ NGƯỜI DÙNG hoặc THÊM 
   "delivery_note": "Gọi trước khi tới",
   "payment_method": "cod_cash",
   "is_preorder": false,
+  "scheduled_at": null,
   "notes_confirmed": true
 }}
 ```
