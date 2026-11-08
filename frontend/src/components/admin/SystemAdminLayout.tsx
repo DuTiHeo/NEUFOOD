@@ -10,6 +10,7 @@ const links = [
   { to: '/admin/khieu-nai', label: 'Khiếu nại', Icon: MessageSquareWarning },
   { to: '/admin/dia-diem', label: 'Địa điểm giao hàng', Icon: MapPin },
   { to: '/admin/bao-cao', label: 'Báo cáo doanh thu', Icon: BarChart3 },
+  { to: '/admin/bai-viet', label: 'Giám sát bài viết', Icon: MessageSquareWarning },
   { to: '/admin/cau-hinh', label: 'Cấu hình hệ thống', Icon: Settings2 },
 ]
 

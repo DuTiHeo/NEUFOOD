@@ -1,0 +1,62 @@
+import { useEffect,useState } from 'react'
+import { Link } from 'react-router-dom'
+import { articleService,articleKinds,articleStates,articlePath,emptyArticle,type ManagedArticle,type ArticleContent,type PositionSetting } from '../../services/articleService'
+import { recruitmentPositions } from '../../services/recruitmentService'
+import { dateTime,requestMessage } from './managerRules'
+import RichEditor from '../../components/articles/RichEditor'
+import RichDocument from '../../components/articles/RichDocument'
+import styles from '../../components/articles/Articles.module.css'
+
+function ArticleEditor({article,admin,onBack,onChanged}:{article:ManagedArticle;admin:boolean;onBack:()=>void;onChanged:()=>void}){
+ const [current,setCurrent]=useState(article);const [content,setContent]=useState<ArticleContent>(article.draft)
+ const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');const [preview,setPreview]=useState(admin);const [reason,setReason]=useState('')
+ const [history,setHistory]=useState<{id:number;actor_id:number|null;action:string;created_at:string}[]>([])
+ useEffect(()=>{let active=true;articleService.history(current.id).then(items=>{if(active)setHistory(items)}).catch(()=>{});return()=>{active=false}},[current.id,current.version])
+ const update=(key:keyof ArticleContent,value:any)=>setContent(previous=>({...previous,[key]:value}))
+ async function action(type:'save'|'publish'|'hide'|'release'){
+  if(busy)return;setBusy(true);setError('');setNotice('')
+  try{
+   let saved=current
+   if(type==='save'||type==='publish'){
+    saved=await articleService.save(current,content);setCurrent(saved);setContent(saved.draft)
+   }
+   if(type!=='save'){saved=await articleService.action(saved,type,reason);setCurrent(saved)}
+   setNotice(type==='save'?'Đã lưu bản chỉnh sửa. Nội dung công khai chưa thay đổi.':type==='publish'?'Đã xuất bản bài viết.':type==='hide'?'Đã ẩn bài viết.':'Đã gỡ chặn; Manager có thể xuất bản lại.');onChanged()
+  }catch(e){setError(requestMessage(e,'Không lưu được bài viết. Vui lòng tải lại nếu bài đã thay đổi.'))}finally{setBusy(false)}
+ }
+ async function cover(file?:File){if(!file)return;setBusy(true);setError('');try{update('cover_url',await articleService.upload(file))}catch(e){setError(requestMessage(e,'Không tải được ảnh.'))}finally{setBusy(false)}}
+ return <div className="manager-page"><div className="manager-heading"><div><h1>{admin?'Xem và giám sát bài viết':'Soạn bài viết'}</h1><p>{articleKinds[current.kind]} · {articleStates[current.status]} · Phiên bản {current.version}</p></div><button className="manager-button" disabled={busy} onClick={()=>{if(JSON.stringify(content)===JSON.stringify(current.draft)||window.confirm('Bạn có thay đổi chưa lưu. Rời trình soạn thảo?'))onBack()}}>Về danh sách</button></div>
+  {current.blocked_by_admin&&<p className="manager-alert error">Admin đã chặn xuất bản: {current.hidden_reason}</p>}
+  {current.status==='published'&&<p className="manager-alert">Bài đang công khai. Lưu bản chỉnh sửa không thay đổi nội dung khách đang đọc; chọn Xuất bản cập nhật để áp dụng.</p>}
+  <section className="manager-card"><div className="manager-card-body manager-form">
+   <fieldset disabled={busy||admin} style={{border:0,padding:0,margin:0,minWidth:0}}>
+    <label className="manager-field">Tiêu đề bài viết<input className="manager-input" value={content.title} maxLength={200} onChange={e=>update('title',e.target.value)}/></label>
+    <label className="manager-field">Mô tả ngắn<textarea className="manager-input" value={content.summary} maxLength={600} onChange={e=>update('summary',e.target.value)}/></label>
+    <label className="manager-field">Ảnh đại diện (đường dẫn)<input className="manager-input" value={content.cover_url} maxLength={2000} onChange={e=>update('cover_url',e.target.value)} placeholder="https://… hoặc /uploads/…"/></label>
+    {!admin&&<label className="manager-field">Tải ảnh đại diện<input type="file" accept=".png,.jpg,.jpeg,.webp,.gif" onChange={e=>{void cover(e.target.files?.[0]);e.target.value=''}}/></label>}
+   </fieldset>
+   {!admin&&<RichEditor value={content.body} onChange={body=>update('body',body)} disabled={busy}/>}
+   {current.kind==='recruitment'&&<section><h2>Bốn vị trí tuyển dụng</h2><p>Lương25.000đ/giờ; sáng07:00–12:00,chiều12:00–19:00; tối thiểu4buổi/tuần,thứHai–thứBảy.</p>{recruitmentPositions.map(position=><label className="manager-field" key={position.value}>{position.name}<textarea className="manager-input" disabled={busy||admin} maxLength={3000} value={content.recruitment_roles.find(item=>item.position===position.value)?.description||''} onChange={e=>update('recruitment_roles',recruitmentPositions.map(item=>({position:item.value,description:item.value===position.value?e.target.value:content.recruitment_roles.find(block=>block.position===item.value)?.description||''})))}/></label>)}</section>}
+   <div className={styles.controls}>{!admin&&<><button className="manager-button" disabled={busy} onClick={()=>void action('save')}>Lưu bản chỉnh sửa</button><button className="manager-button primary" disabled={busy||current.blocked_by_admin} onClick={()=>void action('publish')}>{current.status==='published'?'Xuất bản cập nhật':'Xuất bản'}</button></>}<button className="manager-button" onClick={()=>setPreview(value=>!value)}>{preview?'Đóng xem trước':'Xem trước'}</button>{current.status==='published'&&<Link className="manager-button" to={articlePath(current)} target="_blank" rel="noopener noreferrer">Xem bài công khai</Link>}</div>
+   {preview&&<article className={styles.preview} aria-label="Bản xem trước bài viết"><h1>{content.title||'Chưa có tiêu đề'}</h1><p>{content.summary}</p>{content.cover_url&&<img className={styles.cover} src={content.cover_url} alt=""/>}<RichDocument document={content.body}/>{current.kind==='recruitment'&&<div className={styles.grid}>{recruitmentPositions.map(position=><section key={position.value}><h2>{position.name}</h2><p>{content.recruitment_roles.find(block=>block.position===position.value)?.description||'Chưa có mô tả'}</p></section>)}</div>}</article>}
+   {(admin||current.status==='published')&&<div className={styles.controls}><label>Lý do ẩn / ghi chú<input className="manager-input" value={reason} maxLength={1000} onChange={e=>setReason(e.target.value)}/></label><button className="manager-button danger" disabled={busy||(admin&&!reason.trim())} onClick={()=>void action('hide')}>Ẩn bài viết</button>{admin&&current.blocked_by_admin&&<button className="manager-button" disabled={busy} onClick={()=>void action('release')}>Gỡ chặn xuất bản</button>}</div>}
+   {error&&<p className="manager-alert error" role="alert">{error}</p>}{notice&&<p className="manager-alert" role="status">{notice}</p>}
+   {!!history.length&&<section><h2>Lịch sử bài viết</h2>{history.map(item=><p key={item.id}>{dateTime(item.created_at)} · Người thực hiện #{item.actor_id||'Hệ thống'} · {({create:'Tạo bài',save_draft:'Lưu bản chỉnh sửa',publish:'Xuất bản',hide:'Ẩn bài',admin_hide:'Admin ẩn bài',admin_release:'Admin gỡ chặn',replaced:'Thay bằng bài mới'} as Record<string,string>)[item.action]||item.action}</p>)}</section>}
+  </div></section></div>
+}
+
+export default function ManagerArticlesPage({admin=false}:{admin?:boolean}){
+ const [items,setItems]=useState<ManagedArticle[]>([]);const [positions,setPositions]=useState<PositionSetting[]>([]);const [selected,setSelected]=useState<ManagedArticle|null>(null)
+ const [page,setPage]=useState(1);const [total,setTotal]=useState(0);const [status,setStatus]=useState('');const [kind,setKind]=useState('');const [newKind,setNewKind]=useState('news')
+ const [busy,setBusy]=useState(false);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [revision,setRevision]=useState(0)
+ useEffect(()=>{let active=true;setLoading(true);setError('');Promise.all([articleService.manage(page,status,kind),articleService.settings()]).then(([articles,settings])=>{if(active){setItems(articles.items);setTotal(articles.total);setPositions(settings.positions)}}).catch(e=>{if(active)setError(requestMessage(e,'Không tải được bài viết.'))}).finally(()=>{if(active)setLoading(false)});return()=>{active=false}},[page,status,kind,revision])
+ async function create(){setBusy(true);setError('');try{setSelected(await articleService.create(newKind,emptyArticle()));setRevision(value=>value+1)}catch(e){setError(requestMessage(e,'Không tạo được bản nháp.'))}finally{setBusy(false)}}
+ async function open(id:string){setBusy(true);setError('');try{setSelected(await articleService.get(id))}catch(e){setError(requestMessage(e,'Không mở được bài viết.'))}finally{setBusy(false)}}
+ async function toggle(item:PositionSetting){setBusy(true);setError('');try{await articleService.position(item);setRevision(value=>value+1)}catch(e){setError(requestMessage(e,'Vị trí đã thay đổi, vui lòng làm mới.'))}finally{setBusy(false)}}
+ if(selected)return <ArticleEditor key={selected.id} article={selected} admin={admin} onBack={()=>setSelected(null)} onChanged={()=>setRevision(value=>value+1)}/>
+ return <div className="manager-page"><section className="manager-heading"><div><span className="manager-eyebrow">CANTEEN A2</span><h1>{admin?'Giám sát bài viết':'Quản lý bài viết'}</h1><p>Soạn và xuất bản nội dung trên trang Tin tức - sự kiện, Câu chuyện và Tuyển dụng.</p></div><button className="manager-button" disabled={loading||busy} onClick={()=>setRevision(value=>value+1)}>Làm mới</button></section>
+  {!admin&&<section className="manager-card"><div className="manager-card-body"><h2>Trạng thái nhận hồ sơ tuyển dụng</h2><p>Ẩn bài viết không tự đóng tuyển dụng. Thay đổi bên dưới có hiệu lực ngay khi ứng viên gửi hồ sơ.</p><div className={styles.grid}>{positions.map(item=><div key={item.position}><strong>{recruitmentPositions.find(role=>role.value===item.position)?.name}</strong><p>{item.is_open?'Đang nhận hồ sơ':'Đã ngừng nhận hồ sơ'}</p><button className="manager-button" disabled={busy} onClick={()=>void toggle(item)}>{item.is_open?'Dừng nhận hồ sơ':'Mở nhận hồ sơ'}</button></div>)}</div></div></section>}
+  <div className={styles.controls}><label>Loại bài<select aria-label="Loại bài" className="manager-select" value={kind} onChange={e=>{setKind(e.target.value);setPage(1)}}><option value="">Tất cả loại</option>{Object.entries(articleKinds).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><label>Trạng thái bài<select aria-label="Trạng thái bài" className="manager-select" value={status} onChange={e=>{setStatus(e.target.value);setPage(1)}}><option value="">Tất cả trạng thái</option>{Object.entries(articleStates).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>{!admin&&<><label>Loại bài mới<select aria-label="Loại bài mới" className="manager-select" value={newKind} onChange={e=>setNewKind(e.target.value)}>{Object.entries(articleKinds).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><button className="manager-button primary" disabled={busy} onClick={()=>void create()}>Tạo bài viết</button></>}</div>
+  {error&&<p className="manager-alert error" role="alert">{error}</p>}
+  <section className="manager-card"><header className="manager-card-header"><h2>{total} bài viết</h2></header>{loading?<p className="manager-state" role="status">Đang tải…</p>:<div className="manager-table-wrap"><table className="manager-table"><thead><tr><th>Tiêu đề</th><th>Loại</th><th>Trạng thái</th><th>Cập nhật</th><th>Thao tác</th></tr></thead><tbody>{items.map(article=><tr key={article.id}><td><strong>{article.draft.title||'Bản nháp chưa có tiêu đề'}</strong>{article.blocked_by_admin&&<small>Admin đã chặn xuất bản</small>}</td><td>{articleKinds[article.kind]}</td><td>{articleStates[article.status]}</td><td>{dateTime(article.updated_at)}</td><td><button className="manager-button" disabled={busy} onClick={()=>void open(article.id)}>{admin?'Xem bài':'Xem / chỉnh sửa'}</button></td></tr>)}</tbody></table>{!items.length&&<p className="manager-state">Chưa có bài viết phù hợp.</p>}</div>}<div className="manager-card-header"><span>Trang {page} / {Math.max(1,Math.ceil(total/20))}</span><div className="manager-tools"><button className="manager-button" disabled={page===1||loading} onClick={()=>setPage(value=>value-1)}>Trước</button><button className="manager-button" disabled={page*20>=total||loading} onClick={()=>setPage(value=>value+1)}>Sau</button></div></div></section></div>
+}

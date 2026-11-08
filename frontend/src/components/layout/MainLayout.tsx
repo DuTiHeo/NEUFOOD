@@ -8,7 +8,7 @@ const BOTTOM_NAV_PATHS = ['/', '/khach-hang', '/menu', '/gio-hang', '/tai-khoan'
 
 export default function MainLayout() {
   const { pathname } = useLocation()
-  const showBottomNav = BOTTOM_NAV_PATHS.includes(pathname)
+  const showBottomNav = BOTTOM_NAV_PATHS.includes(pathname) || pathname === '/story' || pathname === '/recruit' || pathname.startsWith('/bai-viet')
   const isHomeRoute = pathname === '/' || pathname === '/khach-hang'
 
   useEffect(() => {

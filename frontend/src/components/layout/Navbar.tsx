@@ -7,6 +7,7 @@ import {
   User,
   Search,
   Package,
+  Newspaper,
   Shield,
   LogIn,
   UserPlus,
@@ -95,6 +96,7 @@ export default function Navbar() {
               <Package className={styles.topnavIcon} strokeWidth={2} aria-hidden />
               Đơn hàng
             </NavLink>
+            <NavLink className={linkClass} to="/bai-viet"><Newspaper className={styles.topnavIcon} strokeWidth={2} aria-hidden />Tin tức - sự kiện</NavLink>
             {isAdmin ? (
               <NavLink className={linkClass} to="/quan-ly">
                 <Shield className={styles.topnavIcon} strokeWidth={2} aria-hidden />

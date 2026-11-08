@@ -79,3 +79,7 @@ flowchart TD
 - **`src/components/`**: Chia thành `common/` (các UI atoms có thể tái sử dụng cao như Button, Input, Modal, Table), `layout/` (Navbar, Sidebar, Footer, MainLayout) và các module nghiệp vụ (`dishes/`, `orders/`, `chatbot/`).
 - **`src/services/`**: Tập hợp các hàm gọi API thông qua Axios instance duy nhất đã cài đặt interceptor tự động chèn JWT token và xử lý lỗi 401.
 - **`src/contexts/`**: Quản lý State toàn cục bằng React Context API (CartContext lưu giỏ hàng, AuthContext lưu phiên đăng nhập người dùng, MenuSearchContext phục vụ tìm kiếm).
+
+## Bổ sung quản lý bài viết (08/11/2026)
+
+Module Articles theo cùng lớp schemas → crud → routes và SQLAlchemy. Bảng articles giữ riêng bản chỉnh sửa và snapshot công khai; article_audit ghi nhật ký; recruitment_positions độc lập với trạng thái bài và được kiểm tra trong transaction gửi hồ sơ. Public React renderer hiển thị JSON được allowlist, Manager dùng trình soạn thảo tải riêng khi mở trang; Admin chỉ giám sát/ẩn/gỡ chặn. Chi tiết API, phân quyền, migration010 và kiểm chứng tại [ARTICLES.md](ARTICLES.md). Không thay phân quyền Orders hoặc cấp tài khoản nhân sự.

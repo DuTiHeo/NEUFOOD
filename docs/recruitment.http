@@ -1,0 +1,13 @@
+### Public submission — use fictional test information only
+POST http://localhost:5000/api/v1/recruitment/applications
+Content-Type: application/json
+
+{"full_name":"Ứng viên thử nghiệm","email":"applicant@example.com","phone":"0977112233","student_id":"TEST11210001","position":"shipper","availability":["mon-morning","mon-afternoon","wed-morning","fri-afternoon"],"intro":"Hồ sơ kiểm thử"}
+
+### Manager list — supply your own access token locally
+GET http://localhost:5000/api/v1/recruitment/applications?status=pending&page=1&limit=20
+Authorization: Bearer {{manager_access_token}}
+
+### Employee records
+GET http://localhost:5000/api/v1/recruitment/employees?status=active
+Authorization: Bearer {{manager_access_token}}

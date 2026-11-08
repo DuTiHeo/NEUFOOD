@@ -1,6 +1,6 @@
 import React from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { Home, Compass, ShoppingBag, User } from 'lucide-react'
+import { Home, Compass, ShoppingBag, Newspaper, User } from 'lucide-react'
 import { useCart } from '../../contexts/CartContext'
 import styles from './BottomNav.module.css'
 
@@ -28,6 +28,7 @@ export default function BottomNav() {
         </div>
         <span className={styles.dockText}>Giỏ hàng</span>
       </NavLink>
+      <NavLink className={tabClass} to="/bai-viet" aria-label="Tin tức - sự kiện"><Newspaper className={styles.dockIcon} strokeWidth={2} aria-hidden /><span className={styles.dockText}>Tin tức</span></NavLink>
       <NavLink className={tabClass} to="/tai-khoan">
         <User className={styles.dockIcon} strokeWidth={2} aria-hidden />
         <span className={styles.dockText}>Tài khoản</span>

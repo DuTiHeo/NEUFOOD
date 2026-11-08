@@ -1,0 +1,29 @@
+.document { font-size: 1rem; line-height: 1.8; overflow-wrap: anywhere; }
+.document h2 { font-size: 1.5rem; line-height: 1.4; margin-top: 1.5rem; color: var(--color-brand,#003f87); }
+.document h3 { font-size: 1.2rem; }
+.document img,.cover { display: block; max-width: 100%; height: auto; border-radius: 0.75rem; margin: 1rem auto; }
+.document a { color: var(--color-brand,#003f87); text-decoration: underline; }
+.document blockquote { border-left: 4px solid #f97316; padding-left: 1rem; margin: 1rem 0; }
+.document ul,.document ol { padding-left: 1.5rem; }
+.document ul { list-style: disc; }.document ol { list-style: decimal; }
+.editor { border: 1px solid #dce5ee; border-radius: 0.75rem; overflow: hidden; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.75rem; background: #f6f8fb; align-items: end; }
+.toolbar label { display: grid; gap: 0.35rem; max-width: 100%; }
+.inputEditor { padding: 1rem; min-height: 220px; font-size: 1rem; line-height: 1.7; }
+.inputEditor :global(.tiptap) { min-height: 200px; outline: none; }
+.inputEditor :global(.tiptap:focus-visible) { outline: 2px solid #003f87; outline-offset: 6px; }
+.inputEditor h2 { font-size: 1.5rem; }.inputEditor h3 { font-size: 1.25rem; }.inputEditor strong { font-weight: 700; }
+.inputEditor ul { list-style: disc; padding-left: 1.5rem; }.inputEditor ol { list-style: decimal; padding-left: 1.5rem; }.inputEditor img { max-width: 100%; }
+.page { padding: 7rem 1.25rem 3rem; min-height: 70vh; background: #f8fafc; }
+.wrap { max-width: 1100px; margin: auto; }.wrap h1 { font-size: clamp(1.8rem,4vw,2.75rem); color: #003f87; font-weight: 800; margin: 1rem 0; }
+.grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1.25rem; margin: 1.5rem 0; }
+.card { background: #fff; border: 1px solid #dce5ee; border-radius: 1rem; padding: 1.5rem; min-width: 0; overflow-wrap: anywhere; }.card h2 { font-size: 1.4rem; font-weight: 700; }.card a { color: #003f87; }
+.cover { max-height: 360px; object-fit: cover; width: 100%; }.meta { color: #61758a; font-size: 0.875rem; }
+.preview { background: #fff; border: 1px solid #dce5ee; border-radius: 0.75rem; padding: 1.25rem; margin-top: 1rem; }.preview h1 { color: #003f87; font-size: 1.75rem; font-weight: 800; }
+.controls { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; margin: 1rem 0; }
+.notice { padding: 0.75rem; border-radius: 0.5rem; background: #eff6ff; color: #003f87; }
+@media(max-width:640px) { .grid { grid-template-columns: minmax(0,1fr); }.card { padding: 1rem; }.toolbar input { max-width: 100%; } }
+
+.document p { margin: 0 0 1rem; }
+.document h2,.document h3 { font-weight: 700; }
+.document li p { margin: 0.25rem 0; }

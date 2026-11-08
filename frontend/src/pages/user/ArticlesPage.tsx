@@ -1,0 +1,16 @@
+import { useEffect,useState } from 'react'
+import { Link,useParams } from 'react-router-dom'
+import Footer from '../../components/layout/Footer'
+import RichDocument from '../../components/articles/RichDocument'
+import { articleService,articleKinds,articlePath,type PublicArticle } from '../../services/articleService'
+import styles from '../../components/articles/Articles.module.css'
+
+export default function ArticlesPage({story=false}:{story?:boolean}){
+ const {id}=useParams();const detail=story||Boolean(id)
+ const [items,setItems]=useState<PublicArticle[]>([]);const [article,setArticle]=useState<PublicArticle|null>(null);const [page,setPage]=useState(1);const [total,setTotal]=useState(0);const [kind,setKind]=useState('');const [error,setError]=useState('');const [loading,setLoading]=useState(true);const [revision,setRevision]=useState(0)
+ useEffect(()=>{let active=true;setLoading(true);setError('');setArticle(null);const load=async()=>{try{if(story){const value=await articleService.featured('story');if(active)setArticle(value)}else if(id){const value=await articleService.detail(id);if(active)setArticle(value)}else{const value=await articleService.list(page,kind);if(active){setItems(value.items);setTotal(value.total)}}}catch(e:any){if(active)setError(e?.response?.data?.message||'Không tải được bài viết. Vui lòng thử lại.')}finally{if(active)setLoading(false)}};void load();return()=>{active=false}},[id,story,page,kind,revision])
+ return <><main className={styles.page}><div className={styles.wrap}><Link to={detail?'/bai-viet':'/'}>{detail?'← Tin tức - sự kiện':'← Trang chủ'}</Link>
+  {!detail&&<><h1>Tin tức - sự kiện</h1><p>Câu chuyện, tuyển dụng, thông báo và hoạt động của NEUFood.</p><label>Loại bài viết <select value={kind} onChange={e=>{setKind(e.target.value);setPage(1)}}><option value="">Tất cả</option>{Object.entries(articleKinds).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label></>}
+  {loading?<p role="status">Đang tải bài viết…</p>:error?<div role="alert"><p>{error}</p><button onClick={()=>setRevision(value=>value+1)}>Thử lại</button></div>:detail?article?<article className={styles.card}><h1>{article.content.title}</h1><p>{article.content.summary}</p>{article.content.cover_url&&<img className={styles.cover} src={article.content.cover_url} alt=""/>}<RichDocument document={article.content.body}/></article>:<><h1>Câu chuyện NEUFood</h1><p>Chưa có bài viết được xuất bản.</p></>:<><div className={styles.grid}>{items.map(item=><article className={styles.card} key={item.id}>{item.content.cover_url&&<img className={styles.cover} src={item.content.cover_url} alt="" loading="lazy"/>}<p className={styles.meta}>{articleKinds[item.kind]} · {item.published_at?new Date(item.published_at).toLocaleDateString('vi-VN'):''}</p><h2><Link to={articlePath(item)}>{item.content.title}</Link></h2><p>{item.content.summary}</p><Link to={articlePath(item)}>Đọc tiếp</Link></article>)}</div>{!items.length&&<p>Chưa có bài viết được xuất bản.</p>}<div className={styles.controls}><button disabled={page===1} onClick={()=>setPage(value=>value-1)}>Trước</button><span>Trang {page} / {Math.max(1,Math.ceil(total/12))}</span><button disabled={page*12>=total} onClick={()=>setPage(value=>value+1)}>Sau</button></div></>}
+ </div></main><Footer/></>
+}

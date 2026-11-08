@@ -1,0 +1,12 @@
+### Public aggregation
+GET http://localhost:5000/api/v1/articles?limit=12
+
+### Existing story route data
+GET http://localhost:5000/api/v1/articles/featured/story
+
+### Recruitment openings
+GET http://localhost:5000/api/v1/articles/recruitment-settings
+
+### Manager drafts; supply token locally
+GET http://localhost:5000/api/v1/articles/manage
+Authorization: Bearer {{manager_access_token}}
