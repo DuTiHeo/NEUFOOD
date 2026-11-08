@@ -407,8 +407,9 @@ VALUES
 ('max_cod_amount', '500000', 'Hạn mức giá trị tối đa cho một đơn hàng thanh toán COD (VNĐ)'),
 ('max_dish_quantity_per_order', '10', 'Số lượng tối đa của một món ăn trong một đơn hàng (phần)'),
 ('min_preorder_lead_minutes', '30', 'Thời gian đặt trước tối thiểu cho đơn hẹn giờ (phút)'),
-('canteen_open_time', '06:30', 'Giờ mở cửa phục vụ hàng ngày của Canteen A2'),
-('canteen_close_time', '19:30', 'Giờ đóng cửa ngừng nhận đơn của Canteen A2')
+('canteen_open_time', '07:30', 'Giờ mở cửa phục vụ hàng ngày của Canteen A2'),
+('canteen_order_cutoff_time', '18:30', 'Giờ ngừng nhận đơn đặt ngay (bao gồm đúng mốc HH:MM:00)'),
+('canteen_close_time', '19:00', 'Giờ kết thúc phục vụ và giờ hẹn nhận cuối cùng (bao gồm đúng mốc HH:MM:00)')
 ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value;
 
 -- 8. ORDERS (ĐƠN HÀNG MẪU VỚI 14 TRẠNG THÁI TIẾNG VIỆT KHÔNG DẤU)

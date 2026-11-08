@@ -64,6 +64,7 @@ class User(Base):
     role = Column(String(20), nullable=False, default="customer", index=True)  # 'customer' | 'staff' | 'manager' | 'admin'
     avatar_url = Column(Text, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
+    ordering_hours_exempt = Column(Boolean, nullable=False, default=False)
     is_blacklisted = Column(Boolean, nullable=False, default=False, index=True)
     blacklist_reason = Column(Text, nullable=True)
     blacklisted_at = Column(DateTime(timezone=True), nullable=True)

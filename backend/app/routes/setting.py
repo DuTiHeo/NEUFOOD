@@ -25,6 +25,16 @@ from app.utils.helpers import api_response
 setting_bp = Blueprint("settings", __name__, url_prefix="/settings")
 
 
+def _validate_hours(db, updates):
+    defaults = {"canteen_open_time": "07:30", "canteen_order_cutoff_time": "18:30", "canteen_close_time": "19:00"}
+    if not defaults.keys() & updates.keys():
+        return None
+    opening, cutoff, closing = [updates.get(key, get_setting_by_key(db, key, default)) for key, default in defaults.items()]
+    if not opening < cutoff <= closing:
+        return "Giờ mở cửa phải trước giờ ngừng nhận đơn đặt ngay và không vượt giờ kết thúc phục vụ"
+    return None
+
+
 def _serialize_setting(s: SystemSetting) -> dict:
     """Chuẩn hóa dữ liệu tham số hệ thống trả về API (UC23)."""
     return {
@@ -114,8 +124,6 @@ def update_settings_bulk():
                 success=False,
             )
 
-        new_open_time = None
-        new_close_time = None
         items_to_update = []
 
         # Validate từng item và điều kiện biên theo từng key
@@ -128,30 +136,19 @@ def update_settings_bulk():
                     success=False,
                 )
 
-            if item.setting_key == "canteen_open_time":
-                new_open_time = item.setting_value
-            elif item.setting_key == "canteen_close_time":
-                new_close_time = item.setting_value
-
             items_to_update.append({
                 "setting_key": item.setting_key,
                 "setting_value": item.setting_value,
                 "description": item.description,
             })
 
-        # Kiểm tra logic quan hệ thời gian Canteen: canteen_open_time < canteen_close_time (BR-08)
-        target_open = new_open_time if new_open_time is not None else get_setting_by_key(db, "canteen_open_time", "")
-        target_close = new_close_time if new_close_time is not None else get_setting_by_key(db, "canteen_close_time", "")
-        if (new_open_time is not None or new_close_time is not None) and target_open and target_close:
-            if target_open >= target_close:
-                return api_response(
-                    message="Giờ mở cửa Canteen phải trước giờ đóng cửa",
-                    status_code=422,
-                    success=False,
-                )
+        err = _validate_hours(db, {item["setting_key"]: item["setting_value"] for item in items_to_update})
+        if err:
+            return api_response(message=err, status_code=422, success=False)
 
         updated_settings = bulk_upsert_settings(db, items_to_update)
         cache_delete("neufood:settings:all")
+        cache_delete("neufood:chat:knowledge_context")
         return api_response(
             data=[_serialize_setting(s) for s in updated_settings],
             message="Cập nhật danh sách cấu hình hệ thống thành công",
@@ -236,26 +233,13 @@ def update_setting(setting_key: str):
                 success=False,
             )
 
-        # Kiểm tra logic quan hệ thời gian Canteen: canteen_open_time < canteen_close_time (BR-08)
-        if setting_key == "canteen_open_time":
-            close_time = get_setting_by_key(db, "canteen_close_time", "")
-            if close_time and data.setting_value >= close_time:
-                return api_response(
-                    message="Giờ mở cửa Canteen phải trước giờ đóng cửa",
-                    status_code=422,
-                    success=False,
-                )
-        elif setting_key == "canteen_close_time":
-            open_time = get_setting_by_key(db, "canteen_open_time", "")
-            if open_time and open_time >= data.setting_value:
-                return api_response(
-                    message="Giờ mở cửa Canteen phải trước giờ đóng cửa",
-                    status_code=422,
-                    success=False,
-                )
+        err = _validate_hours(db, {setting_key: data.setting_value})
+        if err:
+            return api_response(message=err, status_code=422, success=False)
 
         updated = upsert_setting(db, setting_key, data.setting_value, data.description)
         cache_delete("neufood:settings:all")
+        cache_delete("neufood:chat:knowledge_context")
         return api_response(
             data=_serialize_setting(updated),
             message="Cập nhật tham số hệ thống thành công",

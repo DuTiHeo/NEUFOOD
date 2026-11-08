@@ -116,15 +116,16 @@ def build_system_instruction(
     Địa điểm giao hàng nội khu NEU, và Đơn hàng cá nhân của sinh viên).
     """
     cfg = knowledge_ctx.get("settings", {})
-    open_time = cfg.get("canteen_open_time", "06:30")
-    close_time = cfg.get("canteen_close_time", "19:30")
+    open_time = cfg.get("canteen_open_time", "07:30")
+    close_time = cfg.get("canteen_close_time", "19:00")
+    cutoff_time = cfg.get("canteen_order_cutoff_time", "18:30")
     delivery_fee = int(float(cfg.get("delivery_fee", "5000")))
     system_fee = int(float(cfg.get("system_maintenance_fee", "5000")))
     max_cod = int(float(cfg.get("max_cod_amount", "500000")))
     max_qty = int(float(cfg.get("max_dish_quantity_per_order", "10")))
     pickup_hold = int(float(cfg.get("pickup_hold_minutes", "30")))
     order_timeout = int(float(cfg.get("order_timeout_minutes", "10")))
-    preorder_lead = int(float(cfg.get("min_preorder_lead_minutes", "30")))
+    preorder_lead = max(30, int(float(cfg.get("min_preorder_lead_minutes", "30"))))
 
     locations = knowledge_ctx.get("locations", [])
     loc_lines = [
@@ -181,6 +182,7 @@ NGUYÊN TẮC PHẢN HỒI:
 4. Nếu khách hỏi món nằm trong danh sách tạm hết hàng hôm nay ({unavail_text}), hãy báo rõ món đó đang tạm hết và gợi ý món tương tự đang còn bán.
 
 QUY ĐỊNH VẬN HÀNH & NGHIỆP VỤ CANTEEN A2 (NEUFOOD):
+- Đặt ngay chỉ từ {open_time} đến đúng {cutoff_time}:00 giờ Việt Nam; làm xong sớm giao sớm, không chờ30 phút. Đặt hẹn giờ được tạo bất kỳ lúc nào, kể cả ngoài giờ; giờ nhận từ {open_time} đến đúng {close_time}:00 trong hôm nay và7 ngày tiếp theo, cách lúc tạo ít nhất {preorder_lead} phút. Tester được miễn khung giờ nhưng không miễn thời gian đặt trước,7 ngày hay điều kiện COD; không suy quyền từ email.
 - **Giờ mở cửa phục vụ**: **{open_time} – {close_time}** hàng ngày tại Canteen A2 (Tầng 1, Nhà A2).
 - **Công thức giá**: Giá niêm yết trên web đã bao gồm **{_format_vnd(system_fee)}** phụ phí bảo trì hệ thống (BR-12).
 - **Phí giao hàng**: Cố định **{_format_vnd(delivery_fee)}/đơn** khi chọn **Giao tận nơi (`delivery`)** tới các tòa nhà trong trường; **Miễn phí (0đ)** khi chọn **Nhận tại quầy Canteen A2 (`pickup`)**.
@@ -351,8 +353,9 @@ def _build_local_fallback_reply(
     msg_norm = _strip_accents(msg_lower)
 
     cfg = knowledge_ctx.get("settings", {})
-    open_time = cfg.get("canteen_open_time", "06:30")
-    close_time = cfg.get("canteen_close_time", "19:30")
+    open_time = cfg.get("canteen_open_time", "07:30")
+    close_time = cfg.get("canteen_close_time", "19:00")
+    cutoff_time = cfg.get("canteen_order_cutoff_time", "18:30")
     delivery_fee = int(float(cfg.get("delivery_fee", "5000")))
     max_cod = int(float(cfg.get("max_cod_amount", "500000")))
     max_qty = int(float(cfg.get("max_dish_quantity_per_order", "10")))
@@ -417,10 +420,11 @@ def _build_local_fallback_reply(
     if any(kw in msg_norm for kw in time_keywords):
         return (
             f"Thông tin thời gian phục vụ của **Canteen A2 - NEUFood**:\n"
+            f"- Đặt ngay: {open_time}–{cutoff_time}, xong sớm giao sớm. Hẹn giờ: được tạo cả ngoài giờ, nhận trong hôm nay và7 ngày tiếp theo.\n"
             f"- **Giờ mở cửa**: **{open_time} – {close_time}** hàng ngày.\n"
             f"- **Giao tận nơi nội khu (`delivery`)**: Dự kiến **15 – 25 phút** (phí ship **{_format_vnd(delivery_fee)}**).\n"
             f"- **Nhận tại quầy Canteen A2 (`pickup`)**: Chuẩn bị trong **10 – 15 phút** (miễn phí ship **0đ**, giữ món tối đa **{pickup_hold} phút**).\n"
-            f"- Bạn cũng có thể chọn **Đặt hẹn giờ trước** (cách thời điểm hiện tại tối thiểu **30 phút**)."
+            f"- Bạn cũng có thể chọn **Đặt hẹn giờ trước** (cách thời điểm hiện tại tối thiểu **{max(30, int(float(cfg.get('min_preorder_lead_minutes', '30'))))} phút**)."
         )
 
     # 4. Ý định hỏi về cách đặt hàng, phí ship, thanh toán COD/VietQR, quy định

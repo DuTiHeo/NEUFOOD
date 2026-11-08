@@ -1,6 +1,8 @@
 from flask import Blueprint, request, g
 from pydantic import ValidationError
 from app.db.session import get_db
+from app.db.models import User
+from app.crud.order_policy import get_order_policy
 from app.crud.order import (
     create_order, cancel_order, get_order_by_id, get_user_orders, get_all_orders, update_order_status, OrderError,
     handover_order, report_delivery_issue, confirm_order_receipt,
@@ -58,6 +60,15 @@ def _serialize_order(o: object) -> dict:
             for i in o.items
         ],
     }
+
+
+@order_bp.route("/policy", methods=["GET"])
+@limiter.exempt
+@role_required("customer")
+def ordering_policy():
+    with get_db() as db:
+        user = db.get(User, int(g.current_user["sub"]))
+        return api_response(data=get_order_policy(db, user))
 
 
 @order_bp.route("", methods=["POST"])

@@ -1,22 +1,16 @@
 import secrets
 import time
 from collections import Counter
-from datetime import datetime, time as clock_time, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
 from app.db.models import (
     Order, OrderItem, Dish, CampusLocation, User, Complaint, ACTIVE_ORDER_STATUSES
 )
-from app.crud.setting import get_setting_by_key, get_setting_int
+from app.crud.setting import get_setting_int
 from app.crud.portion import resolve_portions, PortionError
-
-
-class OrderError(ValueError):
-    def __init__(self, message: str, code: str, status_code: int = 400):
-        super().__init__(message)
-        self.code = code
-        self.status_code = status_code
+from app.crud.order_policy import OrderError, get_order_policy, validate_order_time
 
 
 def generate_order_id(db: Optional[Session] = None) -> str:
@@ -67,25 +61,9 @@ def create_order(
         raise OrderError("Phương thức nhận hàng hoặc thanh toán không hợp lệ", "INVALID_ORDER")
 
     now = datetime.now(timezone.utc)
-    if is_preorder:
-        lead_minutes = max(30, get_setting_int(db, "min_preorder_lead_minutes", 30))
-        if (scheduled_at is None or scheduled_at.utcoffset() is None
-                or scheduled_at < now + timedelta(minutes=lead_minutes)):
-            raise OrderError(
-                f"Đơn hẹn trước phải cách thời điểm hiện tại tối thiểu {lead_minutes} phút", "EX-08",
-            )
+    validate_order_time(get_order_policy(db, user, now), is_preorder, scheduled_at, now)
+    if scheduled_at is not None:
         scheduled_at = scheduled_at.astimezone(timezone.utc)
-        local_time = scheduled_at.astimezone(timezone(timedelta(hours=7))).time()
-        open_time = clock_time.fromisoformat(get_setting_by_key(db, "canteen_open_time", "06:30"))
-        close_time = clock_time.fromisoformat(get_setting_by_key(db, "canteen_close_time", "19:30"))
-        if open_time < close_time:
-            is_open = open_time <= local_time < close_time
-        else:
-            is_open = open_time != close_time and (local_time >= open_time or local_time < close_time)
-        if not is_open:
-            raise OrderError("Giờ hẹn phải nằm trong khung giờ mở cửa của Canteen", "EX-08")
-    elif scheduled_at is not None:
-        raise OrderError("Chỉ gửi scheduled_at khi đặt hẹn giờ", "EX-08")
 
     quantities = Counter()
     max_quantity = min(10, get_setting_int(db, "max_dish_quantity_per_order", 10))

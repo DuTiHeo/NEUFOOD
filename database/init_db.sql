@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
         CHECK (role IN ('customer', 'staff', 'manager', 'admin')),
     avatar_url TEXT,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    ordering_hours_exempt BOOLEAN NOT NULL DEFAULT FALSE,
     is_blacklisted BOOLEAN NOT NULL DEFAULT FALSE,
     blacklist_reason TEXT,
     blacklisted_at TIMESTAMP WITH TIME ZONE,

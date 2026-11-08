@@ -56,9 +56,11 @@ class OrderCreationTests(unittest.TestCase):
         with self.engine.begin() as conn:
             conn.execute(text("TRUNCATE users, dishes, campus_locations, system_settings RESTART IDENTITY CASCADE"))
         with self.sessions.begin() as db:
+            # Unrelated order regressions must work at any wall-clock hour; time-policy tests disable exemption explicitly.
             db.add_all([
                 User(id=i, email=f"orders-test-{i}@example.com", password_hash="unused",
-                     full_name="Test User", phone_number=f"097700000{i}", role=role)
+                     full_name="Test User", phone_number=f"097700000{i}", role=role,
+                     ordering_hours_exempt=(role == "customer"))
                 for i, role in enumerate(["customer", "customer", "staff", "manager", "admin"], 1)
             ])
             db.add_all([
@@ -211,15 +213,17 @@ class OrderCreationTests(unittest.TestCase):
             self.assertEqual(db.query(Order).one().scheduled_at, self.now + timedelta(minutes=30))
 
     def test_preorder_opening_hours(self):
+        with self.sessions.begin() as db:
+            db.get(User, 1).ordering_hours_exempt = False
         payload = self.payload()
         payload["is_preorder"] = True
         with patch("app.crud.order.datetime") as clock:
             clock.now.return_value = self.now
-            for hour, minute in [(22, 0), (12, 30)]:
+            for hour, minute in [(22, 0), (12, 1)]:
                 payload["scheduled_at"] = (self.now + timedelta(days=1)).replace(hour=hour, minute=minute).isoformat()
-                self.assert_rejected(payload, "EX-08")
-            payload["scheduled_at"] = (self.now + timedelta(days=1)).replace(hour=23, minute=30).isoformat()
-            self.assertEqual(self.post(payload).status_code, 201)  # 06:30 Asia/Saigon
+                self.assert_rejected(payload, "SCHEDULE_OUTSIDE_HOURS")
+            payload["scheduled_at"] = (self.now + timedelta(days=1)).replace(hour=0, minute=30).isoformat()
+            self.assertEqual(self.post(payload).status_code, 201)  # 07:30 Asia/Saigon
 
     def test_scheduled_time_requires_preorder(self):
         payload = self.payload()
