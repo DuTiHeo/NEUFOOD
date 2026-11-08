@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useCart } from '../../contexts/CartContext'
 import { useAuth } from '../../contexts/AuthContext'
@@ -6,9 +6,10 @@ import { useOrderHistory } from '../../contexts/OrderHistoryContext'
 import { locationService, CampusLocation } from '../../services/locationService'
 import { settingsService } from '../../services/settingsService'
 import { dishService } from '../../services/dishService'
-import { orderService } from '../../services/orderService'
+import { OrderingPolicy, orderService } from '../../services/orderService'
 import { getDishImageUrl, handleDishImageError } from '../../utils/dishImages'
 import { CreateOrderPayload, OrderType, PaymentMethod } from '../../types/order'
+import { orderingTimeError, scheduleBounds, scheduleInstant } from '../../utils/orderingTime'
 import { portionSummary } from '../../utils/portions'
 import Footer from '../../components/layout/Footer'
 import styles from './ThanhToanPage.module.css'
@@ -27,10 +28,6 @@ function getErrorMessage(error: any) {
     .join(' ')
 }
 
-function toLocalDateTimeValue(date: Date) {
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-  return local.toISOString().slice(0, 16)
-}
 
 export default function ThanhToanPage() {
   const navigate = useNavigate()
@@ -50,9 +47,30 @@ export default function ThanhToanPage() {
   const [deliveryFee, setDeliveryFee] = useState(5000)
   const [maxCodAmount, setMaxCodAmount] = useState(500000)
   const [maxDishQuantity, setMaxDishQuantity] = useState(10)
-  const [minLeadMinutes, setMinLeadMinutes] = useState(30)
-  const [canteenOpenTime, setCanteenOpenTime] = useState('06:30')
-  const [canteenCloseTime, setCanteenCloseTime] = useState('19:30')
+  const [policy, setPolicy] = useState<OrderingPolicy | null>(null)
+  const [clock, setClock] = useState({ epoch: 0, monotonic: 0 })
+  const [, setTick] = useState(0)
+  const [policyError, setPolicyError] = useState('')
+  useEffect(() => {
+    let active = true
+    async function loadPolicy() {
+      try {
+        const loaded = await orderService.getPolicy()
+        if (active) {
+          setPolicy(loaded)
+          setClock({ epoch: Date.parse(loaded.server_now), monotonic: performance.now() })
+          setPolicyError('')
+        }
+      } catch {
+        if (active) setPolicyError('Không tải được khung giờ đặt đơn. Vui lòng tải lại trang.')
+      }
+    }
+    void loadPolicy()
+    const timer = window.setInterval(() => setTick(value => value + 1), 1000)
+    const refreshTimer = window.setInterval(loadPolicy, 60000)
+    window.addEventListener('focus', loadPolicy)
+    return () => { active = false; window.clearInterval(timer); window.clearInterval(refreshTimer); window.removeEventListener('focus', loadPolicy) }
+  }, [])
   const [loadingLocations, setLoadingLocations] = useState(true)
   const [locationError, setLocationError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -79,13 +97,10 @@ export default function ThanhToanPage() {
         const fee = Number(config.delivery_fee)
         const codLimit = Number(config.max_cod_amount)
         const quantityLimit = Number(config.max_dish_quantity_per_order)
-        const leadTime = Number(config.min_preorder_lead_minutes)
         setDeliveryFee(Number.isFinite(fee) && fee >= 0 ? fee : 5000)
         setMaxCodAmount(Math.min(500000, Number.isFinite(codLimit) && codLimit >= 0 ? codLimit : 500000))
         setMaxDishQuantity(Math.min(10, Number.isFinite(quantityLimit) && quantityLimit > 0 ? quantityLimit : 10))
-        setMinLeadMinutes(Math.max(30, Number.isFinite(leadTime) && leadTime > 0 ? leadTime : 30))
-        if (config.canteen_open_time) setCanteenOpenTime(config.canteen_open_time)
-        if (config.canteen_close_time) setCanteenCloseTime(config.canteen_close_time)
+
       }
       setLoadingLocations(false)
     })
@@ -95,7 +110,9 @@ export default function ThanhToanPage() {
   const selectedLocation = locations.find((location) => String(location.id) === selectedLocationId)
   const shipping = orderType === 'delivery' && totalCount > 0 ? deliveryFee : 0
   const total = subtotal + shipping
-  const minimumSchedule = useMemo(() => toLocalDateTimeValue(new Date(Date.now() + minLeadMinutes * 60_000)), [minLeadMinutes])
+  const serverNow = clock.epoch + performance.now() - clock.monotonic
+  const bounds = policy ? scheduleBounds(policy, serverNow) : { min: '', max: '' }
+  const timeError = policyError || orderingTimeError(policy, serverNow, isPreorder, scheduledAt)
   const phoneIsValid = /^0[35789]\d{8}$/.test(recipientPhone.trim())
   const overCodLimit = total > maxCodAmount
   const overDishQuantityLimit = lines.some((line) => line.qty > maxDishQuantity)
@@ -121,10 +138,8 @@ export default function ThanhToanPage() {
       setConfirmError('Vui lòng chọn một địa điểm đang phục vụ trong khuôn viên NEU.')
       return
     }
-    if (isPreorder && (!scheduledAt || new Date(scheduledAt).getTime() < Date.now() + minLeadMinutes * 60_000)) {
-      setConfirmError(`Đơn hẹn trước cần cách thời điểm hiện tại ít nhất ${minLeadMinutes} phút.`)
-      return
-    }
+    const currentTimeError = policyError || orderingTimeError(policy, clock.epoch + performance.now() - clock.monotonic, isPreorder, scheduledAt)
+    if (currentTimeError) { setConfirmError(currentTimeError); return }
     if (overCodLimit) {
       setConfirmError(`Đơn COD không được vượt quá ${formatPrice(maxCodAmount)}. Vui lòng giảm số lượng món.`)
       return
@@ -133,22 +148,6 @@ export default function ThanhToanPage() {
       setConfirmError(`Mỗi món chỉ được đặt tối đa ${maxDishQuantity} phần theo cấu hình hiện tại.`)
       return
     }
-    if (isPreorder) {
-      const selectedDate = new Date(scheduledAt)
-      const selectedMinutes = selectedDate.getHours() * 60 + selectedDate.getMinutes()
-      const [openHour, openMinute] = canteenOpenTime.split(':').map(Number)
-      const [closeHour, closeMinute] = canteenCloseTime.split(':').map(Number)
-      const openMinutes = openHour * 60 + openMinute
-      const closeMinutes = closeHour * 60 + closeMinute
-      const isWithinOpeningHours = openMinutes < closeMinutes
-        ? selectedMinutes >= openMinutes && selectedMinutes < closeMinutes
-        : openMinutes !== closeMinutes && (selectedMinutes >= openMinutes || selectedMinutes < closeMinutes)
-      if (!isWithinOpeningHours) {
-        setConfirmError(`Thời gian hẹn phải nằm trong giờ mở cửa Canteen (${canteenOpenTime}–${canteenCloseTime}).`)
-        return
-      }
-    }
-
     setSubmitting(true)
     try {
       const cartCheck = await dishService.validateCart(lines.map((line) => line.dish.id))
@@ -166,7 +165,7 @@ export default function ThanhToanPage() {
         room_detail: orderType === 'delivery' ? roomDetail.trim() || null : null,
         delivery_note: deliveryNote.trim() || null,
         is_preorder: isPreorder,
-        scheduled_at: isPreorder ? new Date(scheduledAt).toISOString() : null,
+        scheduled_at: isPreorder ? new Date(scheduleInstant(scheduledAt)).toISOString() : null,
         payment_method: paymentMethod,
         items: lines.map(({ dish, qty, note, portions, unitPrice }) => ({ dish_id: dish.id, quantity: qty, note, portions, expected_unit_price: unitPrice })),
       }
@@ -256,9 +255,13 @@ export default function ThanhToanPage() {
                 <div className={styles.cardBody}>
                   <label className={styles.fieldLbl}>
                     <input type="checkbox" checked={isPreorder} onChange={(event) => setIsPreorder(event.target.checked)} />{' '}
-                    Hẹn trước thời gian nhận (tối thiểu {minLeadMinutes} phút)
+                    Hẹn trước thời gian nhận (tối thiểu {policy?.min_lead_minutes || 30} phút)
                   </label>
-                  {isPreorder ? <div className={styles.field}><label htmlFor="scheduledAt" className={styles.fieldLbl}>Thời gian nhận</label><input id="scheduledAt" className={styles.fieldInput} type="datetime-local" min={minimumSchedule} value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} required /></div> : null}
+                  <p>Thời gian theo giờ Việt Nam (UTC+7). {policy && `Đặt ngay: ${policy.open_time}–${policy.order_cutoff_time}; phục vụ/hẹn nhận: ${policy.open_time}–${policy.close_time}.`}</p>
+                  <p>Đặt ngay: xong sớm giao sớm, không chờ 30 phút. Đặt hẹn giờ: được tạo cả ngoài giờ, tối thiểu {policy?.min_lead_minutes || 30} phút trước lúc nhận, trong hôm nay và 7 ngày tiếp theo.</p>
+                  {policy?.exempt_hours && <p>Tài khoản kiểm thử được miễn khung giờ; vẫn áp dụng thời gian hẹn tối thiểu và giới hạn ngày.</p>}
+                  {timeError && <p role="status">{timeError}</p>}
+                  {isPreorder ? <div className={styles.field}><label htmlFor="scheduledAt" className={styles.fieldLbl}>Thời gian nhận</label><input id="scheduledAt" className={styles.fieldInput} type="datetime-local" min={bounds.min} max={bounds.max} value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} required /></div> : null}
                   <div className={styles.field}>
                     <label htmlFor="deliveryNote" className={styles.fieldLbl}>Ghi chú cho Canteen</label>
                     <textarea className={styles.fieldArea} id="deliveryNote" value={deliveryNote} onChange={(event) => setDeliveryNote(event.target.value)} placeholder="Ví dụ: gọi trước khi giao, ít cay…" rows={3} />
@@ -298,7 +301,7 @@ export default function ThanhToanPage() {
                   {overCodLimit ? <p className={styles.billErr} role="alert">Đơn COD tối đa {formatPrice(maxCodAmount)}.</p> : null}
                   {overDishQuantityLimit ? <p className={styles.billErr} role="alert">Mỗi món tối đa {maxDishQuantity} phần theo cấu hình hiện tại.</p> : null}
                   {confirmError ? <p className={styles.billErr} role="alert">{confirmError}</p> : null}
-                  <button type="submit" className={styles.billGo} disabled={submitting || unavailableLines.length > 0 || overCodLimit || overDishQuantityLimit || (orderType === 'delivery' && (loadingLocations || Boolean(locationError)))}>
+                  <button type="submit" className={styles.billGo} disabled={submitting || Boolean(timeError) || unavailableLines.length > 0 || overCodLimit || overDishQuantityLimit || (orderType === 'delivery' && (loadingLocations || Boolean(locationError)))}>
                     <span className="material-symbols-outlined material-symbols-fill">shopping_bag</span>{submitting ? 'Đang gửi đơn…' : 'Xác nhận đặt hàng'}
                   </button>
                   <Link to="/gio-hang" className={styles.billLegalLink}>Quay lại giỏ hàng</Link>

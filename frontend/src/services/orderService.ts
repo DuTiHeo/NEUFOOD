@@ -2,7 +2,21 @@ import api from './api';
 import { CreateOrderPayload, Order, OrderIssuePayload, OrderListParams, OrderProcessPayload, OrderStatus } from '../types/order';
 import { ApiResponse } from '../types/auth';
 
+export interface OrderingPolicy {
+  server_now: string;
+  open_time: string;
+  order_cutoff_time: string;
+  close_time: string;
+  min_lead_minutes: number;
+  max_days: number;
+  exempt_hours: boolean;
+}
+
 export const orderService = {
+  async getPolicy(): Promise<OrderingPolicy> {
+    const res = await api.get<ApiResponse<OrderingPolicy>>('/orders/policy');
+    return res.data.data;
+  },
   async createOrder(payload: CreateOrderPayload): Promise<Order> {
     const res = await api.post<ApiResponse<Order>>('/orders', payload);
     return res.data.data;
