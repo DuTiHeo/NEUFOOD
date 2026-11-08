@@ -83,6 +83,7 @@ export interface Order {
   room_detail?: string | null;
   is_preorder?: boolean;
   scheduled_at?: string | null;
+  sunday_schedule_warning?: boolean;
   subtotal_amount?: number;
   total?: number;
   total_amount?: number;

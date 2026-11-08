@@ -9,6 +9,7 @@ export interface OrderingPolicy {
   close_time: string;
   min_lead_minutes: number;
   max_days: number;
+  closed_weekdays: number[];
   exempt_hours: boolean;
 }
 
