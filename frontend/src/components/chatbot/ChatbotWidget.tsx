@@ -4,8 +4,9 @@ import { useCart } from '../../contexts/CartContext'
 import { useAuth } from '../../hooks/useAuth'
 import { chatService, ChatMessage, pendingConfirmation } from '../../services/chatService'
 import styles from './ChatbotWidget.module.css'
+import { formatChatLine } from '../../utils/chatFormatting'
 
-// Parse markdown text (**bold** and line breaks) to JSX
+// Render the small Markdown subset used by chat without interpreting HTML.
 function parseMarkdown(text: string): React.ReactNode {
   if (!text) return null
 
@@ -16,28 +17,15 @@ function parseMarkdown(text: string): React.ReactNode {
       return <br key={`br-${lineIdx}`} />
     }
 
-    const parts: React.ReactNode[] = []
-    let lastIndex = 0
-    const boldRegex = /\*\*(.+?)\*\*/g
-    let match: RegExpExecArray | null
-
-    while ((match = boldRegex.exec(line)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push(line.substring(lastIndex, match.index))
-      }
-      parts.push(<strong key={`bold-${lineIdx}-${match.index}`}>{match[1]}</strong>)
-      lastIndex = boldRegex.lastIndex
-    }
-
-    if (lastIndex < line.length) {
-      parts.push(line.substring(lastIndex))
-    }
-
-    if (parts.length === 0) {
-      return <div key={`line-${lineIdx}`}>{line}</div>
-    }
-
-    return <div key={`line-${lineIdx}`}>{parts}</div>
+    const formatted = formatChatLine(line)
+    return (
+      <div key={`line-${lineIdx}`}>
+        {formatted.list && '• '}
+        {formatted.parts.map((part, index) => part.bold
+          ? <strong key={index}>{part.text}</strong>
+          : <React.Fragment key={index}>{part.text}</React.Fragment>)}
+      </div>
+    )
   })
 }
 
