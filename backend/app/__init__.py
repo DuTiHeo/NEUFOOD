@@ -5,9 +5,11 @@ from app.core.config import settings
 from app.core.limiter import limiter
 from app.routes import register_routes
 from app.db.session import engine, Base
+from app.db.migrations import ensure_delivery_assignment_schema
 
 def create_app() -> Flask:
     """Hàm Factory khởi tạo và cấu hình ứng dụng Flask."""
+    ensure_delivery_assignment_schema()
     app = Flask(__name__)
 
     # Đồng bộ cấu hình cốt lõi từ settings (.env) vào Flask app.config

@@ -10,11 +10,9 @@ export const loadCanteenDishes = singleFlight(async () => {
   return items
 })
 export const loadCanteenOrders = singleFlight(async () => {
-  const first = await orderService.getAllOrdersAdmin({ page: 1, limit: 100 })
-  const items = [...first.items]
-  for (let page = 2; page <= Math.ceil(first.total / 100); page++) {
-    const next = await orderService.getAllOrdersAdmin({ page, limit: 100 })
-    items.push(...next.items)
-  }
-  return [...new Map(items.map((order) => [order.id, order])).values()]
+  const [active, waiting] = await Promise.all([
+    orderService.getAllOrdersAdmin({ status: 'active', page: 1, limit: 100 }),
+    orderService.getAllOrdersAdmin({ status: 'CHO_XAC_NHAN', page: 1, limit: 1 }),
+  ])
+  return { items: active.items, total: active.total, waitingTotal: waiting.total }
 }, () => localStorage.getItem('neufood_token') ?? sessionStorage.getItem('neufood_token') ?? '')

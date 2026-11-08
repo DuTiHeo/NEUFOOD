@@ -58,6 +58,10 @@ export const managementService = {
     const res = await api.patch<ApiResponse<ManagedUser>>(`/users/admin/${id}/blacklist`, { is_blacklisted, blacklist_reason })
     return res.data.data
   },
+  async updateUserPhone(id: number, phone_number: string | null) {
+    const res = await api.patch<ApiResponse<ManagedUser>>(`/users/admin/${id}/phone`, { phone_number })
+    return res.data.data
+  },
   async getLocations(includeInactive = true) {
     const res = await api.get<ApiResponse<ManagedLocation[]>>('/locations', { params: includeInactive ? { all: 'true' } : undefined, timeout: 30000 })
     return res.data.data ?? []

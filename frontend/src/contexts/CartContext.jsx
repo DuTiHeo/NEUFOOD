@@ -56,7 +56,7 @@ export function CartProvider({ children }) {
 
   const add = useCallback((id, delta = 1) => {
     const dish = getDish(id)
-    if (delta > 0 && (!dish || dish.is_available === false)) return false
+    if (delta > 0 && (!dish || dish.is_available === false || dish.is_active === false)) return false
     if (delta > 0 && (quantities[id] ?? 0) + delta > maxDishQuantity) return false
     setQuantities((prev) => {
       const next = Math.max(0, (prev[id] ?? 0) + delta)
@@ -110,7 +110,7 @@ export function CartProvider({ children }) {
 
   const getQty = useCallback((id) => quantities[id] ?? 0, [quantities])
   const unavailableLines = useMemo(
-    () => lines.filter(({ dish, isMissing }) => isMissing || dish.is_available === false),
+    () => lines.filter(({ dish, isMissing }) => isMissing || dish.is_available === false || dish.is_active === false),
     [lines],
   )
 

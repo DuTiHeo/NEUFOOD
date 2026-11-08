@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import OrderReviewModal from '../../components/orders/OrderReviewModal'
+import OrderComplaintModal from '../../components/orders/OrderComplaintModal'
+import OrderComplaintSupplementModal from '../../components/orders/OrderComplaintSupplementModal'
 import { useOrderHistory } from '../../contexts/OrderHistoryContext'
 import { useDishes } from '../../contexts/DishesContext'
 import { orderService } from '../../services/orderService'
 import { reviewService } from '../../services/reviewService'
+import { complaintService, Complaint } from '../../services/complaintService'
 import { getDishImageUrl, handleDishImageError } from '../../utils/dishImages'
 import { Order } from '../../types/order'
 import Footer from '../../components/layout/Footer'
@@ -15,6 +18,7 @@ function formatPrice(value: number) {
 }
 
 const TERMINAL_STATUSES = new Set(['HOAN_THANH', 'DA_HUY_KHACH', 'TU_CHOI', 'TU_DONG_HUY', 'BO_DON_BLACKLIST', 'DA_GIAI_QUYET'])
+const REVIEWABLE_STATUSES = new Set(['DA_GIAO', 'DA_BAN_GIAO', 'HOAN_THANH', 'DA_GIAI_QUYET'])
 const DELIVERED_STATUSES = new Set(['DA_GIAO', 'DA_BAN_GIAO', 'HOAN_THANH'])
 
 const STATUS_COPY = {
@@ -46,6 +50,12 @@ export default function DonHangPage() {
   const [reviewOpen, setReviewOpen] = useState(false)
   const [reviewedDishIds, setReviewedDishIds] = useState<string[]>([])
   const [reviewToast, setReviewToast] = useState(false)
+  const [complaintOpen, setComplaintOpen] = useState(false)
+  const [complaintToast, setComplaintToast] = useState(false)
+  const [supplementOpen, setSupplementOpen] = useState(false)
+  const [supplementToast, setSupplementToast] = useState(false)
+  const [complaintData, setComplaintData] = useState<Complaint | null>(null)
+  const [loadingComplaint, setLoadingComplaint] = useState(false)
   const reviewFetchKey = useRef('')
 
   const loadOrder = useCallback(async () => {
@@ -66,8 +76,9 @@ export default function DonHangPage() {
     void loadOrder()
   }, [loadOrder])
 
+  // UC14 / BR-23: Cho phép tải và thực hiện đánh giá món cho các đơn ở REVIEWABLE_STATUSES (bao gồm DA_GIAI_QUYET)
   useEffect(() => {
-    if (!order || !DELIVERED_STATUSES.has(order.status)) {
+    if (!order || !REVIEWABLE_STATUSES.has(order.status)) {
       reviewFetchKey.current = ''
       setReviewedDishIds([])
       return
@@ -94,6 +105,31 @@ export default function DonHangPage() {
     return () => { active = false }
   }, [order])
 
+  // UC15 / BR-23: Lấy thông tin khiếu nại nếu đơn hàng đang ở trạng thái KHIEU_NAI hoặc DA_GIAI_QUYET
+  const loadComplaint = useCallback(async () => {
+    if (!orderId) {
+      setComplaintData(null)
+      return
+    }
+    setLoadingComplaint(true)
+    try {
+      const res = await complaintService.getComplaintByOrderId(orderId)
+      setComplaintData(res)
+    } catch {
+      setComplaintData(null)
+    } finally {
+      setLoadingComplaint(false)
+    }
+  }, [orderId])
+
+  useEffect(() => {
+    if (!order || !['KHIEU_NAI', 'DA_GIAI_QUYET'].includes(order.status)) {
+      setComplaintData(null)
+      return
+    }
+    void loadComplaint()
+  }, [order?.id, order?.status, loadComplaint])
+
   useEffect(() => {
     if (!order || TERMINAL_STATUSES.has(order.status)) return
     const timer = window.setInterval(() => void loadOrder(), 15000)
@@ -105,6 +141,18 @@ export default function DonHangPage() {
     const timer = window.setTimeout(() => setReviewToast(false), 4000)
     return () => window.clearTimeout(timer)
   }, [reviewToast])
+
+  useEffect(() => {
+    if (!complaintToast) return
+    const timer = window.setTimeout(() => setComplaintToast(false), 4000)
+    return () => window.clearTimeout(timer)
+  }, [complaintToast])
+
+  useEffect(() => {
+    if (!supplementToast) return
+    const timer = window.setTimeout(() => setSupplementToast(false), 4000)
+    return () => window.clearTimeout(timer)
+  }, [supplementToast])
 
   const reviewItems = useMemo(
     () => (order?.items || [])
@@ -169,20 +217,167 @@ export default function DonHangPage() {
   }
 
   const isPickup = order.order_type === 'pickup'
-  const [title, lead] = STATUS_COPY[order.status] || [order.status, 'Trạng thái đơn hàng được cập nhật từ Canteen.']
   const isCancelled = ['DA_HUY_KHACH', 'TU_CHOI', 'TU_DONG_HUY', 'BO_DON_BLACKLIST'].includes(order.status)
-  const progress = isCancelled ? 0 : DELIVERED_STATUSES.has(order.status) ? 100 : order.status === 'CHO_XAC_NHAN' ? 0 : order.status === 'DANG_CHUAN_BI' ? 33.33 : 66.67
+  const isComplaintFlow = ['KHIEU_NAI', 'DA_GIAI_QUYET'].includes(order.status) || Boolean(complaintData)
+
+  let title = STATUS_COPY[order.status]?.[0] || order.status
+  let lead = STATUS_COPY[order.status]?.[1] || 'Trạng thái đơn hàng được cập nhật từ Canteen.'
+
+  if (order.status === 'DA_GIAI_QUYET' && complaintData) {
+    if (complaintData.status === 'CHAP_NHAN') {
+      lead = 'Canteen đã chấp thuận khiếu nại của bạn và tiến hành giải quyết.'
+    } else if (complaintData.status === 'TU_CHOI') {
+      lead = 'Khiếu nại đã bị từ chối. Vui lòng xem phản hồi chi tiết từ Ban Quản lý bên dưới.'
+    }
+  }
+
+  // Cấu hình các bước trong thanh tiến trình (4 bước thông thường, 5 bước khi có khiếu nại)
+  let trackingSteps: Array<{
+    label: string
+    icon: string
+    active: boolean
+    variant?: 'brand' | 'success' | 'danger' | 'warning'
+  }> = []
+
+  let progress = 0
+
+  if (isComplaintFlow) {
+    // Với đơn có khiếu nại: 4 bước giao hàng trước đó đã hoàn thành
+    const complaintStatus = complaintData?.status
+    let complaintStep: {
+      label: string
+      icon: string
+      active: boolean
+      variant: 'brand' | 'success' | 'danger' | 'warning'
+    }
+
+    if (complaintStatus === 'CHAP_NHAN') {
+      complaintStep = {
+        label: 'Khiếu nại thành công',
+        icon: 'verified',
+        active: true,
+        variant: 'success',
+      }
+    } else if (complaintStatus === 'TU_CHOI') {
+      complaintStep = {
+        label: 'Khiếu nại không thành công',
+        icon: 'cancel',
+        active: true,
+        variant: 'danger',
+      }
+    } else if (complaintStatus === 'YEU_CAU_BO_SUNG') {
+      complaintStep = {
+        label: 'Cần bổ sung minh chứng',
+        icon: 'pending_actions',
+        active: true,
+        variant: 'warning',
+      }
+    } else if (order.status === 'DA_GIAI_QUYET') {
+      complaintStep = {
+        label: 'Khiếu nại đã xử lý',
+        icon: 'task_alt',
+        active: true,
+        variant: 'success',
+      }
+    } else {
+      complaintStep = {
+        label: 'Đang xử lý khiếu nại',
+        icon: 'report_problem',
+        active: true,
+        variant: 'warning',
+      }
+    }
+
+    trackingSteps = [
+      { label: 'Đã đặt', icon: 'receipt_long', active: true },
+      { label: 'Đang chuẩn bị', icon: 'restaurant', active: true },
+      { label: isPickup ? 'Sẵn sàng lấy' : 'Đang giao', icon: isPickup ? 'storefront' : 'delivery_dining', active: true },
+      { label: isPickup ? 'Đã bàn giao' : 'Đã giao', icon: 'check_circle', active: true },
+      complaintStep,
+    ]
+    progress = 100
+  } else {
+    progress = isCancelled
+      ? 0
+      : DELIVERED_STATUSES.has(order.status)
+      ? 100
+      : order.status === 'CHO_XAC_NHAN'
+      ? 0
+      : order.status === 'DANG_CHUAN_BI'
+      ? 33.33
+      : 66.67
+
+    trackingSteps = [
+      { label: 'Đã đặt', icon: 'receipt_long', active: true },
+      {
+        label: 'Đang chuẩn bị',
+        icon: 'restaurant',
+        active: ['DANG_CHUAN_BI', 'DANG_GIAO', 'SAN_SANG_LAY', 'GIAO_THAT_BAI', ...DELIVERED_STATUSES].includes(order.status),
+      },
+      {
+        label: isPickup ? 'Sẵn sàng lấy' : 'Đang giao',
+        icon: isPickup ? 'storefront' : 'delivery_dining',
+        active: ['DANG_GIAO', 'SAN_SANG_LAY', 'GIAO_THAT_BAI', ...DELIVERED_STATUSES].includes(order.status),
+      },
+      {
+        label: isPickup ? 'Đã bàn giao' : 'Đã giao',
+        icon: 'check_circle',
+        active: DELIVERED_STATUSES.has(order.status),
+      },
+    ]
+  }
+
   const canCancel = order.status === 'CHO_XAC_NHAN'
   const canConfirmReceipt = ['DA_GIAO', 'DA_BAN_GIAO'].includes(order.status)
-  const canReview = DELIVERED_STATUSES.has(order.status) && reviewItems.length > 0
-  const hasPartnerAction = canCancel || canConfirmReceipt || canReview
+
+  // BUG-03 (UC14, BR-23): Đơn DA_GIAI_QUYET được phép đánh giá món
+  const canReview = REVIEWABLE_STATUSES.has(order.status) && reviewItems.length > 0
+
+  // BUG-02 (UC15, BR-23, EX-14): Cho phép khiếu nại trong vòng 24 giờ sau khi giao/hoàn thành
+  const deliveryTime = order.delivered_at || order.completed_at || order.created_at
+  const within24Hours = deliveryTime
+    ? (Date.now() - new Date(deliveryTime).getTime()) <= 24 * 60 * 60 * 1000
+    : true
+  const canComplain = ['DA_GIAO', 'DA_BAN_GIAO', 'HOAN_THANH'].includes(order.status) &&
+    within24Hours &&
+    order.status !== 'KHIEU_NAI' &&
+    order.status !== 'DA_GIAI_QUYET'
+
+  const canSupplement = complaintData?.status === 'YEU_CAU_BO_SUNG'
+  const hasPartnerAction = canCancel || canConfirmReceipt || canReview || canComplain || canSupplement
   const displayItems = order.items || []
 
   return (
     <div className={styles.pageWrapper}>
       <main className={styles.page}>
         {reviewToast ? <div className={styles.reviewToast} role="status">Đánh giá của bạn đã được gửi.</div> : null}
+        {complaintToast ? <div className={styles.reviewToast} role="status">Khiếu nại của bạn đã được gửi tới Canteen.</div> : null}
+        {supplementToast ? <div className={styles.reviewToast} role="status">Minh chứng bổ sung đã được gửi tới Ban Quản lý.</div> : null}
         {reviewOpen && canReview ? <OrderReviewModal orderId={order.id} items={reviewItems} onClose={() => setReviewOpen(false)} onSubmitReview={submitReviews} /> : null}
+        {complaintOpen && canComplain ? (
+          <OrderComplaintModal
+            orderId={order.id}
+            onClose={() => setComplaintOpen(false)}
+            onSuccess={() => {
+              setComplaintToast(true)
+              void loadOrder()
+              void loadComplaint()
+              void refreshHistory()
+            }}
+          />
+        ) : null}
+        {supplementOpen && complaintData ? (
+          <OrderComplaintSupplementModal
+            complaint={complaintData}
+            onClose={() => setSupplementOpen(false)}
+            onSuccess={() => {
+              setSupplementToast(true)
+              void loadOrder()
+              void loadComplaint()
+              void refreshHistory()
+            }}
+          />
+        ) : null}
         <div className={`wrap ${styles.layout}`}>
           <div className={styles.main}>
             <Link className={styles.back} to="/lich-su-don">← Lịch sử đơn</Link>
@@ -196,19 +391,30 @@ export default function DonHangPage() {
             {actionError ? <p role="alert" className={styles.cancelTxt}>{actionError}</p> : null}
 
             <section className={styles.track} aria-label="Tiến trình đơn hàng">
-              <div className={styles.steps}>
+              <div className={`${styles.steps} ${trackingSteps.length === 5 ? styles.steps5 : ''}`}>
                 <div className={styles.line}><div className={styles.fill} style={{ width: `${progress}%` }} /></div>
-                {[
-                  { label: 'Đã đặt', icon: 'receipt_long', active: true },
-                  { label: 'Đang chuẩn bị', icon: 'restaurant', active: ['DANG_CHUAN_BI', 'DANG_GIAO', 'SAN_SANG_LAY', 'GIAO_THAT_BAI', ...DELIVERED_STATUSES].includes(order.status) },
-                  { label: isPickup ? 'Sẵn sàng lấy' : 'Đang giao', icon: isPickup ? 'storefront' : 'delivery_dining', active: ['DANG_GIAO', 'SAN_SANG_LAY', 'GIAO_THAT_BAI', ...DELIVERED_STATUSES].includes(order.status) },
-                  { label: isPickup ? 'Đã bàn giao' : 'Đã giao', icon: 'check_circle', active: DELIVERED_STATUSES.has(order.status) },
-                ].map((step) => (
-                  <div key={step.label} className={styles.step}>
-                    <div className={`${styles.dot} ${step.active ? styles.dotOn : ''}`}><span className={`material-symbols-outlined ${styles.ico}`}>{step.icon}</span></div>
-                    <span className={step.active ? styles.lbl : styles.lblOff}>{step.label}</span>
-                  </div>
-                ))}
+                {trackingSteps.map((step) => {
+                  let dotClass = `${styles.dot} ${step.active ? styles.dotOn : ''}`
+                  let lblClass = step.active ? styles.lbl : styles.lblOff
+                  if (step.active && step.variant === 'success') {
+                    dotClass = `${styles.dot} ${styles.dotSuccess}`
+                    lblClass = styles.lblSuccess
+                  } else if (step.active && step.variant === 'danger') {
+                    dotClass = `${styles.dot} ${styles.dotDanger}`
+                    lblClass = styles.lblDanger
+                  } else if (step.active && step.variant === 'warning') {
+                    dotClass = `${styles.dot} ${styles.dotWarning}`
+                    lblClass = styles.lblWarning
+                  }
+                  return (
+                    <div key={step.label} className={styles.step}>
+                      <div className={dotClass}>
+                        <span className={`material-symbols-outlined ${styles.ico}`}>{step.icon}</span>
+                      </div>
+                      <span className={lblClass}>{step.label}</span>
+                    </div>
+                  )
+                })}
               </div>
             </section>
 
@@ -221,12 +427,109 @@ export default function DonHangPage() {
               </div>
             </section>
 
+            {/* UC15 / BR-23: Hiển thị khối thông tin Khiếu nại nếu đơn hàng đang ở KHIEU_NAI hoặc DA_GIAI_QUYET */}
+            {['KHIEU_NAI', 'DA_GIAI_QUYET'].includes(order.status) ? (
+              <section className={styles.complaintCard} aria-label="Thông tin khiếu nại đơn hàng">
+                <div className={styles.complaintHead}>
+                  <h2 className={styles.complaintTitle}>
+                    <span className="material-symbols-outlined" style={{ color: '#ea580c' }}>report_problem</span>
+                    Thông tin khiếu nại
+                  </h2>
+                  {complaintData ? (
+                    <span className={`${styles.complaintBadge} ${
+                      complaintData.status === 'CHAP_NHAN' ? styles.complaintAccepted :
+                      complaintData.status === 'TU_CHOI' ? styles.complaintRejected :
+                      complaintData.status === 'YEU_CAU_BO_SUNG' ? styles.complaintMoreInfo :
+                      styles.complaintPending
+                    }`}>
+                      {complaintData.status === 'CHAP_NHAN' ? 'Đã chấp nhận' :
+                       complaintData.status === 'TU_CHOI' ? 'Từ chối khiếu nại' :
+                       complaintData.status === 'YEU_CAU_BO_SUNG' ? 'Yêu cầu bổ sung' :
+                       'Đang xử lý'}
+                    </span>
+                  ) : null}
+                </div>
+                {loadingComplaint ? (
+                  <p style={{ margin: 0, color: 'var(--color-muted)' }}>Đang tải thông tin khiếu nại...</p>
+                ) : complaintData ? (
+                  <div className={styles.complaintBody}>
+                    <div className={styles.complaintRow}>
+                      <span className={styles.complaintLbl}>Lý do khiếu nại</span>
+                      <p className={styles.complaintTxt}><strong>{complaintData.reason}</strong></p>
+                    </div>
+                    <div className={styles.complaintRow}>
+                      <span className={styles.complaintLbl}>Mô tả của bạn</span>
+                      <p className={styles.complaintTxt}>{complaintData.description}</p>
+                    </div>
+                    {complaintData.proof_image_url && (
+                      <div className={styles.complaintRow}>
+                        <span className={styles.complaintLbl}>Ảnh minh chứng</span>
+                        <a href={complaintData.proof_image_url} target="_blank" rel="noopener noreferrer">
+                          <img src={complaintData.proof_image_url} alt="Minh chứng" className={styles.complaintThumb} />
+                        </a>
+                      </div>
+                    )}
+                    {complaintData.admin_response && (
+                      <div className={styles.adminResponseBox}>
+                        <h3 className={styles.adminResponseTitle}>
+                          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>support_agent</span>
+                          Phản hồi từ Ban Quản lý NEUFood
+                        </h3>
+                        <p className={styles.adminResponseTxt}>{complaintData.admin_response}</p>
+                        {complaintData.status === 'YEU_CAU_BO_SUNG' ? (
+                          <div className={styles.supplementActionWrap}>
+                            <button
+                              type="button"
+                              className={styles.supplementBtn}
+                              onClick={() => setSupplementOpen(true)}
+                            >
+                              <span className="material-symbols-outlined">add_photo_alternate</span>
+                              Bổ sung minh chứng theo yêu cầu
+                            </button>
+                          </div>
+                        ) : null}
+                        {complaintData.resolved_at && (
+                          <p className={styles.adminResponseTime}>
+                            Thời gian giải quyết: {new Date(complaintData.resolved_at).toLocaleString('vi-VN')}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p style={{ margin: 0, color: 'var(--color-muted)' }}>Đơn hàng đang trong tiến trình khiếu nại.</p>
+                )}
+              </section>
+            ) : null}
+
             <div className={styles.act2}>
               <Link to="/menu" className={`${styles.actBtn} ${styles.actGhost} ${hasPartnerAction ? '' : styles.reorderFull}`}>Đặt món khác</Link>
               {canCancel ? <button type="button" className={`${styles.actBtn} ${styles.actDanger}`} disabled={isWorking} onClick={() => window.confirm('Bạn muốn hủy đơn hàng này?') && void runOrderAction(() => orderService.cancelOrder(order.id))}>Hủy đơn</button> : null}
               {canConfirmReceipt ? <button type="button" className={`${styles.actBtn} ${styles.actPri}`} disabled={isWorking} onClick={() => void runOrderAction(() => orderService.confirmReceipt(order.id))}>{isWorking ? 'Đang cập nhật…' : 'Xác nhận đã nhận món'}</button> : null}
               {canReview ? <button type="button" className={`${styles.actBtn} ${styles.actPri}`} disabled={isWorking} onClick={() => setReviewOpen(true)}>Đánh giá món</button> : null}
-              {DELIVERED_STATUSES.has(order.status) && reviewItems.length === 0 ? <div className={styles.reviewedBadge}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check_circle</span><span>Đã đánh giá các món trong đơn hàng.</span></div> : null}
+              {canSupplement ? (
+                <button
+                  type="button"
+                  className={`${styles.actBtn} ${styles.actSupplement}`}
+                  disabled={isWorking}
+                  onClick={() => setSupplementOpen(true)}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add_photo_alternate</span>
+                  Bổ sung minh chứng
+                </button>
+              ) : null}
+              {canComplain ? (
+                <button
+                  type="button"
+                  className={`${styles.actBtn} ${styles.actWarn}`}
+                  disabled={isWorking}
+                  onClick={() => setComplaintOpen(true)}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>report_problem</span>
+                  Khiếu nại đơn
+                </button>
+              ) : null}
+              {REVIEWABLE_STATUSES.has(order.status) && reviewItems.length === 0 ? <div className={styles.reviewedBadge}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check_circle</span><span>Đã đánh giá các món trong đơn hàng.</span></div> : null}
             </div>
           </div>
 

@@ -2,17 +2,59 @@ import api from './api';
 import {
   LoginPayload,
   RegisterPayload,
+  RegisterOtpPayload,
   AuthResponse,
   ApiResponse,
   ForgotPasswordData,
   ResetPasswordPayload,
+  ChangePasswordPayload,
+  ChangePasswordOtpResponse,
+  OtpLoginRequestPayload,
+  OtpLoginVerifyPayload,
+  OtpLoginRequestData,
 } from '../types/auth';
 import { User, UserProfileUpdate } from '../types/user';
 
+const DEVICE_TOKEN_KEY = 'neufood_device_token';
+
 export const authService = {
+  getStoredDeviceToken(): string | null {
+    return localStorage.getItem(DEVICE_TOKEN_KEY);
+  },
+
   async login(payload: LoginPayload): Promise<AuthResponse> {
-    const res = await api.post<ApiResponse<AuthResponse>>('/auth/login', payload);
-    return res.data.data;
+    const deviceToken = payload.device_token || localStorage.getItem(DEVICE_TOKEN_KEY) || undefined;
+    const body: LoginPayload = {
+      ...payload,
+      device_token: deviceToken,
+    };
+    const res = await api.post<ApiResponse<AuthResponse>>('/auth/login', body);
+    const authData = res.data.data;
+    if (authData?.device_token) {
+      localStorage.setItem(DEVICE_TOKEN_KEY, authData.device_token);
+    }
+    return authData;
+  },
+
+  async requestLoginOtp(email: string): Promise<ApiResponse<OtpLoginRequestData>> {
+    const res = await api.post<ApiResponse<OtpLoginRequestData>>('/auth/login/otp/request', {
+      email: email.trim(),
+    });
+    return res.data;
+  },
+
+  async verifyLoginOtp(payload: OtpLoginVerifyPayload): Promise<AuthResponse> {
+    const res = await api.post<ApiResponse<AuthResponse>>('/auth/login/otp/verify', payload);
+    const authData = res.data.data;
+    if (authData?.device_token) {
+      localStorage.setItem(DEVICE_TOKEN_KEY, authData.device_token);
+    }
+    return authData;
+  },
+
+  async sendRegisterOtp(payload: RegisterOtpPayload): Promise<ApiResponse<any>> {
+    const res = await api.post<ApiResponse<any>>('/auth/register/send-otp', payload);
+    return res.data;
   },
 
   async register(payload: RegisterPayload): Promise<AuthResponse> {
@@ -49,6 +91,16 @@ export const authService = {
 
   async resetPassword(payload: ResetPasswordPayload): Promise<ApiResponse<null>> {
     const res = await api.post<ApiResponse<null>>('/auth/reset-password', payload);
+    return res.data;
+  },
+
+  async requestChangePasswordOtp(): Promise<ApiResponse<ChangePasswordOtpResponse>> {
+    const res = await api.post<ApiResponse<ChangePasswordOtpResponse>>('/auth/change-password/otp');
+    return res.data;
+  },
+
+  async changePassword(payload: ChangePasswordPayload): Promise<ApiResponse<null>> {
+    const res = await api.post<ApiResponse<null>>('/auth/change-password', payload);
     return res.data;
   },
 
