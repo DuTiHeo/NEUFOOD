@@ -48,9 +48,10 @@ git checkout -b feature/auth-user-admin
 ```
 - [ ] **`UC01` - Đăng ký (`POST /api/v1/auth/register`):**
   - Kiểm tra SĐT 10 số hợp lệ (`BR-01`), chặn trùng `email` hoặc `student_id` (`EX-01`), gán mặc định `role = 'customer'`.
-- [ ] **`UC02` - Đăng nhập & Khóa tài khoản tạm thời (`POST /api/v1/auth/login`):**
-  - Kiểm tra `locked_until`: nếu chưa hết hạn khóa 15 phút thì chặn đăng nhập (`EX-02`).
-  - Sai mật khẩu 5 lần liên tiếp $\rightarrow$ khóa tài khoản 15 phút (`BR-02`, `EX-02`).
+- [ ] **`UC02` - Đăng nhập & Khóa theo thiết bị (`POST /api/v1/auth/login`):**
+  - Phân loại thiết bị: có device token hợp lệ do server ký $\rightarrow$ thiết bị tin cậy; ngược lại $\rightarrow$ thiết bị chưa xác minh (`BR-02`).
+  - Sai mật khẩu $\ge 5$ lần liên tiếp $\rightarrow$ khóa 15 phút **theo phạm vi thiết bị** (riêng thiết bị tin cậy đó, hoặc toàn bộ nhóm thiết bị chưa xác minh của tài khoản) (`BR-02`, `EX-02`).
+  - Hỗ trợ đăng nhập bằng OTP email làm lối thoát khi bị khóa; rate limit theo cặp (IP + email), không chặn cứng theo IP thô.
   - Đăng nhập đúng $\rightarrow$ reset `failed_login_attempts = 0`, trả về thông tin user kèm `is_blacklisted`, `blacklist_reason`.
 - [ ] **`UC04` & `UC05` - Hồ sơ cá nhân & Mật khẩu (`/api/v1/users/profile`, `/api/v1/auth/change-password`):**
   - Chặn trùng số điện thoại với tài khoản khác khi cập nhật hồ sơ (`EX-03`).

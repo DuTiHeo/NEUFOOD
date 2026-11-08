@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 class ShiftSubmitRequest(BaseModel):
     """Schema xác thực nhân viên nộp tiền chốt ca COD (UC20)."""
+    shift_date: Optional[date] = Field(default=None, description="Ngày ca theo giờ Việt Nam; dùng để từ chối bản nộp đã qua nửa đêm")
     actual_cash: float = Field(..., ge=0, le=9999999999.99, allow_inf_nan=False, description="Số tiền mặt thực tế kiểm đếm (VNĐ)")
     actual_qr: float = Field(..., ge=0, le=9999999999.99, allow_inf_nan=False, description="Số tiền QR thực tế sao kê (VNĐ)")
     discrepancy_note: Optional[str] = Field(default=None, max_length=1000, description="Giải trình nếu có chênh lệch tiền COD (EX-20)")

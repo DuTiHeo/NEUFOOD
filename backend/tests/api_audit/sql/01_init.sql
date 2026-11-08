@@ -118,6 +118,7 @@ CREATE TABLE IF NOT EXISTS orders (
     order_code_suffix VARCHAR(4) NOT NULL,
     user_id INT REFERENCES users(id) ON DELETE SET NULL,
     staff_id INT REFERENCES users(id) ON DELETE SET NULL,
+    shipper_id INT REFERENCES users(id) ON DELETE SET NULL,
     order_type VARCHAR(20) NOT NULL DEFAULT 'delivery' 
         CHECK (order_type IN ('delivery', 'pickup')),
     recipient_name VARCHAR(150) NOT NULL,
@@ -151,6 +152,8 @@ CREATE TABLE IF NOT EXISTS orders (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipper_id INT REFERENCES users(id) ON DELETE SET NULL;
 
 DROP TRIGGER IF EXISTS set_timestamp_orders ON orders;
 CREATE TRIGGER set_timestamp_orders
@@ -266,6 +269,7 @@ CREATE INDEX IF NOT EXISTS idx_dish_categories_cat ON dish_categories(category_i
 
 CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_staff_id ON orders(staff_id);
+CREATE INDEX IF NOT EXISTS idx_orders_shipper_id ON orders(shipper_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_type ON orders(order_type);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);

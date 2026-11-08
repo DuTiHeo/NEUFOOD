@@ -155,6 +155,7 @@ def submit_shift_endpoint():
                 actual_cash=data.actual_cash,
                 actual_qr=data.actual_qr,
                 discrepancy_note=data.discrepancy_note,
+                shift_date=data.shift_date,
             )
             return api_response(
                 data=_serialize_shift(shift),

@@ -144,7 +144,7 @@ export default function ThanhToanPage() {
       return
     }
     if (!phoneIsValid) {
-      setConfirmError('Số điện thoại nhận hàng cần có 10 chữ số và bắt đầu bằng 03, 05, 07, 08 hoặc 09.')
+      setConfirmError('Số điện thoại nhận hàng cần có 10 chữ số và bắt đầu bằng số 0.')
       return
     }
     if (orderType === 'delivery' && !selectedLocation) {
@@ -242,7 +242,7 @@ export default function ThanhToanPage() {
                   </div>
                   <div className={styles.field}>
                     <label htmlFor="recipientPhone" className={styles.fieldLbl}>Số điện thoại <span className="text-red-500">*</span></label>
-                    <input id="recipientPhone" className={styles.fieldInput} type="tel" inputMode="numeric" autoComplete="tel" pattern="0[35789][0-9]{8}" maxLength={10} value={recipientPhone} onChange={(event) => setRecipientPhone(event.target.value)} placeholder="0912345678" required />
+                    <input id="recipientPhone" className={styles.fieldInput} type="tel" inputMode="numeric" autoComplete="tel" pattern="0[0-9]{9}" maxLength={10} value={recipientPhone} onChange={(event) => setRecipientPhone(event.target.value)} placeholder="0912345678" required />
                   </div>
                 </div>
               </section>

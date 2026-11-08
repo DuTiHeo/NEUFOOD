@@ -65,6 +65,18 @@ export function DishesProvider({ children }: { children: React.ReactNode }) {
     void refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
+    const timer = window.setInterval(refreshWhenVisible, 30_000);
+    window.addEventListener('focus', refreshWhenVisible);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refreshWhenVisible);
+    };
+  }, [refresh]);
+
   const getById = useCallback((id?: string) => dishes.find((dish) => dish.id === id), [dishes]);
   const value = useMemo(
     () => ({ dishes, categories, isLoading, error, maxDishQuantity, deliveryFee, refresh, getById }),

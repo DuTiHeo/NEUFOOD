@@ -13,6 +13,7 @@ from app.crud.dish import (
     get_categories,
     get_dish_by_id,
     get_dishes,
+    restore_dish,
     set_dish_availability,
     update_dish,
 )
@@ -58,6 +59,7 @@ def _serialize_dish(dish, reviews=None) -> dict:
         "image_url": dish.image_url,
         "is_available": dish.is_available,
         "is_active": dish.is_active,
+        "is_deleted": dish.is_deleted,
         "category_ids": [category.id for category in dish.categories],
         "categoryIds": [category.id for category in dish.categories],
         "badges": [badge.badge for badge in dish.badges],
@@ -144,6 +146,7 @@ def list_dishes():
             search=search,
             page=page,
             limit=limit,
+            include_inactive=True,
         )
         result_data = {
             "items": [_serialize_dish(dish) for dish in dishes],
@@ -154,6 +157,40 @@ def list_dishes():
         if cache_key:
             cache_set(cache_key, result_data, ttl=300)
         return api_response(data=result_data)
+
+
+@dish_bp.route("/management", methods=["GET"])
+@role_required("manager")
+def list_dishes_for_management():
+    """Return sellable and inactive (but not deleted) dishes to the manager."""
+    try:
+        page = int(request.args.get("page", "1"))
+        limit = int(request.args.get("limit", "100"))
+    except (TypeError, ValueError):
+        return api_response(message="page và limit phải là số nguyên hợp lệ", status_code=422, success=False)
+    if page < 1 or not 1 <= limit <= 100:
+        return api_response(message="page phải từ 1 trở lên và limit phải từ 1 đến 100", status_code=422, success=False)
+
+    with get_db() as db:
+        dishes, total = get_dishes(db, page=page, limit=limit, include_inactive=True, include_deleted=True)
+        return api_response(data={
+            "items": [_serialize_dish(dish) for dish in dishes],
+            "total": total,
+            "page": page,
+            "limit": limit,
+        })
+
+
+@dish_bp.route("/management/<dish_id>/restore", methods=["POST"])
+@role_required("manager")
+def restore_managed_dish(dish_id: str):
+    with get_db() as db:
+        dish = get_dish_by_id(db, dish_id, include_deleted=True)
+        if dish is None or not dish.is_deleted:
+            return api_response(message="Không tìm thấy món đã ẩn cần khôi phục", status_code=404, success=False)
+        restored = restore_dish(db, dish)
+        cache_delete_pattern("neufood:dishes:*")
+        return api_response(data=_serialize_dish(restored), message="Đã khôi phục món; món đang ở trạng thái hết món")
 
 
 @dish_bp.route("/validate-cart", methods=["POST"])

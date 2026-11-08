@@ -11,7 +11,6 @@ const CATEGORY_ICONS: Record<string, string> = {
   'com-hop': '🍱',
   'mi-pho': '🍜',
   'combos': '🎁',
-  'banh-kem': '🎂',
   'trang-mieng': '🍨',
   'mon-chinh': '🥘',
   'do-uong': '🧋',

@@ -86,7 +86,7 @@ export default function StaffShiftPage() {
       if (shiftSnapshotChanged(current, review)) {
         setReview(current); setChecked(false); setReviewError('Số liệu ca vừa thay đổi. Kiểm tra lại bảng đối chiếu và xác nhận trước khi gửi.'); return
       }
-      const result = await shiftService.submitShift({ actual_cash: Number(cash), actual_qr: Number(qr), ...(note.trim() ? { discrepancy_note: note.trim() } : {}) })
+      const result = await shiftService.submitShift({ shift_date: review.shift_date, actual_cash: Number(cash), actual_qr: Number(qr), ...(note.trim() ? { discrepancy_note: note.trim() } : {}) })
       const currentResult: CurrentShiftSummary = { ...result, shift_id: result.id, staff_name: result.staff_name || undefined }
       setSummary(currentResult); hydrate(currentResult)
       setHistory((items) => [result, ...(items || []).filter((item) => item.id !== result.id)])

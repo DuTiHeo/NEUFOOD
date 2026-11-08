@@ -83,6 +83,22 @@ class AdminUserBlacklistUpdateRequest(BaseModel):
         return v
 
 
+class AdminUserPhoneUpdateRequest(BaseModel):
+    """Schema quản trị viên cập nhật hoặc giải phóng số điện thoại người dùng (UC23)."""
+
+    phone_number: Optional[str] = None
+
+    @field_validator("phone_number", mode="before")
+    @classmethod
+    def normalize_phone(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, str):
+            stripped = v.strip()
+            return stripped if stripped else None
+        return v
+
+
 class ChangePasswordRequest(BaseModel):
     """Schema đổi mật khẩu (bảo toàn tương thích ngược)."""
 
