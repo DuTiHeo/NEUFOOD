@@ -264,7 +264,8 @@
         <img src="https://cdn-icons-png.flaticon.com/512/25/25613.png" class="pointer" alt="pointer">
         <canvas id="wheel" width="1000" height="1000"></canvas>
     </div>
-    <button id="spin-btn">QUAY NGAY!</button>
+    <p id="menu-status" role="status" aria-live="polite"></p>
+    <button id="spin-btn" disabled>QUAY NGAY!</button>
 </div>
 
 <div id="result-overlay" onclick="handleOverlayClick(event)">
@@ -354,93 +355,7 @@
         if (loginLink) loginLink.style.display = 'inline-block';
     }
 
-    const baseMenuData = {
-        "Bún/Phở": [
-            { name: "Phở", img: "https://live2makan.com/wp-content/uploads/2022/08/l2m-vn-2207-pho10-05.jpg" },
-            { name: "Phở trộn", img: "https://cdn.tgdd.vn/2021/08/CookRecipe/Avatar/pho-ga-tron-sa-te-thumbnail.jpg" },
-            { name: "Bún bò Huế", img: "https://cdn.tgdd.vn/Files/2017/03/24/964495/cach-nau-bun-bo-hue-gio-heo-ngon-cong-thuc-chuan-vi-202208251617593627.jpg" },
-            { name: "Bún riêu", img: "https://i.ytimg.com/vi/C1P1Cw9J1-I/maxresdefault.jpg" },
-            { name: "Hủ tiếu", img: "https://cdn2.fptshop.com.vn/unsafe/1920x0/filters:format(webp):quality(75)/2023_10_26_638339340847153253_hu-tieu-go.jpg" },
-            { name: "Miến gà", img: "https://cdn.tgdd.vn/Files/2017/03/22/963778/bi-quyet-nau-mien-ga-thom-ngon-da-ga-vang-gion-202208261323269332.jpg" },
-            { name: "Cháo sườn", img: "https://cdn.tgdd.vn/2021/05/CookProduct/axresdefault(1)-1200x676.jpg" },
-            { name: "Bánh canh", img: "https://i.ytimg.com/vi/ZjAxz95VJKQ/maxresdefault.jpg" },
-            { name: "Bún mọc", img: "https://i.ytimg.com/vi/AwppaRlywik/maxresdefault.jpg" },
-            { name: "Bún thang", img: "https://noiphodien123.vn/wp-content/uploads/2022/02/bun-thang-ngon.jpg" },
-            { name: "Bún cá", img: "https://cdn.tgdd.vn/Files/2020/04/03/1246339/cach-nau-bun-ca-ha-noi-thom-ngon-chuan-vi-khong-ta-13.jpg" },
-            { name: "Bún chả", img: "https://www.seriouseats.com/thmb/J0g7JWjk9r6CHESo1CIrD1BfGd0=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/20231204-SEA-VyTran-BunChaHanoi-19-f623913c6ef34a9185bcd6e5680c545f.jpg" },
-            { name: "Bún mắm", img: "https://cdn.tgdd.vn/Files/2019/03/12/1154316/cach-nau-bun-mam-mien-tay-chuan-thom-ngon-don-gian-tai-nha-202112211640380018.jpg" },
-            { name: "Bún đậu", img: "https://static.vinwonders.com/2023/01/bun-dau-mam-tom-thumb.jpg" },
-            { name: "Nem nướng", img: "https://cdn.tgdd.vn/2021/09/CookDish/cach-lam-nem-nuong-nha-trang-bang-noi-chien-khong-dau-thom-avt-1200x676.jpg" },
-            { name: "Gỏi cuốn", img: "https://images.squarespace-cdn.com/content/v1/52d3fafee4b03c7eaedee15f/30cf6af1-a5a1-456f-ba8e-3d09713608e3/thumbnail-9264.jpg" }
-        ],
-        "Cơm": [
-            { name: "Cơm tấm", img: "https://statics.vinwonders.com/com-tam-ngon-o-sai-gon-0_1630562640.jpg" },
-            { name: "Cơm gà", img: "https://static.vinwonders.com/2023/02/com-ga-da-nang-1.jpg" },
-            { name: "Cơm sườn", img: "https://i.ytimg.com/vi/cJu6tFJe_Gc/maxresdefault.jpg" },
-            { name: "Cơm chiên", img: "https://tse2.mm.bing.net/th/id/OIP.nHkdDmDXSKC8cJ3PLVjgtQHaE6?pid=Api&P=0&h=180" },
-            { name: "Bò lúc lắc", img: "https://i.ytimg.com/vi/RfGrzXPuKeM/maxresdefault.jpg" },
-            { name: "Cơm niêu", img: "https://tse3.mm.bing.net/th/id/OIP.vdevG-D5cLXfSrBGkpqkHwHaEU?pid=Api&P=0&h=180" },
-            { name: "Cá kho", img: "https://img-global.cpcdn.com/recipes/8762fe6a5e6ac0b2/1200x630cq70/photo.jpg" },
-            { name: "Gà xối mỡ", img: "https://ticotravel.com.vn/wp-content/uploads/2022/06/Com-ga-xoi-mo-15.jpg" },
-            { name: "Cơm trộn", img: "https://cdn.tgdd.vn/Files/2018/07/05/1099587/cach-lam-com-tron-han-quoc-bibimbap-ngon-nhu-nha-hang-202205241021184780.jpg" },
-            { name: "Cơm chay", img: "https://vnn-imgs-a1.vgcloud.vn/znews-photo.zadn.vn/w860/Uploaded/mrndcqjwq/2021_08_12/Mam_5.jpg" },
-            { name: "Cơm cà ri", img: "https://www.huongnghiepaau.com/wp-content/uploads/2024/07/cach-nau-com-ca-ri-nhat.jpg" },
-            { name: "Thịt kho", img: "https://tanmyholdings.com/wp-content/uploads/2024/10/Com-thit-kho-tieu1.png" }
-        ],
-        "Các loại bánh": [
-            { name: "Bánh mì", img: "https://tse4.mm.bing.net/th/id/OIP.yxsHU68P6sAzYizPNk64IwHaEo?pid=Api&P=0&h=180" },
-            { name: "Bánh xèo", img: "https://cdn.tgdd.vn/2020/12/CookProduct/11-1200x676.jpg" },
-            { name: "Bánh cuốn", img: "https://i.ytimg.com/vi/5CRLn1Bb1bg/maxresdefault.jpg" },
-            { name: "Bánh khọt", img: "http://foodisafourletterword.com/wp-content/uploads/2020/12/Vietnamese_Crispy_Savory_Shrimp_Pancakes_Recipe_Banh_Khot_top.jpg" },
-            { name: "Bánh căn", img: "https://static.vinwonders.com/production/banh-can-phan-thiet-01.jpeg" },
-            { name: "Bánh ướt", img: "https://img-global.cpcdn.com/recipes/922a89ff50818a94/1200x630cq70/photo.jpg" },
-            { name: "Bánh đúc", img: "https://cdn.tgdd.vn/2020/10/CookProduct/1260-1200x676-31.jpg" },
-            { name: "Bánh hỏi", img: "https://cdn.tgdd.vn/2021/05/content/hoi-3-800x450.jpg" },
-            { name: "Tráng nướng", img: "https://tse4.mm.bing.net/th/id/OIP.YM3x3rt1KAYSy542j8U6cAHaEK?pid=Api&P=0&h=180" },
-            { name: "Tráng trộn", img: "https://tse3.mm.bing.net/th/id/OIP.Hi2jizeoppiVBf0rUdSHuQHaEK?pid=Api&P=0&h=180" },
-            { name: "Bột lọc", img: "https://tse1.mm.bing.net/th/id/OIP.OnpBH_GEL59gT6nZGeCkLAHaGR?pid=Api&P=0&h=180" },
-            { name: "Bánh bao", img: "https://tse2.mm.bing.net/th/id/OIP.d0gK8bLS9Ix7SbiT_hhhJwHaE7?pid=Api&P=0&h=180" }
-        ],
-        "Đồ ăn vặt": [
-            { name: "Phơi sương", img: "https://tse3.mm.bing.net/th/id/OIP.VRXV5NTQLniOyMIYLeCcNgHaHa?pid=Api&P=0&h=180" },
-            { name: "Chân gà", img: "https://i.ytimg.com/vi/MVmtMJ3ILME/maxresdefault.jpg" },
-            { name: "Xiên bẩn", img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR2rXlwk6Dh-nCnN8ZpP3CbAdhdL2ZAYr7OthFdjfO7CQD17DtKNMBCX3A5&s=10" },
-            { name: "Chè anh đẹp trai", img: "https://mms.img.susercontent.com/vn-11134513-7r98o-lt4u34allm6x4a@resize_ss640x400!@crop_w640_h400_cT" },
-            { name: "Khoai tây chiên", img: "https://tse2.mm.bing.net/th/id/OIP.Jto_K08lSADMshiKXHAMNwHaFj?pid=Api&P=0&h=180" }
-        ],
-        "Nước uống": [
-            { name: "Trà đá", img: "https://migrationology.com/wp-content/uploads/2015/02/vietnamese_tra-da.jpg" },
-            { name: "Sữa đậu", img: "https://tse1.mm.bing.net/th/id/OIP.FprEjT4Qwbj3pGWwKeoDbwHaE7?pid=Api&P=0&h=180" },
-            { name: "Nước sâm", img: "https://tse2.mm.bing.net/th/id/OIP.AnBR19fel8FWNKVzFKiiVgHaEK?pid=Api&P=0&h=180" },
-            { name: "Coca-Cola", img: "https://tse4.mm.bing.net/th/id/OIP.vTgKkSg-OfavsyV138XHzAHaDs?pid=Api&P=0&h=180" },
-            { name: "Pepsi", img: "https://tse3.mm.bing.net/th/id/OIP.c2zUCO9Uqt-2U04GZ8MZYQHaFb?pid=Api&P=0&h=180" },
-            { name: "Trà chanh", img: "https://photo2.tinhte.vn/data/attachment-files/2025/03/8661218_TRA_CHANH.jpg" },
-            { name: "Trà tắc", img: "https://tse2.mm.bing.net/th/id/OIP.g5WWRyhVoreZbTyolhFtdQHaEK?pid=Api&P=0&h=180" }
-        ],
-        "Combos": [
-            { name: "Combo 2 người", img: "https://www.hotdeal.vn/ho-chi-minh/an-uong/combo-2-dia-com-tam-lua-chon-theo-menu-7-lua-chon-va-2-ly-nuoc-ngot-tai-cari-truong.-106202.html?srsltid=AfmBOoqfUSpFLdUXcxwv-xQJo12yniLF2c1svxr4rvEOOqGmgmSlZpmq" },
-            { name: "Combo 3 người", img: "https://vinwonders.com/vi/wonderpedia/news/com-ga-xoi-mo-ngon-nhat-sai-gon/" },
-            { name: "Combo 4-5 người", img: "https://vinwonders.com/vi/wonderpedia/news/bun-dau-mam-tom-nha-trang/" },
-            { name: "Combo tối nhẹ", img: "https://banhmipho.vn/combo-banh-mi-thit-xay-nuong-va-tra-chanh-cho-bua-an-tien-loi/" }
-        ]
-    };
-
-    // Tong hop danh muc Tat ca cac mon
-    const allDishes = [];
-    const seenNames = new Set();
-    Object.values(baseMenuData).forEach(list => {
-        list.forEach(dish => {
-            if (!seenNames.has(dish.name)) {
-                seenNames.add(dish.name);
-                allDishes.push(dish);
-            }
-        });
-    });
-
-    const menuData = {
-        "Tất cả các món": allDishes,
-        ...baseMenuData
-    };
+    let menuData = {};
 
     const canvas = document.getElementById('wheel');
     const ctx = canvas.getContext('2d');
@@ -452,158 +367,22 @@
     let isSpinning = false;
     let lastWinningItem = null;
 
-    const CART_KEY = 'neufood-cart-v1';
-    const PENDING_KEY = 'neufood-cart-pending-v1';
-
-    function normalizeName(text) {
-        return String(text || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^a-z0-9\s]/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
+    function renderCategories() {
+        nav.replaceChildren();
+        Object.keys(menuData).forEach(cat => {
+            const btn = document.createElement('button');
+            btn.innerText = cat;
+            if (cat === currentCategory) btn.classList.add('active');
+            btn.onclick = () => {
+                if (isSpinning) return;
+                document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentCategory = cat;
+                drawWheel();
+            };
+            nav.appendChild(btn);
+        });
     }
-
-    // Map wheel item names -> dish ids used by React cart (`src/data/dishes.js`)
-    const nameToDishId = {
-        [normalizeName('Phở')]: 'pho',
-        [normalizeName('Phở trộn')]: 'pho-tron',
-        [normalizeName('Bún bò Huế')]: 'bun-bo-hue',
-        [normalizeName('Bún riêu')]: 'bun-rieu',
-        [normalizeName('Hủ tiếu')]: 'hu-tieu',
-        [normalizeName('Miến gà')]: 'mien-ga',
-        [normalizeName('Cháo sườn')]: 'chao-suon',
-        [normalizeName('Bánh canh')]: 'banh-canh',
-        [normalizeName('Bún mọc')]: 'bun-moc',
-        [normalizeName('Bún thang')]: 'bun-thang',
-        [normalizeName('Bún cá')]: 'bun-ca',
-        [normalizeName('Bún chả')]: 'bun-cha',
-        [normalizeName('Bún mắm')]: 'bun-mam',
-        [normalizeName('Bún đậu')]: 'bun-dau-mam-tom',
-        [normalizeName('Nem nướng')]: 'nem-nuong-nha-trang',
-        [normalizeName('Gỏi cuốn')]: 'goi-cuon',
-
-        [normalizeName('Cơm tấm')]: 'com-tam',
-        [normalizeName('Cơm gà')]: 'com-ga',
-        [normalizeName('Cơm sườn')]: 'com-suon',
-        [normalizeName('Cơm chiên')]: 'com-chien',
-        [normalizeName('Bò lúc lắc')]: 'com-bo-luc-lac',
-        [normalizeName('Cơm niêu')]: 'com-nieu',
-        [normalizeName('Cá kho')]: 'com-ca-kho',
-        [normalizeName('Gà xối mỡ')]: 'com-ga-xoi-mo-2',
-        [normalizeName('Cơm trộn')]: 'com-tron',
-        [normalizeName('Cơm chay')]: 'com-tron',
-        [normalizeName('Cơm cà ri')]: 'com-ca-ri',
-        [normalizeName('Thịt kho')]: 'com-thit-kho',
-
-        [normalizeName('Bánh mì')]: 'banh-mi',
-        [normalizeName('Bánh xèo')]: 'banh-xeo',
-        [normalizeName('Bánh cuốn')]: 'banh-cuon',
-        [normalizeName('Bánh khọt')]: 'banh-khot',
-        [normalizeName('Bánh căn')]: 'banh-can',
-        [normalizeName('Bánh ướt')]: 'banh-uot',
-        [normalizeName('Bánh đúc')]: 'banh-duc',
-        [normalizeName('Bánh hỏi')]: 'banh-hoi',
-        [normalizeName('Tráng nướng')]: 'banh-trang-nuong',
-        [normalizeName('Tráng trộn')]: 'banh-trang-tron',
-        [normalizeName('Bột lọc')]: 'banh-bot-loc',
-        [normalizeName('Bánh bao')]: 'banh-bao',
-
-        [normalizeName('Phơi sương')]: 'banh-trang-phoi-suong',
-        [normalizeName('Chân gà')]: 'chan-ga-sa-tac',
-        [normalizeName('Xiên bẩn')]: 'xien-ban',
-        [normalizeName('Chè anh đẹp trai')]: 'che-anh-dep-trai',
-        [normalizeName('Khoai tây chiên')]: 'khoai-tay-chien',
-
-        [normalizeName('Trà đá')]: 'tra-da',
-        [normalizeName('Sữa đậu')]: 'sua-dau',
-        [normalizeName('Nước sâm')]: 'nuoc-sam',
-        [normalizeName('Coca-Cola')]: 'coca-cola',
-        [normalizeName('Pepsi')]: 'pepsi',
-        [normalizeName('Trà chanh')]: 'tra-chanh',
-        [normalizeName('Trà tắc')]: 'tra-tac',
-    };
-
-    const comboToItems = {
-        [normalizeName('Combo 2 người')]: [
-            { dishId: 'com-tam', quantity: 2 },
-            { dishId: 'ca-vien-chien-mam', quantity: 1 },
-            { dishId: 'sua-dau', quantity: 2 },
-        ],
-        [normalizeName('Combo 3 người')]: [
-            { dishId: 'com-ga-xoi-mo-2', quantity: 3 },
-            { dishId: 'khoai-tay-chien', quantity: 1 },
-            { dishId: 'coca-cola', quantity: 3 },
-        ],
-        [normalizeName('Combo 4-5 người')]: [
-            { dishId: 'bun-dau-mam-tom', quantity: 2 },
-            { dishId: 'banh-mi', quantity: 2 },
-            { dishId: 'chan-ga-sa-tac', quantity: 1 },
-            { dishId: 'khoai-tay-chien', quantity: 1 },
-            { dishId: 'tra-chanh', quantity: 5 },
-        ],
-        [normalizeName('Combo tối nhẹ')]: [
-            { dishId: 'banh-bao', quantity: 5 },
-            { dishId: 'banh-mi', quantity: 5 },
-            { dishId: 'tra-da', quantity: 5 },
-            { dishId: 'banh-trang-phoi-suong', quantity: 2 },
-        ],
-    };
-
-    function addDishToCart(dishId, qty = 1) {
-        if (!dishId) return false;
-        try {
-            const raw = localStorage.getItem(CART_KEY);
-            const parsed = raw ? JSON.parse(raw) : {};
-            const cart = (parsed && typeof parsed === 'object') ? parsed : {};
-            const prevQty = Number(cart[dishId] ?? 0);
-            cart[dishId] = Math.max(0, Math.floor(prevQty + qty));
-            localStorage.setItem(CART_KEY, JSON.stringify(cart));
-            return true;
-        } catch {
-            return false;
-        }
-    }
-
-    function addPending(dishId, qty) {
-        try {
-            const raw = sessionStorage.getItem(PENDING_KEY);
-            const parsed = raw ? JSON.parse(raw) : {};
-            const obj = (parsed && typeof parsed === 'object') ? parsed : {};
-            const adds = (obj.adds && typeof obj.adds === 'object') ? obj.adds : {};
-            const prev = Number(adds[dishId] ?? 0);
-            adds[dishId] = Math.max(0, Math.floor(prev + qty));
-            sessionStorage.setItem(PENDING_KEY, JSON.stringify({ adds }));
-        } catch {}
-    }
-
-    function findDishIdByName(itemName) {
-        const key = normalizeName(itemName);
-        if (!key) return null;
-        if (nameToDishId[key]) return nameToDishId[key];
-
-        // fuzzy match: allow wheel short names to match longer dish names
-        const entries = Object.entries(nameToDishId);
-        const found = entries.find(([k]) => k.includes(key) || key.includes(k));
-        return found ? found[1] : null;
-    }
-
-    // Initialize Navigation
-    Object.keys(menuData).forEach(cat => {
-        const btn = document.createElement('button');
-        btn.innerText = cat;
-        if (cat === currentCategory) btn.classList.add('active');
-        btn.onclick = () => {
-            if (isSpinning) return;
-            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            currentCategory = cat;
-            drawWheel();
-        };
-        nav.appendChild(btn);
-    });
 
     function drawWheel() {
         const items = menuData[currentCategory] || [];
@@ -670,7 +449,7 @@
     function varColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name); }
 
     spinBtn.onclick = () => {
-        if (isSpinning) return;
+        if (isSpinning || !menuData[currentCategory]?.length) return;
         
         isSpinning = true;
         spinBtn.disabled = true;
@@ -694,24 +473,17 @@
         }, 4000);
     };
 
-    function getDishIdForWinningItem(item) {
-        if (!item || !item.name) return null;
-        const normalized = normalizeName(item.name);
-        const comboItems = comboToItems[normalized];
-        if (Array.isArray(comboItems) && comboItems.length > 0) {
-            return comboItems[0].dishId;
-        }
-        return findDishIdByName(item.name);
-    }
-
     function showResult(item) {
         lastWinningItem = item;
         document.getElementById('food-name').innerText = item.name;
-        document.getElementById('food-img').src = item.img;
+        const image = document.getElementById('food-img');
+        image.alt = item.name;
+        image.onerror = () => { image.onerror = null; image.src = '/dish-placeholder.svg'; };
+        image.src = item.img || '/dish-placeholder.svg';
         document.getElementById('result-overlay').style.display = 'flex';
         // Store last picked item for potential highlighting.
         try {
-            const dishId = getDishIdForWinningItem(item);
+            const dishId = item.id;
             sessionStorage.setItem('neufood_random_last_pick_v1', JSON.stringify({
                 name: item.name,
                 dishId: dishId || null,
@@ -737,44 +509,52 @@
     });
 
     function orderNow() {
-        if (!lastWinningItem) return closeResult();
-        const normalized = normalizeName(lastWinningItem.name);
-
-        let targetDishId = null;
-        // If it's a combo, add all items in that combo
-        const comboItems = comboToItems[normalized];
-        if (Array.isArray(comboItems) && comboItems.length > 0) {
-            comboItems.forEach((ci) => {
-                addDishToCart(ci.dishId, ci.quantity);
-                addPending(ci.dishId, ci.quantity);
-            });
-            targetDishId = comboItems[0]?.dishId;
-        } else {
-            const dishId = findDishIdByName(lastWinningItem.name);
-            if (!dishId) {
-                alert('Món này chưa có trong menu của hệ thống để thêm vào giỏ hàng. Vui lòng chọn món khác.');
-                return;
-            }
-            addDishToCart(dishId, 1);
-            addPending(dishId, 1);
-            targetDishId = dishId;
-        }
-
-        // Store last pick with fresh timestamp
-        if (targetDishId) {
-            sessionStorage.setItem('neufood_random_last_pick_v1', JSON.stringify({
-                name: lastWinningItem.name,
-                dishId: targetDishId,
-                at: new Date().toISOString(),
-            }));
-        }
-
-        // Go to Menu page (cart already updated) with highlight query param
-        const targetUrl = targetDishId ? ('/menu?highlight=' + encodeURIComponent(targetDishId)) : '/menu';
-        window.location.href = targetUrl;
+        if (!lastWinningItem?.id) return closeResult();
+        window.location.href = '/mon/' + encodeURIComponent(lastWinningItem.id);
     }
 
-    drawWheel();
+    async function fetchMenuData(url) {
+        const response = await fetch(url, { cache: 'no-store' });
+        if (!response.ok) throw new Error('Không tải được thực đơn. Vui lòng tải lại trang.');
+        const body = await response.json();
+        if (!body.success) throw new Error('Không tải được thực đơn. Vui lòng tải lại trang.');
+        return body.data;
+    }
+
+    async function loadMenu() {
+        spinBtn.disabled = true;
+        menuData = {};
+        menuStatus.textContent = 'Đang tải thực đơn hiện tại…';
+        try {
+            const [categories, firstPage] = await Promise.all([
+                fetchMenuData('/api/v1/dishes/categories'),
+                fetchMenuData('/api/v1/dishes?page=1&limit=100'),
+            ]);
+            const dishes = [...firstPage.items];
+            for (let page = 2; page <= Math.ceil(firstPage.total / 100); page++) {
+                const next = await fetchMenuData('/api/v1/dishes?page=' + page + '&limit=100');
+                dishes.push(...next.items);
+            }
+            const available = dishes.filter(dish => dish.id && dish.is_available !== false && dish.is_active !== false && !dish.is_deleted);
+            const wheelItem = dish => ({ id: dish.id, name: dish.name, img: dish.image || dish.image_url });
+            menuData['Tất cả các món'] = available.map(wheelItem);
+            for (const category of categories) {
+                const items = available.filter(dish => (dish.category_ids || dish.categoryIds || []).includes(category.id));
+                if (items.length && category.is_active !== false) menuData[category.name || category.label || category.id] = items.map(wheelItem);
+            }
+            currentCategory = 'Tất cả các món';
+            renderCategories();
+            drawWheel();
+            spinBtn.disabled = !available.length;
+            menuStatus.textContent = available.length ? '' : 'Hiện chưa có món đang phục vụ để quay. Vui lòng quay lại sau.';
+        } catch {
+            nav.replaceChildren();
+            menuStatus.textContent = 'Không tải được thực đơn. Vui lòng tải lại trang để thử lại.';
+        }
+    }
+
+    const menuStatus = document.getElementById('menu-status');
+    loadMenu();
 </script>
 
 </body>
