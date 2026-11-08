@@ -4,6 +4,7 @@ from collections import Counter
 from datetime import datetime, time as clock_time, timedelta, timezone
 from decimal import Decimal
 from typing import List, Optional, Tuple
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from app.db.models import (
     Order, OrderItem, Dish, CampusLocation, User, Complaint, ACTIVE_ORDER_STATUSES
@@ -262,13 +263,26 @@ def get_user_orders(db: Session, user_id: int) -> List[Order]:
 def get_all_orders(
     db: Session,
     status: Optional[str] = None,
+    order_type: Optional[str] = None,
+    search: Optional[str] = None,
     page: int = 1,
     limit: int = 20,
 ) -> Tuple[List[Order], int]:
     sync_overdue_orders(db)
     query = db.query(Order)
-    if status and status != "all":
+    if status == "active":
+        query = query.filter(Order.status.in_(ACTIVE_ORDER_STATUSES))
+    elif status and status != "all":
         query = query.filter(Order.status == status)
+    if order_type in ("delivery", "pickup"):
+        query = query.filter(Order.order_type == order_type)
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(or_(
+            Order.id.ilike(term),
+            Order.recipient_name.ilike(term),
+            Order.recipient_phone.ilike(term),
+        ))
     total = query.count()
     items = query.order_by(Order.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
     return items, total
