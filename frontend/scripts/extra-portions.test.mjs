@@ -19,6 +19,14 @@ test('different configurations stay separate and quantity aggregates',()=>{
  assert.equal(rows.length,1)
  assert.equal(rows[0].unitPrice,30000)
 })
+
+test('fifty portions allowed across configurations and fifty-first blocked',()=>{
+ let rows=addCartLine([],bread,49,50,{portions:pate})
+ rows=addCartLine(rows,bread,1,50)
+ assert.equal(cartQuantity(rows,bread.id),50)
+ assert.equal(rows.length,2)
+ assert.equal(addCartLine(rows,bread,1,50),rows)
+})
 test('identical choices merge but notes and combo slots remain distinct',()=>{
  let rows=addCartLine([],bread,1,10,{portions:pate,note:'Không ớt'})
  rows=addCartLine(rows,bread,1,10,{portions:pate,note:'Không ớt'})

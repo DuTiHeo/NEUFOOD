@@ -35,7 +35,7 @@ export default function ThanhToanPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { refresh: refreshOrders } = useOrderHistory()
-  const { lines, totalCount, subtotal, clear, unavailableLines } = useCart()
+  const { lines, totalCount, subtotal, clear, unavailableLines, getQty } = useCart()
   const [orderType, setOrderType] = useState<OrderType>('delivery')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod_cash')
   const [recipientName, setRecipientName] = useState(user?.full_name || '')
@@ -58,7 +58,7 @@ export default function ThanhToanPage() {
     } catch { /* Invalid handoff data is ignored; the server validates checkout. */ }
   }, [user?.id])
   const [deliveryFee, setDeliveryFee] = useState(5000)
-  const [maxDishQuantity, setMaxDishQuantity] = useState(10)
+  const [maxDishQuantity, setMaxDishQuantity] = useState(50)
   const [policy, setPolicy] = useState<OrderingPolicy | null>(null)
   const [clock, setClock] = useState({ epoch: 0, monotonic: 0 })
   const [, setTick] = useState(0)
@@ -112,7 +112,7 @@ export default function ThanhToanPage() {
         const fee = Number(config.delivery_fee)
         const quantityLimit = Number(config.max_dish_quantity_per_order)
         setDeliveryFee(Number.isFinite(fee) && fee >= 0 ? fee : 5000)
-        setMaxDishQuantity(Math.min(10, Number.isFinite(quantityLimit) && quantityLimit > 0 ? quantityLimit : 10))
+        setMaxDishQuantity(Math.min(50, Number.isFinite(quantityLimit) && quantityLimit > 0 ? quantityLimit : 50))
 
       }
       setLoadingLocations(false)
@@ -128,7 +128,7 @@ export default function ThanhToanPage() {
   const bounds = policy ? scheduleBounds(policy, serverNow) : { min: '', max: '' }
   const timeError = policyError || orderingTimeError(policy, serverNow, isPreorder, scheduledAt)
   const phoneIsValid = /^0[35789]\d{8}$/.test(recipientPhone.trim())
-  const overDishQuantityLimit = lines.some((line) => line.qty > maxDishQuantity)
+  const overDishQuantityLimit = lines.some((line) => getQty(line.dish.id) > maxDishQuantity)
 
   async function handleConfirmOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()

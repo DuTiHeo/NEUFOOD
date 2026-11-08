@@ -27,7 +27,7 @@ export function DishesProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [deliveryFee, setDeliveryFee] = useState(5000);
-  const [maxDishQuantity, setMaxDishQuantity] = useState(10);
+  const [maxDishQuantity, setMaxDishQuantity] = useState(50);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
@@ -42,7 +42,7 @@ export function DishesProvider({ children }: { children: React.ReactNode }) {
       const fee = Number(settingsByKey.delivery_fee ?? 5000);
       setDeliveryFee(Number.isFinite(fee) && fee >= 0 ? fee : 5000);
       const configuredLimit = Number(settingsByKey.max_dish_quantity_per_order);
-      setMaxDishQuantity(Math.min(10, Number.isFinite(configuredLimit) && configuredLimit > 0 ? configuredLimit : 10));
+      setMaxDishQuantity(Math.min(50, Number.isFinite(configuredLimit) && configuredLimit > 0 ? configuredLimit : 50));
       const allDishes = [...firstPage.items];
       const pageCount = Math.ceil(firstPage.total / 100);
       for (let page = 2; page <= pageCount; page += 1) {
