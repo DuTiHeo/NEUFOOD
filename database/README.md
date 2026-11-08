@@ -129,7 +129,7 @@ erDiagram
         string dish_name
         numeric unit_price
         numeric base_price
-        int quantity "1..10 (BR-07)"
+        int quantity "1..50 (BR-07, cập nhật08/11/2026)"
         string note
         numeric subtotal
     }

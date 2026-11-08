@@ -1,30 +1,26 @@
--- ==============================================================================
--- NEUFood Database Seed Data - Dữ Liệu Mẫu Chuẩn Nghiệp Vụ
--- Phù hợp 100% với tài liệu: docs/Quy_Trinh_Nghiep_Vu.md
--- Mật khẩu mặc định cho tất cả tài khoản mẫu: password123
--- Bcrypt hash: $2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y
--- ==============================================================================
-
+-- Mật khẩu chung là: password123
 -- 1. USERS (4 VAI TRÒ ĐĂNG NHẬP THEO CHƯƠNG 2)
 INSERT INTO users (id, email, password_hash, full_name, phone_number, student_id, role, avatar_url, is_active, is_blacklisted, blacklist_reason, blacklisted_at)
 VALUES
 -- Quản trị viên hệ thống (Admin)
-(1, 'admin@neufood.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Nguyễn Quản Trị (Admin)', '0988888888', 'ADMIN01', 'admin', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
+(1, 'admin@neufood.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Quản trị viên', '0999999999', 'ADMIN01', 'admin', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
 
 -- Quản lý Canteen A2 (Manager)
-(2, 'manager.a2@neufood.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Hoàng Văn Quản Lý (Canteen A2)', '0912345679', 'MGR01', 'manager', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
+(2, 'manager.a2@neufood.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Quản lý', '0999999998', 'MGR01', 'manager', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
 
 -- Nhân viên Canteen A2 / Shipper nội bộ (Staff)
-(3, 'shipper01@neufood.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Trần Văn Nhân Viên (Bếp & Shipper)', '0987654321', 'STAFF01', 'staff', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
+(3, 'staff01.a2@neufood.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Nguyễn Văn A', '0999999997', 'STAFF01', 'staff', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
+
+(4, 'staff02.a2@neufood.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Nguyễn Văn B', '0999999996', 'STAFF02', 'staff', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
 
 -- Khách hàng sinh viên NEU (Customer 1 - Bình thường)
-(4, 'sinhvien@neu.edu.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Nguyễn Sinh Viên', '0977112233', '11215432', 'customer', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
+(5, '11240000@st.neu.edu.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Nguyễn Sinh Viên 01', '0999999995', '11240000', 'customer', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
 
 -- Khách hàng sinh viên NEU (Customer 2 - Đã có đơn khiếu nại)
-(5, 'thanhhuong@neu.edu.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Lê Thị Thanh Hương', '0912345678', '11200001', 'customer', 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
+(6, '11240001@st.neu.edu.vn', '$2b$12$8MExWX3DjGGtc5FFYQu3yOM1.Th4Ky36280O2126Ux.A8ydGfDb/y', 'Nguyễn Sinh Viên 02', '0999999994', '11240001', 'customer', 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=200&q=80', TRUE, FALSE, NULL, NULL),
 
 -- Khách hàng vi phạm Blacklist COD (Customer 3 - BR-22, EX-10)
-(6, 'boomhang@neu.edu.vn', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', 'Vũ Boom Hàng', '0901234567', '11199999', 'customer', 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=200&q=80', TRUE, TRUE, 'Không nghe máy nhận hàng khi shipper giao tới và không ra quầy Canteen A2 lấy sau 30 phút lưu giữ (BR-22)', NOW() - INTERVAL '2 days')
+(7, '11240002@st.neu.edu.vn', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', 'Nguyễn Sinh Viên 03', '0999999993', '11240002', 'customer', 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=200&q=80', TRUE, TRUE, 'Không nghe máy nhận hàng khi shipper giao tới và không ra quầy Canteen A2 lấy sau 30 phút lưu giữ (BR-22)', NOW() - INTERVAL '2 days')
 ON CONFLICT (id) DO NOTHING;
 
 SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));
@@ -53,8 +49,7 @@ VALUES
 ('do-uong', 'Đồ Uống', 'Trà sữa, trà trái cây tươi, cà phê năng động', 4, TRUE),
 ('an-vat', 'Ăn Vặt', 'Nem chua rán, khoai tây lắc, xúc xích giòn rụm', 5, TRUE),
 ('trang-mieng', 'Tráng Miệng', 'Chè, sữa chua, caramen mát lạnh sau bữa ăn', 6, TRUE),
-('mon-chinh', 'Món Chính', 'Các món ăn chính no bụng cho bữa trưa và bữa tối', 7, TRUE),
-('banh-kem', 'Bánh Kem', 'Bánh ngọt, bánh sinh nhật và bánh kem các loại', 8, TRUE)
+('mon-chinh', 'Món Chính', 'Các món ăn chính no bụng cho bữa trưa và bữa tối', 7, TRUE)
 ON CONFLICT (id) DO NOTHING;
 
 -- 4. DISHES (THỰC ĐƠN CANTEEN A2 - CƠ CHẾ GIÁ GỐC A + 5.000Đ PHỤ PHÍ THEO BR-12)
@@ -404,7 +399,7 @@ VALUES
 ('complaint_window_hours', '24', 'Thời gian tối đa cho phép khách hàng gửi ticket khiếu nại sau khi nhận hàng (giờ)'),
 ('system_maintenance_fee', '5000', 'Phụ phí bảo trì hệ thống trực tuyến cộng vào giá niêm yết mỗi món (VNĐ)'),
 ('delivery_fee', '5000', 'Phí vận chuyển cố định cho đơn giao tận nơi nội khu NEU (VNĐ)'),
-('max_dish_quantity_per_order', '10', 'Số lượng tối đa của một món ăn trong một đơn hàng (phần)'),
+('max_dish_quantity_per_order', '50', 'Số lượng tối đa của một món ăn trong một đơn hàng (phần)'),
 ('min_preorder_lead_minutes', '30', 'Thời gian đặt trước tối thiểu cho đơn hẹn giờ (phút)'),
 ('canteen_open_time', '07:30', 'Giờ mở cửa phục vụ hàng ngày của Canteen A2'),
 ('canteen_order_cutoff_time', '18:30', 'Giờ ngừng nhận đơn đặt ngay (bao gồm đúng mốc HH:MM:00)'),

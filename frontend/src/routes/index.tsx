@@ -45,6 +45,7 @@ const ManagerArticlesPage = React.lazy(() => import('../pages/manager/ManagerArt
 import StaffDashboardPage from '../pages/staff/StaffDashboardPage'
 import StaffShiftPage from '../pages/staff/StaffShiftPage'
 import StaffMenuPage from '../pages/staff/StaffMenuPage'
+import StaffOrdersPage from '../pages/staff/StaffOrdersPage'
 import NotFoundPage from '../pages/not-found/NotFoundPage'
 
 function StaffSuite() {
@@ -66,15 +67,26 @@ function StaffAliasRedirect() {
   return <Navigate to={`${target}${search}`} replace />
 }
 
+function ExternalRandomRedirect() {
+  React.useEffect(() => {
+    window.location.replace('/RANDOM.html')
+  }, [])
+  return null
+}
+
 export const AppRoutes: React.FC = () => (
   <Routes>
     <Route path="/dang-nhap" element={<AuthRedirect />} />
     <Route path="/dang-ky" element={<AuthRedirect register />} />
     <Route path="/DANGNHAP.html" element={<AuthRedirect />} />
     <Route path="/DANGKY.html" element={<AuthRedirect register />} />
+    <Route path="/RANDOM.html" element={<ExternalRandomRedirect />} />
+    <Route path="/game" element={<ExternalRandomRedirect />} />
+    <Route path="/random" element={<ExternalRandomRedirect />} />
+    <Route path="/vong-quay" element={<ExternalRandomRedirect />} />
     <Route path="/nhan-vien" element={<ProtectedRoute requiredRole="staff"><StaffSuite /></ProtectedRoute>}>
       <Route index element={<StaffDashboardPage />} />
-      <Route path="don" element={<ManagerOrdersPage audience="staff" />} />
+      <Route path="don" element={<StaffOrdersPage />} />
       <Route path="mon" element={<StaffMenuPage />} />
       <Route path="ca" element={<StaffShiftPage />} />
       <Route path="*" element={<Navigate to="/nhan-vien" replace />} />

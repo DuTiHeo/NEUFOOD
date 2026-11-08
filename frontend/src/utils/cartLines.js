@@ -22,7 +22,7 @@ export function addCartLine(rows, dish, delta, max, config) {
   const index = rows.findIndex(row => row.lineId === lineId || (!config && !row.note && row.dishId === dish.id && row.portions.length === 0))
   // Menu minus changes only default configurations; customize rows in the cart.
   if (delta < 0 && index < 0) return rows
-  if (delta > 0 && (dish.is_available === false || cartQuantity(rows, dish.id) + delta > max)) return rows
+  if (delta > 0 && (dish.is_active === false || dish.is_available === false || cartQuantity(rows, dish.id) + delta > max)) return rows
   const qty = Math.max(0, (rows[index]?.qty || 0) + delta)
   if (!qty) return rows.filter((_, i) => i !== index)
   const { snapshot, extraPrice } = resolvePortions(dish.portion_groups, portions)
@@ -31,7 +31,7 @@ export function addCartLine(rows, dish, delta, max, config) {
 }
 
 export function resolveCartLine(row, dish, menuError = '') {
-  let invalidReason = menuError || (!dish ? 'Món không còn trong thực đơn' : dish.is_available === false ? 'Món hiện đã hết' : '')
+  let invalidReason = menuError || (!dish ? 'Món không còn trong thực đơn' : dish.is_active === false ? 'Món đã ngừng kinh doanh' : dish.is_available === false ? 'Món hiện đã hết' : '')
   let currentUnitPrice = Number(dish?.price || 0), snapshot = row.snapshot || [], canReview = false
   try {
     const resolved = resolvePortions(dish?.portion_groups, row.portions)

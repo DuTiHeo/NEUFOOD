@@ -259,9 +259,10 @@ def send_chat_message():
                 result["reply"] = "Vui lòng Đăng nhập để thêm món vào giỏ hàng."
             elif action_type == "ADD_TO_CART":
                 cart_items = []
+                cart_limit = min(50, int(knowledge_ctx.get("settings", {}).get("max_dish_quantity_per_order", 50)))
                 for it in action_payload.get("items", []):
                     d_id = str(it.get("dish_id", "")).strip()
-                    qty = max(1, min(10, int(it.get("quantity", 1))))
+                    qty = max(1, min(cart_limit, int(it.get("quantity", 1))))
                     dish_obj = _resolve_dish(db, d_id)
                     if dish_obj and dish_obj.is_available:
                         cart_items.append({

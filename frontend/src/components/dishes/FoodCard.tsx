@@ -24,6 +24,7 @@ export default function FoodCard({ dish }: FoodCardProps) {
   const isHot = dish.badges?.includes('hot')
   const reviewCount = Number(dish.reviewCount ?? dish.review_count ?? 0)
   const reachedLimit = getQty(dish.id) >= maxDishQuantity
+  const unavailable = dish.is_available === false || dish.is_active === false
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -42,6 +43,7 @@ export default function FoodCard({ dish }: FoodCardProps) {
           <img className={styles.dishImg} src={imgSrc} alt={dish.name} loading="lazy" onError={handleDishImageError} />
         </Link>
         <div className={styles.dishBadges}>
+          {unavailable && <span className={styles.dishBadge}>{dish.is_active === false ? 'Ngừng kinh doanh' : 'Hết món'}</span>}
           {isBestSeller && (
             <span className={styles.badgeBestSeller}>Bán chạy</span>
           )}
@@ -67,11 +69,11 @@ export default function FoodCard({ dish }: FoodCardProps) {
             type="button"
             className={`${styles.dishAddBtn} ${added ? styles.dishAdded : ''}`}
             onClick={handleAddToCart}
-            disabled={dish.is_available === false || reachedLimit}
+            disabled={unavailable || reachedLimit}
             aria-label={`Thêm ${dish.name} vào giỏ hàng`}
-            title={dish.is_available === false ? 'Món hiện đã hết' : reachedLimit ? `Đã đạt tối đa ${maxDishQuantity} phần` : 'Thêm vào giỏ hàng'}
+            title={dish.is_active === false ? 'Món đã ngừng kinh doanh' : dish.is_available === false ? 'Món hiện đã hết' : reachedLimit ? `Đã đạt tối đa ${maxDishQuantity} phần` : 'Thêm vào giỏ hàng'}
           >
-            {dish.is_available === false ? (
+            {unavailable ? (
               <span aria-hidden>—</span>
             ) : added ? (
               <Check size={18} strokeWidth={2.5} />

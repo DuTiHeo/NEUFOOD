@@ -2,7 +2,7 @@
   position: relative;
   z-index: 6;
   width: 100%;
-  margin-top: 3.5rem;
+  margin-top: 0;
   background-color: #0B192C;
   color: #CBD5E1;
   padding-top: 3.5rem;
@@ -10,12 +10,12 @@
 }
 
 .serviceNotice {
-  max-width: 80rem;
+  max-width: 100rem;
   margin: 0 auto 2rem;
   padding: 0 1.5rem;
   color: #facc15;
   font-family: var(--font-body);
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   font-weight: 700;
   line-height: 1.7;
   white-space: nowrap;

@@ -148,7 +148,7 @@ class ExtraPortionTests(unittest.TestCase):
 
     def test_aggregate_quantity_and_cod_include_extras(self):
         with self.assertRaises(OrderError):
-            self.create([{"dish_id": "banh-mi", "quantity": 6}, {"dish_id": "banh-mi", "quantity": 5}])
+            self.create([{"dish_id": "banh-mi", "quantity": 26}, {"dish_id": "banh-mi", "quantity": 25}])
         with self.assertRaises(OrderError):
             self.create([{"dish_id": "combo-3-nguoi", "quantity": 3}])
 

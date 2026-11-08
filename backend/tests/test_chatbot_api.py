@@ -106,7 +106,7 @@ MOCK_KNOWLEDGE_CONTEXT = {
         "delivery_fee": "5000",
         "system_maintenance_fee": "5000",
         "max_cod_amount": "500000",
-        "max_dish_quantity_per_order": "10",
+        "max_dish_quantity_per_order": "50",
         "order_timeout_minutes": "10",
         "pickup_hold_minutes": "30",
         "min_preorder_lead_minutes": "30",

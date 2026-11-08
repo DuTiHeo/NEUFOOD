@@ -10,6 +10,8 @@ class LoginRequest(BaseModel):
     email: EmailStr
     # Đặt min_length=1 để mọi mật khẩu nhập sai độ dài bất kỳ >= 1 đều đi vào luồng đếm failed_login_attempts (BR-02)
     password: str = Field(..., min_length=1, max_length=128)
+    device_token: Optional[str] = Field(default=None, description="Mã token thiết bị tin cậy nếu có (BR-02)")
+    device_name: Optional[str] = Field(default=None, max_length=150, description="Tên thiết bị/trình duyệt")
 
 
 class RegisterRequest(BaseModel):
@@ -19,6 +21,19 @@ class RegisterRequest(BaseModel):
     full_name: str = Field(..., min_length=2, max_length=150)
     phone_number: str = Field(..., pattern=VN_PHONE_REGEX)
     student_id: Optional[str] = Field(default=None, max_length=30)
+    otp: Optional[str] = Field(default=None, description="Mã OTP gồm 6 chữ số gửi về email edu")
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def validate_neu_email(cls, v: Any) -> Any:
+        """BR-01: Chỉ chấp nhận email sinh viên hoặc cán bộ NEU (@neu.edu.vn hoặc @st.neu.edu.vn)."""
+        if isinstance(v, str):
+            email_lower = v.strip().lower()
+            allowed_domains = ("@neu.edu.vn", "@st.neu.edu.vn")
+            if not any(email_lower.endswith(domain) for domain in allowed_domains):
+                raise ValueError("Chỉ chấp nhận email sinh viên hoặc cán bộ NEU (@st.neu.edu.vn hoặc @neu.edu.vn)")
+            return email_lower
+        return v
 
     @field_validator("full_name", "phone_number", mode="before")
     @classmethod
@@ -40,15 +55,55 @@ class RegisterRequest(BaseModel):
         return v
 
 
+class RegisterOtpRequest(BaseModel):
+    """Schema yêu cầu gửi mã OTP kích hoạt tài khoản đăng ký (UC01, BR-01)."""
+    email: EmailStr
+    full_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    student_id: Optional[str] = None
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def validate_neu_email(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            email_lower = v.strip().lower()
+            allowed_domains = ("@neu.edu.vn", "@st.neu.edu.vn")
+            if not any(email_lower.endswith(domain) for domain in allowed_domains):
+                raise ValueError("Chỉ chấp nhận email sinh viên hoặc cán bộ NEU (@st.neu.edu.vn hoặc @neu.edu.vn)")
+            return email_lower
+        return v
+
+    @field_validator("phone_number", mode="before")
+    @classmethod
+    def strip_phone(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            cleaned = v.strip()
+            return cleaned if cleaned else None
+        return v
+
+
 class ChangePasswordRequest(BaseModel):
-    """Schema đầu vào đổi mật khẩu khi đang đăng nhập (UC05)."""
-    old_password: str = Field(..., min_length=1, max_length=128)
+    """Schema đầu vào đổi mật khẩu khi đang đăng nhập (UC05). Hỗ trợ xác thực qua OTP hoặc mật khẩu cũ."""
+    old_password: Optional[str] = Field(default=None, max_length=128)
+    otp: Optional[str] = Field(default=None, max_length=20)
     new_password: str = Field(..., min_length=6, max_length=128)
 
 
 class ForgotPasswordRequest(BaseModel):
     """Schema đầu vào yêu cầu gửi mã OTP khôi phục mật khẩu (UC05, EX-04)."""
     email: EmailStr
+
+
+class OtpLoginRequest(BaseModel):
+    """Schema đầu vào yêu cầu mã OTP đăng nhập khẩn cấp / lối thoát khóa thiết bị (BR-02.4, EX-02)."""
+    email: EmailStr
+
+
+class OtpLoginVerifyRequest(BaseModel):
+    """Schema đầu vào xác thực OTP đăng nhập hệ thống và cấp thiết bị tin cậy (BR-02.4, EX-02)."""
+    email: EmailStr
+    otp: str = Field(..., pattern=r"^\d{6}$", description="Mã OTP đúng 6 chữ số")
+    device_name: Optional[str] = Field(default=None, max_length=150, description="Tên thiết bị mới cần cấp token")
 
 
 class ResetPasswordRequest(BaseModel):
@@ -74,6 +129,7 @@ class TokenResponse(BaseModel):
     refresh_token: Optional[str] = None
     token_type: str = "Bearer"
     expires_in: Optional[int] = None
+    device_token: Optional[str] = Field(default=None, description="Mã token thiết bị tin cậy cấp cho client (BR-02)")
     user: dict
 
 

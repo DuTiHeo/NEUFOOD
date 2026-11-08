@@ -66,6 +66,22 @@ class BulkIntegrationTests(unittest.TestCase):
         response,_=self.create_large();self.assertEqual(response.status_code,201,response.get_json())
         self.assertEqual(response.get_json()['data']['cod_due'],282000)
 
+    def test_fifty_portions_allowed_but_fifty_one_rejected(self):
+        with self.sessions.begin() as db:
+            dish=db.get(Dish,'rice');dish.price=5000;dish.base_price=0
+        p=self.payload();p['items']=[{'dish_id':'rice','quantity':51}]
+        self.assertEqual(self.quote(p).status_code,422)
+        p['items']=[{'dish_id':'rice','quantity':26},{'dish_id':'rice','quantity':25}]
+        self.assertEqual(self.quote(p).get_json()['errors'][0]['code'],'EX-06')
+        p['items']=[{'dish_id':'rice','quantity':50}]
+        q=self.quote(p);self.assertEqual(q.status_code,200,q.get_json())
+        pricing=q.get_json()['data']['bulk_pricing']
+        self.assertEqual(pricing['eligible_servings'],50)
+        self.assertEqual(pricing['discount_rate'],12)
+        self.assertEqual(Decimal(pricing['total_amount']),220000)
+        r=self.post(p);self.assertEqual(r.status_code,201,r.get_json())
+        self.assertEqual(r.get_json()['data']['items'][0]['quantity'],50)
+
     def test_tampered_changed_wrong_user_and_replayed_deposit(self):
         token=self.quote().get_json()['data']['deposit_token']
         for field,value in [('recipient_name','Khách khác'),('items',[{'dish_id':'premium','quantity':9}])]:

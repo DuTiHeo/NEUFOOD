@@ -1,6 +1,6 @@
 # Ưu đãi số lượng và cọc mô phỏng
 
-Quyết định08/11/2026 thay quy định cũ trần COD500.000đ/cấm giảm giá trong tài liệu trước đây. Không tích hợp ngân hàng, không chuyển/hoàn tiền thật. Giữ giờ/ngày nghỉ, quyền, Blacklist, một đơn hoạt động và tối đa10 phần cùng món.
+Quyết định08/11/2026 thay quy định cũ trần COD500.000đ/cấm giảm giá trong tài liệu trước đây. Không tích hợp ngân hàng, không chuyển/hoàn tiền thật. Giữ giờ/ngày nghỉ, quyền, Blacklist, một đơn hoạt động và tối đa50 phần cùng món.
 
 ## Suất và tiền
 
@@ -49,3 +49,9 @@ Backend test_bulk_discounts.py và hồi quy với TEST_DATABASE_URL/DATABASE_UR
 DB hiện có chạy database/migrations/006_food_drink_servings.sql: đổi22 món ăn vặt/đồ uống có số suất0 thành1, giữ số suất combo và cấu hình không bằng0 đã chỉnh. DB mới dùng seed hiện hành. Không đổi giá hay snapshot đơn đã tạo; báo giá/cọc chưa gửi phải xác nhận lại nếu nội dung hoặc tiền thay đổi. Xóa cache neufood:dishes:* và neufood:chat:knowledge_context sau cập nhật; tải lại trang để nạp thực đơn. Mỗi chai/lon/ly tính một suất, mỗi phần ăn tính một suất, không đếm số miếng bên trong. Khôi phục dữ liệu nếu cần bằng bản ghi số suất trước cập nhật, không sửa snapshot đơn cũ.
 
 Kiểm chứng cập nhật08/11/2026:13 kiểm thử backend và4 kiểm thử frontend qua; TypeScript/build qua. Trình duyệt + API local xác nhận đơn3 nem chua rán+1 bánh tráng trộn+1 bún chả=5 suất,170.000đ,freeship;20 suất gồm đồ uống được giảm8%; nhận tại quầy không báo freeship. Chưa tạo đơn thật trong thử nghiệm trình duyệt; đơn mô phỏng kiểm tra trên DB test riêng.
+
+## Giới hạn số lượng50 phần/món
+
+Chốt08/11/2026: cho phép1–50 phần của cùng một món trong một đơn; cộng cả dòng khác cấu hình. Admin có thể giảm giới hạn; cấu hình lớn hơn50 không vượt trần schema/CRUD. DB cũ chạy database/migrations/007_order_quantity_50.sql một lần để nâng CHECK và đặt cấu hình50; chạy lại sẽ đặt cấu hình về50. Không cập nhật số lượng/giá các đơn đã lưu. Xóa cache neufood:settings:all và neufood:chat:knowledge_context rồi tải lại trang. Đơn lớn vẫn cần cọc50% mô phỏng sau ưu đãi nếu tổng từ500.000đ.
+
+Kiểm chứng giới hạn50:14 kiểm thử bulk và87 hồi quy Orders/phần thêm/chat qua (loại riêng1 lỗi định dạng phản hồi tài khoản bị khóa đã biết trước);49 kiểm thử frontend,TypeScript/build qua. Trình duyệt/API local chấp nhận50, từ chối51,cộng dòng trùng món; báo giá50 bánh mì giảm12%,tổng1.100.000đ,cọc mô phỏng550.000đ. Không tạo đơn thật ở trình duyệt.

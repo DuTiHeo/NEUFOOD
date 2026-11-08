@@ -55,6 +55,17 @@ export const dishService = {
     return { ...data, items: (data?.items ?? []).map(normalizeDish), total: Number(data?.total ?? 0) };
   },
 
+  async getManagementDishes(params?: Pick<DishFilterParams, 'page' | 'limit'>): Promise<{ items: Dish[]; total: number }> {
+    const res = await api.get<ApiResponse<{ items: Dish[]; total: number }>>('/dishes/management', { params })
+    const data = res.data.data
+    return { ...data, items: (data?.items ?? []).map(normalizeDish), total: Number(data?.total ?? 0) }
+  },
+
+  async restoreManagedDish(id: string): Promise<Dish> {
+    const res = await api.post<ApiResponse<Dish>>(`/dishes/management/${id}/restore`)
+    return normalizeDish(res.data.data)
+  },
+
   async getDishById(id: string): Promise<Dish> {
     const res = await api.get<ApiResponse<Dish>>(`/dishes/${id}`);
     return normalizeDish(res.data.data);

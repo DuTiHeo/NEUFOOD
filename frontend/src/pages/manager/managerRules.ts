@@ -47,5 +47,7 @@ export function canCloseShift(shift: StaffShift, managerNote = '') {
 }
 export function requestMessage(error: any, fallback: string) {
   if (error?.response?.status === 429) return 'Máy chủ đang giới hạn lượt truy cập (429). Vui lòng chờ và thử lại sau, tránh bấm Làm mới liên tục.'
-  return error?.response?.data?.message || (error?.code === 'ECONNABORTED' ? 'Máy chủ phản hồi chậm. Vui lòng thử lại.' : fallback)
+  if (error?.code === 'ECONNABORTED') return 'Máy chủ phản hồi chậm. Vui lòng thử lại.'
+  if (!error?.response) return 'Không kết nối được backend API. Kiểm tra backend và cấu hình địa chỉ API rồi thử lại.'
+  return error.response.data?.message || `API trả về lỗi HTTP ${error.response.status}. ${fallback}`
 }

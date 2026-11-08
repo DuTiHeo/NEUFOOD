@@ -131,7 +131,7 @@ VALUES
 ('system_maintenance_fee', '5000', 'Phụ phí bảo trì hệ thống trực tuyến cộng vào giá niêm yết mỗi món (VNĐ)'),
 ('delivery_fee', '5000', 'Phí vận chuyển cố định cho đơn giao tận nơi nội khu NEU (VNĐ)'),
 ('max_cod_amount', '500000', 'Hạn mức giá trị tối đa cho một đơn hàng thanh toán COD (VNĐ)'),
-('max_dish_quantity_per_order', '10', 'Số lượng tối đa của một món ăn trong một đơn hàng (phần)'),
+('max_dish_quantity_per_order', '50', 'Số lượng tối đa của một món ăn trong một đơn hàng (phần)'),
 ('min_preorder_lead_minutes', '30', 'Thời gian đặt trước tối thiểu cho đơn hẹn giờ (phút)'),
 ('canteen_open_time', '06:30', 'Giờ mở cửa phục vụ hàng ngày của Canteen A2'),
 ('canteen_close_time', '19:30', 'Giờ đóng cửa ngừng nhận đơn của Canteen A2')
