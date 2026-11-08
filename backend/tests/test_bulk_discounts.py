@@ -71,6 +71,8 @@ class BulkIntegrationTests(unittest.TestCase):
         for field,value in [('recipient_name','Khách khác'),('items',[{'dish_id':'premium','quantity':9}])]:
             p=self.large();p['deposit_token']=token;p[field]=value
             self.assertEqual(self.post(p).status_code,409)
+        p=self.large();p['deposit_token']=token;p['items']=[{'dish_id':'premium','quantity':8}]
+        self.assertEqual(self.post(p).status_code,409)
         p=self.large();p['deposit_token']=token
         self.assertEqual(self.post(p,user=2).status_code,409)
         p['deposit_token']=token[:-4]+'xxxx';self.assertEqual(self.post(p).status_code,409)

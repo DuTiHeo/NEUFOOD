@@ -139,7 +139,7 @@ def create_order(
                    items=[dict(id=d.id,quantity=i['quantity'],note=i.get('note'),portions=p,unit_price=str(u))
                           for i,d,p,u,_ in resolved_items])
     reference = None
-    if Decimal(pricing['deposit_amount']) and not _quote_only:
+    if not _quote_only and (Decimal(pricing['deposit_amount']) or deposit_token):
         reference = verify_deposit_quote(deposit_token,user_id,content,pricing)
         if db.query(Order.id).filter(Order.deposit_reference == reference).first():
             raise OrderError("Xác nhận cọc này đã được dùng cho một đơn hàng.", "DEPOSIT_ALREADY_USED",409)
