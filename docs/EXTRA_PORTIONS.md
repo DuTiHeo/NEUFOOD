@@ -4,7 +4,7 @@ Khách chọn phần thêm tại `/mon/:dishId`. Trang giỏ hàng/thanh toán c
 
 ## Dữ liệu và API
 
-`GET /api/v1/dishes` và chi tiết món trả `portion_groups`: danh sách `{id,label,choices:[{id,name,is_available,addons:[{id,name,price,is_available}]}]}`. Mỗi group là một suất/thành phần bên trong món. Chỉ dùng cấu hình gắn trực tiếp vào món, không suy ra từ danh mục. Cấu hình khởi tạo cho 65 món nằm trong `database/extra_portions.sql` (63 món có lựa chọn).
+`GET /api/v1/dishes` và chi tiết món trả `portion_groups`: danh sách `{id,label,choices:[{id,name,is_available,addons:[{id,name,price,is_available}]}]}`. Mỗi group là một suất/thành phần bên trong món. Chỉ dùng cấu hình gắn trực tiếp vào món, không suy ra từ danh mục. Cấu hình khởi tạo cho 65 món nằm trong khối EXTRA_PORTIONS_SEED của `database/sample_data.sql` (63 món có lựa chọn).
 
 Mỗi item gửi Orders có thêm:
 

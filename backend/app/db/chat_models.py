@@ -1,4 +1,4 @@
-"""Chat-owned persistence; migration: database/migrations/001_chat_orders.sql."""
+"""Chat-owned persistence."""
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON
 from app.db.session import Base
 

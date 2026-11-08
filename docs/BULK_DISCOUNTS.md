@@ -4,7 +4,7 @@ Quyết định08/11/2026 thay quy định cũ trần COD500.000đ/cấm giảm 
 
 ## Suất và tiền
 
-Dish.eligible_servings là số suất tính ưu đãi trên mỗi món/combo. Ánh xạ65 món ở database/bulk_servings.sql, nạp cho DB mới trong sample_data; không suy runtime theo tên/category. Theo chốt mới ngày08/11/2026, món chính, ăn vặt và đồ uống trong danh sách đều=1; chỉ phần thêm=0. Số lượng trên từng dòng được nhân và cộng cả dòng trùng món. Combo2 Người=2, Combo3 Người=3, Combo4–5 Người=4 (hai bún đậu+hai bánh mì), Combo cơm gà/trà đào=1, Combo ăn nhẹ tối=5 (giữ số suất combo đã cấu hình). Nhân đúng số combo mua. Manager chỉnh số suất ở form/API món; Staff không được sửa. Đơn cũ dùng snapshot, không đếm lại.
+Dish.eligible_servings là số suất tính ưu đãi trên mỗi món/combo. Ánh xạ 65 món được tích hợp trực tiếp trong database/sample_data.sql; không suy runtime theo tên/category. Theo chốt mới ngày08/11/2026, món chính, ăn vặt và đồ uống trong danh sách đều=1; chỉ phần thêm=0. Số lượng trên từng dòng được nhân và cộng cả dòng trùng món. Combo2 Người=2, Combo3 Người=3, Combo4–5 Người=4 (hai bún đậu+hai bánh mì), Combo cơm gà/trà đào=1, Combo ăn nhẹ tối=5 (giữ số suất combo đã cấu hình). Nhân đúng số combo mua. Manager chỉnh số suất ở form/API món; Staff không được sửa. Đơn cũ dùng snapshot, không đếm lại.
 
 | Suất đủ điều kiện | Giảm tiền hàng | Ship delivery |
 |---|---|---|

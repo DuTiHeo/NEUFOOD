@@ -28,7 +28,7 @@ Chuyển tạmnghỉ/nghỉviệc áp dụngngay và gỡ lịch tuần trong c�
 - Lỗi401chưađăngnhập,403khôngManageractive,404khôngtồn tại. Khôngcache dữ liệu nhân sự/PII.
 
 ## Database / rollout
-DB cũ áp dụng database/migrations/008_recruitment.sql trong transaction trước khởi động backendmới; không down -v. DBmới init_db.sql gồm schema. Dữliệu mẫu21hồsơ ở database/employee_sample_data.sql,đồng bộblockcuối sample_data.sql:16active(1mỗivịtrítuyển+4phụbếp+4đầubếp+4thungân),5resigned. Tên/MSV mẫu,khôngSĐTthật; không tạoUser. Seed ONCONFLICTid DO NOTHING khôngghiđè sửaManager,khôngtạo lại hồsơ khi restart. Muốn giữ hồ sơ thực thì không chạyseedmẫu.
+DB cũ áp dụng database/migrations/008_recruitment.sql trong transaction trước khởi động backendmới; không down -v. DBmới init_db.sql gồm schema. Dữ liệu mẫu 21 hồ sơ được tích hợp đồng bộ ở block EMPLOYEE_SAMPLE của `database/sample_data.sql`: 16 active (1 mỗi vị trí tuyển + 4 phụ bếp + 4 đầu bếp + 4 thu ngân), 5 resigned. Tên/MSV mẫu,khôngSĐTthật; không tạoUser. Seed ONCONFLICTid DO NOTHING khôngghiđè sửaManager,khôngtạo lại hồsơ khi restart. Muốn giữ hồ sơ thực thì không chạyseedmẫu.
 Migration cộng3bảng, không sửaUsers/Orders. Có thể rollback applicationversion bằng tắt route/frontend trước; giữbảng/dữliệu,khôngdrop hồ sơ đãnhận. Kiểmtra migration trước/sau sốUser/Order khôngđổi. Không triển khai quảnlýbàiviết,dừngtuyển theo từngvịtrí,cấu hìnhlương hayquyềnchứcnăng trongđợt này.
 
 ## Kiểm chứng08/11/2026

@@ -17,7 +17,8 @@ from app.db.models import Dish, Order, User
 
 
 def catalogs():
-    sql = (Path(__file__).resolve().parents[2] / "database/extra_portions.sql").read_text(encoding="utf-8")
+    sample = (Path(__file__).resolve().parents[2] / "database/sample_data.sql").read_text(encoding="utf-8")
+    sql = sample.split("-- EXTRA_PORTIONS_SEED_BEGIN\n")[1].split("-- EXTRA_PORTIONS_SEED_END")[0]
     return {slug: json.loads(raw.replace("''", "'")) for raw, slug in
             re.findall(r"SET portion_groups = '(.*?)'::jsonb WHERE id = '([^']+)'", sql)}
 
@@ -61,8 +62,8 @@ class ExtraPortionTests(unittest.TestCase):
     def test_catalog_has_explicit_65_mappings_and_only_two_price_levels(self):
         database = Path(__file__).resolve().parents[2] / "database"
         sample = (database / "sample_data.sql").read_text(encoding="utf-8")
-        block = sample.split("-- EXTRA_PORTIONS_SEED_BEGIN\n")[1].split("-- EXTRA_PORTIONS_SEED_END")[0].strip()
-        self.assertEqual(block, (database / "extra_portions.sql").read_text(encoding="utf-8").strip())
+        self.assertIn("-- EXTRA_PORTIONS_SEED_BEGIN", sample)
+        self.assertIn("-- EXTRA_PORTIONS_SEED_END", sample)
         self.assertEqual(len(self.catalog), 65)
         self.assertEqual(sum(bool(g) for g in self.catalog.values()), 63)
         self.assertEqual(self.catalog["pepsi"], [])

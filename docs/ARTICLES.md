@@ -56,7 +56,7 @@ Content gồm title≤200, summary≤600, cover_url, bodyJSON và recruitment_ro
 
 Hai bài mới không dùng dấu –/— theo yêu cầu; có thể dùng dấu `-` thường. Bài hướng dẫn nói rõ bước cọc hiện là mô phỏng, không chuyển tiền thật theo QR mô phỏng. Bài chúc mừng không tự thêm lịch tổ chức/sự kiện hay tuyên bố tài trợ chưa được cung cấp.
 
-`article_sample_data.sql` và block tương ứng trong sample_data đồng bộ. ON CONFLICT DO NOTHING giữ nội dung Manager đã sửa khi seed chạy lại. DB mới dùng init+sample; DB cũ chạy migration một lần. Nếu cần quay lại code cũ, tắt UI/API mới trước, giữ các bảng và nội dung đã nhận; không dùng down -v hoặc drop dữ liệu.
+Dữ liệu bài viết mẫu đã được tích hợp trực tiếp trong khối ARTICLE_SAMPLE của `database/sample_data.sql`. ON CONFLICT DO NOTHING giữ nội dung Manager đã sửa khi seed chạy lại. DB mới dùng init+sample; DB cũ chạy migration một lần. Nếu cần quay lại code cũ, tắt UI/API mới trước, giữ các bảng và nội dung đã nhận; không dùng down -v hoặc drop dữ liệu.
 
 Frontend cần cài package-lock mới cả môi trường host và container có node_modules volume. Chỉ restart frontend sau khi đồng bộ thư viện; không reset database. Hai dependency gián tiếp follow-redirects và postcss-selector-parser được cập nhật bản vá tương thích; npm audit sau cập nhật không còn cảnh báo.
 

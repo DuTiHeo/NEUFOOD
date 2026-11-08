@@ -27,11 +27,9 @@ class RecruitmentTests(unittest.TestCase):
         cls.engine=create_engine(url)
         cls.sessions=sessionmaker(bind=cls.engine)
         with cls.engine.begin() as conn:
-            conn.execute(text('DROP TABLE IF EXISTS personnel_audit, employee_profiles, recruitment_applications CASCADE'))
-            sql=(Path(__file__).resolve().parents[2]/'database/migrations/008_recruitment.sql').read_text(encoding='utf-8')
-            conn.exec_driver_sql(sql.replace('BEGIN;','').replace('COMMIT;',''))
-            article_sql=(Path(__file__).resolve().parents[2]/'database/migrations/010_articles.sql').read_text(encoding='utf-8')
-            conn.exec_driver_sql(article_sql.replace('BEGIN;','').replace('COMMIT;','').replace('%','%%'))
+            conn.execute(text('DROP TABLE IF EXISTS personnel_audit, employee_profiles, recruitment_applications, article_audit, articles, recruitment_positions CASCADE'))
+            sql=(Path(__file__).resolve().parents[2]/'database/init_db.sql').read_text(encoding='utf-8')
+            conn.exec_driver_sql(sql.replace('%','%%'))
         cls.app=Flask(__name__)
         cls.app.config.update(TESTING=True,RATELIMIT_ENABLED=False)
         limiter.init_app(cls.app)
@@ -131,7 +129,8 @@ class RecruitmentTests(unittest.TestCase):
             self.assertEqual(self.request('PATCH','/employees/'+employee['id'],p,user=user).status_code,401 if user is None else 403)
 
     def test_seed_sixteen_active_five_resigned_no_accounts(self):
-        seed=(Path(__file__).resolve().parents[2]/'database/employee_sample_data.sql').read_text(encoding='utf-8')
+        sample=(Path(__file__).resolve().parents[2]/'database/sample_data.sql').read_text(encoding='utf-8')
+        seed=sample.split('-- EMPLOYEE_SAMPLE_BEGIN\n')[1].split('-- EMPLOYEE_SAMPLE_END')[0]
         with self.engine.begin() as conn:
             conn.exec_driver_sql(seed);conn.exec_driver_sql(seed)
         with self.sessions() as db:

@@ -3,7 +3,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { addCartLine, restoreCart, resolveCartLine, cartQuantity } from '../src/utils/cartLines.js'
 import { defaultPortions, resolvePortions, portionSummary } from '../src/utils/portions.js'
-const sql = readFileSync(new URL('../../database/extra_portions.sql', import.meta.url), 'utf8')
+const sample = readFileSync(new URL('../../database/sample_data.sql', import.meta.url), 'utf8')
+const sql = sample.split('-- EXTRA_PORTIONS_SEED_BEGIN\n')[1].split('-- EXTRA_PORTIONS_SEED_END')[0]
 const catalogs = Object.fromEntries([...sql.matchAll(/SET portion_groups = '(.*?)'::jsonb WHERE id = '([^']+)'/g)].map(([,raw,id])=>[id, JSON.parse(raw.replaceAll("''", "'"))]))
 const bread = {id:'banh-mi', price:25000, is_available:true, portion_groups:catalogs['banh-mi']}
 const pate = defaultPortions(bread.portion_groups)

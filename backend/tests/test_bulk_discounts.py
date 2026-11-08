@@ -129,11 +129,10 @@ class BulkIntegrationTests(unittest.TestCase):
             self.assertEqual(confirmed['type'],'ORDER_CHECKOUT_REQUIRED');self.assertEqual(db.query(Order).count(),0)
 
     def test_explicit65_catalog_and_combo_counts(self):
-        seed=(Path(__file__).resolve().parents[2]/'database/bulk_servings.sql').read_text(encoding='utf-8')
+        sample=(Path(__file__).resolve().parents[2]/'database/sample_data.sql').read_text(encoding='utf-8')
+        seed=sample.split('-- BULK_SERVINGS_SEED_BEGIN\n')[1].split('-- BULK_SERVINGS_SEED_END')[0]
         counts={slug:int(count) for count,slug in re.findall(r"eligible_servings=(\d+) WHERE id='([^']+)'",seed)}
         self.assertEqual(len(counts),65)
-        sample=(Path(__file__).resolve().parents[2]/'database/sample_data.sql').read_text(encoding='utf-8')
-        self.assertEqual(sample.split('-- BULK_SERVINGS_SEED_BEGIN\n')[1].split('-- BULK_SERVINGS_SEED_END')[0].strip(),seed.strip())
         self.assertEqual([counts[k] for k in ['combo-2-nguoi','combo-3-nguoi','combo-4-5-nguoi','combo-com-ga-tra-dao','combo-nhom-an-nhe-toi']],[2,3,4,1,5])
         self.assertEqual(counts['pepsi'],1);self.assertEqual(counts['khoai-tay-chien'],1)
         self.assertTrue(all(count > 0 for count in counts.values()))
