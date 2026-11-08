@@ -1,7 +1,10 @@
+import hmac
+import hashlib
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from functools import wraps
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 import bcrypt
 import jwt
 from flask import request, g
@@ -57,6 +60,58 @@ def decode_token(token: str) -> Optional[Dict[str, Any]]:
 def decode_access_token(token: str) -> Optional[Dict[str, Any]]:
     """Decode and validate JWT access token."""
     return decode_token(token)
+
+
+def hash_device_token(token: str) -> str:
+    """Băm SHA-256 mã token thiết bị trước khi lưu DB để chống rò rỉ (BR-02)."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def generate_device_token(user_id: int, device_id: str) -> str:
+    """
+    Sinh mã token thiết bị có chữ ký HMAC-SHA256 (BR-02, OWASP Device Cookie).
+    Cấu trúc: {user_id}:{device_id}:{nonce}:{timestamp}.{hmac_signature}
+    """
+    nonce = secrets.token_hex(16)
+    timestamp = int(datetime.now(timezone.utc).timestamp())
+    payload = f"{user_id}:{device_id}:{nonce}:{timestamp}"
+    signature = hmac.new(
+        settings.DEVICE_TOKEN_SECRET.encode("utf-8"),
+        payload.encode("utf-8"),
+        hashlib.sha256
+    ).hexdigest()
+    return f"{payload}.{signature}"
+
+
+def verify_device_token(token: str) -> Optional[Tuple[int, str]]:
+    """
+    Xác minh chữ ký HMAC của token thiết bị và trích xuất (user_id, device_id).
+    Sử dụng so sánh hằng thời gian (hmac.compare_digest) chống Timing Attack.
+    """
+    if not token or not isinstance(token, str):
+        return None
+    try:
+        parts = token.strip().split(".")
+        if len(parts) != 2:
+            return None
+        payload, signature = parts[0], parts[1]
+        expected_sig = hmac.new(
+            settings.DEVICE_TOKEN_SECRET.encode("utf-8"),
+            payload.encode("utf-8"),
+            hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(signature, expected_sig):
+            return None
+        sub_parts = payload.split(":")
+        if len(sub_parts) != 4:
+            return None
+        user_id = int(sub_parts[0])
+        device_id = sub_parts[1].strip()
+        if not device_id:
+            return None
+        return user_id, device_id
+    except Exception:
+        return None
 
 def jwt_required(f):
     """Decorator to enforce valid JWT Bearer authentication kèm kiểm tra danh sách đen token."""

@@ -17,6 +17,8 @@ export default function ManagerDashboardPage() {
   const [error, setError] = useState('')
   const [report, setReport] = useState<RevenueReport | null>(null)
   const [orders, setOrders] = useState<Order[] | null>(null)
+  const [orderTotal, setOrderTotal] = useState<number | null>(null)
+  const [waitingOrderTotal, setWaitingOrderTotal] = useState<number | null>(null)
   const [dishes, setDishes] = useState<Dish[] | null>(null)
   const [shifts, setShifts] = useState<StaffShift[] | null>(null)
   useEffect(() => {
@@ -26,7 +28,9 @@ export default function ManagerDashboardPage() {
     Promise.allSettled([reportService.getRevenueSummary(range.from, range.to), loadCanteenOrders(), loadCanteenDishes(), shiftService.getShifts()]).then(([r, o, d, s]) => {
       if (!active) return
       setReport(r.status === 'fulfilled' ? r.value : null)
-      setOrders(o.status === 'fulfilled' ? o.value : null)
+      setOrders(o.status === 'fulfilled' ? o.value.items : null)
+      setOrderTotal(o.status === 'fulfilled' ? o.value.total : null)
+      setWaitingOrderTotal(o.status === 'fulfilled' ? o.value.waitingTotal : null)
       setDishes(d.status === 'fulfilled' ? d.value : null)
       setShifts(s.status === 'fulfilled' ? s.value : null)
       const missing = [r.status === 'rejected' && 'doanh thu', o.status === 'rejected' && 'đơn hàng', d.status === 'rejected' && 'thực đơn', s.status === 'rejected' && 'ca COD'].filter(Boolean)
@@ -41,7 +45,7 @@ export default function ManagerDashboardPage() {
   const show = (count?: number | null) => loading || count == null ? '—' : count.toLocaleString('vi-VN')
   const cards = [
     { label: 'Doanh thu gốc Canteen', amount: loading || !report ? '—' : money(report.canteen_net_revenue), note: 'Tiền món theo giá gốc tại thời điểm đặt', Icon: BarChart3 },
-    { label: 'Đơn đang phục vụ', amount: show(pending?.length), note: `${orders?.filter((order) => order.status === 'CHO_XAC_NHAN').length ?? '—'} đơn chờ xác nhận`, Icon: ClipboardList },
+    { label: 'Đơn đang phục vụ', amount: show(orderTotal), note: `${waitingOrderTotal ?? '—'} đơn chờ xác nhận`, Icon: ClipboardList },
     { label: 'Món đang kinh doanh', amount: show(dishes?.length), note: `${dishes?.filter((dish) => !dish.is_available).length ?? '—'} món đang hết hàng`, Icon: UtensilsCrossed },
     { label: 'Ca cần đối soát', amount: show(waitingShifts?.length), note: 'Chờ duyệt và cần giải trình', Icon: Wallet },
   ]

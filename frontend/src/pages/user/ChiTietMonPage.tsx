@@ -80,7 +80,7 @@ export default function ChiTietMonPage() {
   try { extraPrice = resolvePortions(groups, selections).extraPrice } catch { configError = 'Vui lòng chọn lại phần thêm.' }
   const unitPrice = dish.price + extraPrice
   const selectionsReady = selections.length === groups.length && groups.every((group: any) => selections.some(p => p.slot_id === group.id && group.choices.some((choice: any) => choice.id === p.choice_id)))
-  const canAdd = dish.is_available !== false && !configError && selectionsReady
+  const canAdd = dish.is_active !== false && dish.is_available !== false && !configError && selectionsReady
   const reachedCartLimit = getQty(dish.id) >= maxDishQuantity
 
   function handleAddToCart() {
@@ -116,7 +116,7 @@ export default function ChiTietMonPage() {
               <div>
                 <h1 className={styles.detailName}>{dish.name}</h1>
                 <div className={styles.detailPrices}><span className={styles.detailPrice}>{formatPrice(unitPrice)}</span></div>
-                {dish.is_available === false ? <p role="status">Món hiện đã hết.</p> : null}
+                {dish.is_active === false ? <p role="status">Món đã ngừng kinh doanh.</p> : dish.is_available === false ? <p role="status">Món hiện đã hết.</p> : null}
               </div>
               <div className={styles.detailBlock}><h3 className={styles.detailH}>Mô tả món ăn</h3><p className={styles.detailQuote}>{dish.description || dish.shortDescription || 'Chưa có mô tả cho món ăn này.'}</p></div>
               {groups.length > 0 && <section className={styles.portions} aria-label="Thêm khẩu phần ăn">
@@ -148,7 +148,7 @@ export default function ChiTietMonPage() {
                   <button type="button" className={styles.qtyBtn} onClick={() => setQty((value) => Math.min(maxDishQuantity, value + 1))} disabled={qty >= maxDishQuantity || !canAdd || reachedCartLimit} aria-label="Tăng số lượng"><span className="material-symbols-outlined">add</span></button>
                 </div>
                 <button type="button" className={styles.detailCart} onClick={handleAddToCart} disabled={!canAdd || reachedCartLimit} style={added ? { backgroundColor: '#16A34A', color: '#fff' } : undefined}>
-                  <span className="material-symbols-outlined">{added ? 'check' : 'shopping_bag'}</span>{!canAdd ? 'Tạm hết món' : reachedCartLimit ? 'Đã đạt giới hạn trong giỏ' : added ? `Đã thêm ${qty} món vào giỏ!` : 'Thêm vào giỏ hàng'}
+                  <span className="material-symbols-outlined">{added ? 'check' : 'shopping_bag'}</span>{dish.is_active === false ? 'Ngừng kinh doanh' : !canAdd ? 'Tạm hết món' : reachedCartLimit ? 'Đã đạt giới hạn trong giỏ' : added ? `Đã thêm ${qty} món vào giỏ!` : 'Thêm vào giỏ hàng'}
                 </button>
                 <Link to="/gio-hang" className={styles.detailCart} style={{ backgroundColor: 'var(--color-brand)', color: '#fff' }}><span className="material-symbols-outlined">shopping_cart_checkout</span>Xem giỏ hàng</Link>
                 <p className={styles.purchaseLimit}>Mỗi món tối đa {maxDishQuantity} phần theo cấu hình hiện hành.</p>

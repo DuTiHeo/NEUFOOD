@@ -76,7 +76,7 @@ function StarRow({ value }: { value: number }) {
   )
 }
 
-function DishCard({ dish }: { dish: any }) {
+function DishCard({ dish, isHighlighted }: { dish: any; isHighlighted?: boolean }) {
   const { add, getQty, maxDishQuantity } = useCart()
   const [draft, setDraft] = useState(1)
   const [added, setAdded] = useState(false)
@@ -96,7 +96,15 @@ function DishCard({ dish }: { dish: any }) {
   }
 
   return (
-    <article className={styles.card}>
+    <article
+      id={`dish-${dish.id}`}
+      className={`${styles.card} ${isHighlighted ? styles.cardHighlight : ''}`}
+    >
+      {isHighlighted && (
+        <div className={styles.pickedBadge}>
+          🎯 Món vừa quay trúng!
+        </div>
+      )}
       <Link to={`/mon/${dish.id}`} className={styles.cardImageLink} aria-label={`Xem ${dish.name}`}>
         <div className={styles.cardImageWrap}>
           <img className={styles.cardImage} src={getDishImageUrl(dish)} alt={dish.name} loading="lazy" onError={handleDishImageError} />
@@ -157,10 +165,12 @@ function DishCard({ dish }: { dish: any }) {
               type="button"
               className={`${styles.addToCartBtn} ${added ? styles.addToCartBtnSuccess : ''}`}
               onClick={addToCart}
-              disabled={dish.is_available === false || reachedLimit}
+              disabled={dish.is_active === false || dish.is_available === false || reachedLimit}
               aria-label={`Thêm ${draft} ${dish.name} vào giỏ hàng`}
             >
-              {dish.is_available === false ? (
+              {dish.is_active === false ? (
+                <span>Ngừng kinh doanh</span>
+              ) : dish.is_available === false ? (
                 <span>Hết món</span>
               ) : reachedLimit ? (
                 <span>Đủ số lượng</span>
@@ -183,9 +193,39 @@ function DishCard({ dish }: { dish: any }) {
   )
 }
 
-function MenuFilteredResults({ filtered, selectedCategoryLabels }: { filtered: any[]; selectedCategoryLabels: string[] }) {
+function MenuFilteredResults({
+  filtered,
+  selectedCategoryLabels,
+  highlightDishId,
+}: {
+  filtered: any[]
+  selectedCategoryLabels: string[]
+  highlightDishId?: string | null
+}) {
   const PAGE_SIZE = 12
   const [currentPage, setCurrentPage] = useState(1)
+
+  // Switch to page containing the highlighted dish
+  useEffect(() => {
+    if (!highlightDishId || filtered.length === 0) return
+    const targetIdx = filtered.findIndex((d) => d.id === highlightDishId)
+    if (targetIdx !== -1) {
+      const targetPage = Math.floor(targetIdx / PAGE_SIZE) + 1
+      setCurrentPage(targetPage)
+    }
+  }, [highlightDishId, filtered])
+
+  // Scroll to highlighted dish card
+  useEffect(() => {
+    if (!highlightDishId) return
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`dish-${highlightDishId}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [highlightDishId, currentPage])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const pageStart = (currentPage - 1) * PAGE_SIZE
@@ -203,7 +243,11 @@ function MenuFilteredResults({ filtered, selectedCategoryLabels }: { filtered: a
 
       <div className={styles.grid}>
         {pagedDishes.map((dish) => (
-          <DishCard key={dish.id} dish={dish} />
+          <DishCard
+            key={dish.id}
+            dish={dish}
+            isHighlighted={dish.id === highlightDishId}
+          />
         ))}
       </div>
 
@@ -268,9 +312,17 @@ export default function MenuPage() {
   const menuCategories = useMemo(
     () => [
       { id: 'all', label: 'Tất cả' },
-      ...categories.map((category) => ({ id: category.id, label: category.label || category.name || category.id })),
+      ...categories
+        .filter((cat) => {
+          // Do not show categories that have 0 dishes
+          return dishes.some((d: any) => {
+            const cids: string[] = d.categoryIds ?? d.category_ids ?? []
+            return cids.includes(cat.id)
+          })
+        })
+        .map((category) => ({ id: category.id, label: category.label || category.name || category.id })),
     ],
-    [categories],
+    [categories, dishes],
   )
 
   const lastScrollY = useRef(typeof window !== 'undefined' ? window.scrollY : 0)
@@ -279,6 +331,62 @@ export default function MenuPage() {
     return window.scrollY >= DOCK_FULL_TOP_PX ? 'compact' : 'full'
   })
   const [compactMobilePanelOpen, setCompactMobilePanelOpen] = useState(false)
+
+  const highlightParam = searchParams.get('highlight')
+  const [highlightDishId, setHighlightDishId] = useState<string | null>(() => {
+    if (highlightParam) return highlightParam
+    try {
+      const raw = sessionStorage.getItem('neufood_random_last_pick_v1')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed.dishId && Date.now() - new Date(parsed.at).getTime() < 10 * 60 * 1000) {
+          return parsed.dishId
+        }
+      }
+    } catch {}
+    return null
+  })
+
+  useEffect(() => {
+    if (highlightParam) {
+      setHighlightDishId(highlightParam)
+    }
+  }, [highlightParam])
+
+  // If a dish is highlighted, ensure it is not hidden by conflicting category or search filters
+  useEffect(() => {
+    if (!highlightDishId || dishes.length === 0) return
+    const targetDish = dishes.find((d) => d.id === highlightDishId)
+    if (!targetDish) return
+
+    const dishCats: string[] = targetDish.categoryIds ?? (targetDish as any).category_ids ?? []
+    if (selectedCategoryIds.length > 0) {
+      const matchesCategory = dishCats.some((cid) => selectedCategoryIds.includes(cid))
+      if (!matchesCategory) {
+        setSelectedCategoryIds([])
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev)
+            next.delete('cat')
+            return next
+          },
+          { replace: true },
+        )
+      }
+    }
+
+    if (search) {
+      setMenuSearch('')
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.delete('q')
+          return next
+        },
+        { replace: true },
+      )
+    }
+  }, [highlightDishId, dishes])
 
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(() =>
     categoryQuery.split(',').map((id) => id.trim()).filter(Boolean),
@@ -588,6 +696,7 @@ export default function MenuPage() {
                   key={filterKey}
                   filtered={filtered}
                   selectedCategoryLabels={selectedCategoryLabels}
+                  highlightDishId={highlightDishId}
                 />
               ) : null}
             </section>

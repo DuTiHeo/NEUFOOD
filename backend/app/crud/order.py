@@ -4,6 +4,7 @@ from collections import Counter
 from datetime import datetime, time as clock_time, timedelta, timezone
 from decimal import Decimal
 from typing import List, Optional, Tuple
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from app.db.models import (
     Order, OrderItem, Dish, CampusLocation, User, Complaint, ACTIVE_ORDER_STATUSES
@@ -54,6 +55,16 @@ def create_order(
     if user.is_blacklisted:
         raise OrderError(
             "Tài khoản của bạn đã bị khóa tính năng đặt hàng do vi phạm chính sách nhận hàng/thanh toán COD. Vui lòng liên hệ Admin để giải quyết",
+            "EX-10", 403,
+        )
+
+    # BR-22, EX-10: Chặn đặt hàng nếu số điện thoại nhận hàng thuộc tài khoản đang bị Blacklist COD
+    if recipient_phone and db.query(User.id).filter(
+        User.phone_number == recipient_phone.strip(),
+        User.is_blacklisted == True,
+    ).first():
+        raise OrderError(
+            "Số điện thoại nhận hàng này đang thuộc danh sách đen (Blacklist COD) do từng vi phạm chính sách nhận hàng/thanh toán. Vui lòng liên hệ Admin để giải quyết",
             "EX-10", 403,
         )
     sync_overdue_orders(db, user_id=user_id)
@@ -280,16 +291,82 @@ def get_user_orders(db: Session, user_id: int) -> List[Order]:
 def get_all_orders(
     db: Session,
     status: Optional[str] = None,
+    order_type: Optional[str] = None,
+    search: Optional[str] = None,
     page: int = 1,
     limit: int = 20,
 ) -> Tuple[List[Order], int]:
     sync_overdue_orders(db)
     query = db.query(Order)
-    if status and status != "all":
+    if status == "active":
+        query = query.filter(Order.status.in_(ACTIVE_ORDER_STATUSES))
+    elif status and status != "all":
         query = query.filter(Order.status == status)
+    if order_type in ("delivery", "pickup"):
+        query = query.filter(Order.order_type == order_type)
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(or_(
+            Order.id.ilike(term),
+            Order.recipient_name.ilike(term),
+            Order.recipient_phone.ilike(term),
+        ))
     total = query.count()
     items = query.order_by(Order.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
     return items, total
+
+
+def get_shipper_orders(
+    db: Session, shipper_id: int, scope: str = "available", page: int = 1, limit: int = 100
+) -> Tuple[List[Order], int]:
+    """Lấy hàng đợi giao, đơn shipper đang giữ hoặc lịch sử đã giao của shipper hiện tại."""
+    sync_overdue_orders(db)
+    query = db.query(Order).filter(Order.order_type == "delivery")
+    if scope == "available":
+        query = query.filter(
+            Order.status == "DANG_GIAO",
+            Order.payment_status == "chua_thanh_toan",
+            Order.shipper_id.is_(None),
+        )
+    elif scope == "mine":
+        query = query.filter(
+            Order.shipper_id == shipper_id,
+            Order.status.in_(("DANG_GIAO", "GIAO_THAT_BAI")),
+        )
+    elif scope == "history":
+        query = query.filter(
+            Order.shipper_id == shipper_id,
+            Order.status.in_(("DA_GIAO", "DA_BAN_GIAO", "HOAN_THANH")),
+        )
+    else:
+        raise OrderError("Phạm vi danh sách shipper không hợp lệ", "INVALID_SCOPE")
+
+    total = query.count()
+    items = query.order_by(Order.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
+    return items, total
+
+
+def claim_delivery_order(db: Session, order_id: str, shipper_id: int) -> Order:
+    """Khóa đơn đang giao và gán cho đúng một shipper, tránh hai người cùng nhận."""
+    actor = db.query(User).filter(User.id == shipper_id).first()
+    if not actor or not actor.is_active or actor.role != "staff":
+        raise OrderError("Chỉ tài khoản nhân viên đang hoạt động mới được nhận đơn giao", "FORBIDDEN", 403)
+
+    order = db.query(Order).filter(Order.id == order_id).with_for_update().first()
+    if not order:
+        raise OrderError("Không tìm thấy đơn hàng", "NOT_FOUND", 404)
+    if order.order_type != "delivery":
+        raise OrderError("Chỉ có thể nhận đơn giao tận nơi", "INVALID_ORDER_TYPE")
+    if order.status != "DANG_GIAO" or order.payment_status != "chua_thanh_toan":
+        raise OrderError("Đơn này hiện không còn trong hàng đợi giao", "INVALID_TRANSITION", 409)
+    if order.shipper_id is not None:
+        if order.shipper_id == shipper_id:
+            return order
+        raise OrderError("Đơn này đã được shipper khác nhận", "ALREADY_CLAIMED", 409)
+
+    order.shipper_id = shipper_id
+    db.flush()
+    return order
 
 
 def update_order_status(
@@ -337,6 +414,8 @@ def _lock_delivery_order(db: Session, order_id: str, staff_id: int):
     order = db.query(Order).filter(Order.id == order_id).populate_existing().with_for_update().first()
     if not order:
         raise OrderError("Không tìm thấy đơn hàng", "NOT_FOUND", 404)
+    if actor.role == "staff" and order.shipper_id is not None and order.shipper_id != staff_id:
+        raise OrderError("Đơn này đang được shipper khác phụ trách", "FORBIDDEN", 403)
     return order, user
 
 

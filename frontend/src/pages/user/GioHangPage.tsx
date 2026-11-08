@@ -50,7 +50,7 @@ export default function GioHangPage() {
                   {item.line.invalidReason && <p role="alert">{item.line.invalidReason}</p>}
                   {item.line.canReview && <button type="button" onClick={() => reviewLine(item.key)}>Xác nhận giá mới {formatVnd(item.line.currentUnitPrice)}</button>}
                   <p className={styles.linePrice}>{item.isMissing ? '—' : formatVnd(item.price)}</p>
-                  {item.isMissing ? <p role="alert">{item.name === 'Đang tải thông tin món' ? 'Đang tải chi tiết món từ thực đơn…' : item.name === 'Không tải được thông tin món' ? 'Không tải được dữ liệu món. Hãy thử tải lại trang.' : 'Món này không còn trong thực đơn. Hãy xóa món khỏi giỏ.'}</p> : item.is_available === false ? <p role="alert">Món hiện đã hết, hãy xóa món khỏi giỏ.</p> : null}
+                  {item.isMissing ? <p role="alert">{item.name === 'Đang tải thông tin món' ? 'Đang tải chi tiết món từ thực đơn…' : item.name === 'Không tải được thông tin món' ? 'Không tải được dữ liệu món. Hãy thử tải lại trang.' : 'Món này không còn trong thực đơn. Hãy xóa món khỏi giỏ.'}</p> : item.is_active === false ? <p role="alert">Món đã ngừng kinh doanh, hãy xóa món khỏi giỏ.</p> : item.is_available === false ? <p role="alert">Món hiện đã hết, hãy xóa món khỏi giỏ.</p> : null}
                   {item.qty >= maxDishQuantity ? <p>Đã đạt tối đa {maxDishQuantity} phần cho món này.</p> : null}
                   <div className={styles.lineQty}>
                     <div className={styles.stepper}>

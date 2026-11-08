@@ -40,7 +40,7 @@ export const shiftService = {
     const res = await api.get<ApiResponse<CurrentShiftSummary>>('/shifts/my-current-shift')
     return res.data.data
   },
-  async submitShift(payload: { actual_cash: number; actual_qr: number; discrepancy_note?: string }) {
+  async submitShift(payload: { shift_date: string; actual_cash: number; actual_qr: number; discrepancy_note?: string }) {
     const res = await api.post<ApiResponse<StaffShift>>('/shifts/submit', payload)
     return res.data.data
   },

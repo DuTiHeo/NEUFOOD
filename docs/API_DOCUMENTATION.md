@@ -66,32 +66,67 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 ## 2. Phân Hệ Thành Viên 1: Xác Thực, Người Dùng, Blacklist & Cấu Hình (`/auth`, `/users`, `/settings`)
 
 ### 2.1. Đăng Ký Tài Khoản Khách Hàng (`UC01`, `BR-01`, `EX-01`)
+
+#### 2.1.1. Yêu Cầu Gửi Mã OTP Đăng Ký (`POST /api/v1/auth/register/send-otp`)
+- **Endpoint**: `POST /api/v1/auth/register/send-otp`
+- **Quyền hạn**: Public (Không yêu cầu JWT)
+- **Headers**: `Content-Type: application/json`
+- **Request Body**:
+```json
+{
+  "email": "11215432@st.neu.edu.vn",
+  "phone_number": "0912345678",
+  "full_name": "Nguyễn Văn Sinh Viên"
+}
+```
+- **Quy tắc nghiệp vụ**:
+  - Kiểm tra email thuộc `@neu.edu.vn` hoặc `@st.neu.edu.vn` và chưa tồn tại trong hệ thống.
+  - Kiểm tra số điện thoại chưa liên kết với tài khoản khác (nếu trùng trả về `409 Conflict`).
+  - Sinh mã OTP 6 chữ số gửi qua SMTP Gmail với thời hạn 5 phút (300 giây). Giới hạn tối đa 5 lần/ngày cho mỗi cặp (IP + email).
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Mã xác thực OTP đã được gửi về email trường NEU của bạn. Vui lòng kiểm tra hộp thư Outlook.",
+  "data": {
+    "email": "11215432@st.neu.edu.vn",
+    "expires_in_seconds": 300
+  }
+}
+```
+
+#### 2.1.2. Xác Nhận OTP & Kích Hoạt Tài Khoản (`POST /api/v1/auth/register`)
 - **Endpoint**: `POST /api/v1/auth/register`
 - **Quyền hạn**: Public (Không yêu cầu JWT)
 - **Headers**: `Content-Type: application/json`
 - **Request Body**:
 ```json
 {
-  "email": "sinhvien_moi@neu.edu.vn",
+  "email": "11215432@st.neu.edu.vn",
   "password": "password123",
   "full_name": "Nguyễn Văn Sinh Viên",
   "phone_number": "0912345678",
-  "student_id": "11218888"
+  "student_id": "11215432",
+  "otp": "123456"
 }
 ```
 - **Ràng buộc dữ liệu (`schemas/auth.py`)**:
-  - `email`: Bắt buộc, chuỗi email hợp lệ RFC chuẩn (`EmailStr`).
+  - `email`: Bắt buộc, chuỗi email hợp lệ RFC chuẩn (`EmailStr`), bắt buộc thuộc tên miền NEU (`@neu.edu.vn` hoặc `@st.neu.edu.vn`) theo `BR-01`.
   - `password`: Bắt buộc, độ dài từ 6 đến 128 ký tự (`min_length=6, max_length=128`).
   - `full_name`: Bắt buộc, từ 2 đến 150 ký tự, tự động cắt tỉa khoảng trắng hai đầu (`strip`).
-  - `phone_number`: Bắt buộc, số di động Việt Nam hợp lệ gồm đúng 10 chữ số bắt đầu bằng `0` (`^0\d{9}$`) theo `BR-01`.
+  - `phone_number`: Bắt buộc, số di động Việt Nam hợp lệ gồm đúng 10 chữ số bắt đầu bằng `0` (`^0\d{9}$`) theo `BR-01`, là duy nhất trên toàn hệ thống (`UNIQUE`).
   - `student_id`: Không bắt buộc (Optional), tối đa 30 ký tự; chuỗi rỗng tự động chuyển thành `null` (`None`).
+  - `otp`: Bắt buộc, mã xác nhận gồm đúng 6 chữ số gửi về hòm thư edu của người dùng.
 - **Quy tắc nghiệp vụ & Kịch bản ngoại lệ**:
-  - `BR-01`: Tài khoản đăng ký mới luôn được gán vai trò mặc định `role = "customer"`.
+  - `BR-01`: Bắt buộc xác nhận OTP email trước khi kích hoạt tài khoản. Nhập sai quá 5 lần sẽ hủy mã OTP.
+  - `BR-01`: Tài khoản đăng ký mới luôn được kích hoạt `is_active = True` và gán vai trò mặc định `role = "customer"`.
   - Cấp cặp JWT Token: Access Token (hiệu lực 15 phút, `expires_in: 900` giây) và Refresh Token (hiệu lực 7 ngày).
   - `EX-01`: Nếu `email` đã tồn tại trên hệ thống $\rightarrow$ Trả về `400 Bad Request` (`"Email đã tồn tại trên hệ thống (EX-01)"`).
   - `EX-01`: Nếu `student_id` đã được liên kết với một tài khoản khác $\rightarrow$ Trả về `400 Bad Request` (`"Mã sinh viên đã tồn tại trên hệ thống (EX-01)"`).
+  - `BR-01` / Xung đột SĐT: Nếu `phone_number` đã được tài khoản khác đăng ký $\rightarrow$ Trả về `409 Conflict` kèm email đã che (`masked_email`) và hướng dẫn liên hệ Admin/Canteen A2 để giải phóng số điện thoại.
+  - `BR-01` / Lỗi Validate: Nếu `email` không thuộc domain `@neu.edu.vn` hoặc `@st.neu.edu.vn` $\rightarrow$ Trả về `422 Unprocessable Entity` (`"Chỉ chấp nhận email sinh viên hoặc cán bộ NEU (@st.neu.edu.vn hoặc @neu.edu.vn)"`).
   - `BR-01` / Lỗi Validate: Nếu `phone_number` không đúng định dạng 10 số bắt đầu bằng 0 $\rightarrow$ Trả về `422 Unprocessable Entity` (`"Số điện thoại không hợp lệ, phải gồm đúng 10 chữ số và bắt đầu bằng số 0 (BR-01)"`).
-  - Request body không phải JSON object hợp lệ $\rightarrow$ Trả về `400 Bad Request` (`"Dữ liệu đầu vào phải là JSON object hợp lệ"`).
+  - `BR-01` / Lỗi OTP: Nếu mã OTP sai hoặc hết hạn $\rightarrow$ Trả về `400 Bad Request` (`"Mã xác nhận OTP không chính xác hoặc đã hết hiệu lực"`).
 - **Response (`201 Created`)**:
 ```json
 {
@@ -140,31 +175,35 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 }
 ```
 
-### 2.2. Đăng Nhập Hệ Thống & Bảo Vệ Chống Dò Mật Khẩu (`UC02`, `BR-01`, `BR-02`, `EX-02`)
+### 2.2. Đăng Nhập Hệ Thống & Bảo Vệ Chống Dò Mật Khẩu Theo Thiết Bị (`UC02`, `BR-01`, `BR-02`, `EX-02`)
 - **Endpoint**: `POST /api/v1/auth/login`
 - **Quyền hạn**: Public (Không yêu cầu JWT)
+- **Giới hạn tần suất (Rate Limit)**: `@limiter.limit("20/minute", key_func=get_login_rate_limit_key)` tính theo cặp **(IP + email)** để tránh khóa nhầm người dùng chung mạng KTX/Wifi trường (BUG-01, BR-02).
 - **Headers**: `Content-Type: application/json`
 - **Request Body**:
 ```json
 {
   "email": "admin@neufood.vn",
-  "password": "password123"
+  "password": "password123",
+  "device_token": "1:device-uuid:nonce:timestamp.signature_hmac",
+  "device_name": "Chrome on MacOS"
 }
 ```
 - **Ràng buộc dữ liệu (`schemas/auth.py`)**:
   - `email`: Bắt buộc, định dạng email chuẩn (`EmailStr`).
   - `password`: Bắt buộc, chuỗi từ 1 đến 128 ký tự (`min_length=1`).
+  - `device_token`: Tùy chọn, chuỗi token thiết bị tin cậy có chữ ký HMAC do máy chủ cấp.
+  - `device_name`: Tùy chọn, tên nhận diện thiết bị/trình duyệt (tối đa 150 ký tự).
 - **Quy tắc nghiệp vụ & Cơ chế bảo mật (`BR-02`, `EX-02`)**:
-  - **Kiểm tra trạng thái tài khoản trước khi xác thực mật khẩu**:
-    - Nếu tài khoản có `is_active == false` $\rightarrow$ Trả lỗi `403 Forbidden` (`"Tài khoản này đã bị khóa"`).
-    - Nếu tài khoản đang trong thời gian khóa tạm thời 15 phút (`locked_until > now()`) $\rightarrow$ Trả lỗi `403 Forbidden` (`"Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần"`).
-  - **Xác thực mật khẩu**:
-    - Nếu sai mật khẩu: Tăng `failed_login_attempts += 1`.
-      - Khi `failed_login_attempts < 5` $\rightarrow$ Trả lỗi `401 Unauthorized` (`"Email hoặc mật khẩu không chính xác"`).
-      - Khi chạm mốc `failed_login_attempts >= 5` lần liên tiếp $\rightarrow$ Thiết lập `locked_until = now() + 15 minutes` và trả ngay `403 Forbidden` (`"Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần"`).
-    - Nếu đúng mật khẩu:
-      - Reset `failed_login_attempts = 0` và xóa mốc khóa `locked_until = null`.
-      - Cấp cặp JWT Token: Access Token (hiệu lực 15 phút, `expires_in: 900` giây) và Refresh Token (hiệu lực 7 ngày).
+  - **Phân loại thiết bị**:
+    - **Nhánh A (Thiết bị tin cậy)**: Có `device_token` hợp lệ, đúng chữ ký HMAC và chưa hết hạn 30 ngày trong `user_devices`.
+      - Nếu thiết bị đang bị khóa (`device.locked_until > now()`) $\rightarrow$ Trả `403 Forbidden`.
+      - Nếu sai mật khẩu: Tăng `device.failed_login_attempts`. Đạt $\ge 5$ lần $\rightarrow$ Khóa **riêng thiết bị này 15 phút** (`device.locked_until = now() + 15m`). Thiết bị tin cậy khác vẫn vào được.
+      - Nếu đúng mật khẩu: Reset bộ đếm lỗi thiết bị, gia hạn TTL 30 ngày.
+    - **Nhánh B (Thiết bị chưa xác minh / Thiết bị lạ)**: Không gửi token hoặc token không hợp lệ/hết hạn.
+      - Nếu nhóm thiết bị lạ của tài khoản đang bị khóa (`user.locked_until > now()`) $\rightarrow$ Trả `403 Forbidden` kèm gợi ý đăng nhập bằng OTP email.
+      - Nếu sai mật khẩu: Tăng `user.failed_login_attempts`. Đạt $\ge 5$ lần $\rightarrow$ Khóa quyền đăng nhập bằng mật khẩu từ **mọi thiết bị lạ** trong 15 phút. Thiết bị tin cậy của chủ tài khoản không bị ảnh hưởng.
+      - Nếu đúng mật khẩu: Reset lockout tài khoản, cấp mới một `device_token` có chữ ký HMAC và lưu vào bảng `user_devices`.
 - **Response (`200 OK`)**:
 ```json
 {
@@ -175,6 +214,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
     "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "token_type": "Bearer",
     "expires_in": 900,
+    "device_token": "1:f837b2d1-4e78-45e0-912f-6c1782e41a99:e82a...b4c.4f38a...",
     "user": {
       "id": 1,
       "email": "admin@neufood.vn",
@@ -188,6 +228,48 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
     }
   }
 }
+```
+
+### 2.2.1. Yêu Cầu Mã OTP Đăng Nhập Khẩn Cấp (`UC02`, `BR-02.4`, `EX-02`, `EX-04`)
+- **Endpoint**: `POST /api/v1/auth/login/otp/request`
+- **Quyền hạn**: Public (Không yêu cầu JWT)
+- **Mục đích**: Lối thoát an toàn cho chủ tài khoản khi bị kẻ xấu cố tình gõ sai mật khẩu làm khóa nhánh thiết bị lạ.
+- **Request Body**:
+```json
+{
+  "email": "sinhvien@neu.edu.vn"
+}
+```
+- **Quy tắc nghiệp vụ (`EX-04`)**:
+  - Hạn mức: Tối đa 3 lần/ngày cho mỗi cặp (email + IP) và tối đa 10 lần/ngày cho mỗi email.
+  - Hiệu lực OTP: Đúng 5 phút (300 giây).
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Mã OTP đăng nhập đã được gửi tới email của bạn (hiệu lực 5 phút)",
+  "data": {
+    "email": "sinhvien@neu.edu.vn",
+    "expires_in_seconds": 300
+  }
+}
+```
+
+### 2.2.2. Xác Thực Mã OTP Đăng Nhập & Mở Khóa Tài Khoản (`UC02`, `BR-02.4`, `EX-02`, `EX-04`)
+- **Endpoint**: `POST /api/v1/auth/login/otp/verify`
+- **Quyền hạn**: Public (Không yêu cầu JWT)
+- **Request Body**:
+```json
+{
+  "email": "sinhvien@neu.edu.vn",
+  "otp": "123456",
+  "device_name": "Chrome on MacOS"
+}
+```
+- **Quy tắc nghiệp vụ (`BR-02.4`, `EX-04`)**:
+  - Nhập sai mã OTP liên tiếp 5 lần $\rightarrow$ Hủy mã OTP ngay lập tức.
+  - Xác thực đúng: Tự động mở khóa tài khoản (`locked_until = null`), cấp JWT tokens và nâng cấp thiết bị hiện tại thành **Thiết bị tin cậy** (cấp `device_token` mới).
+- **Response (`200 OK`)**: Tương tự phản hồi của `POST /api/v1/auth/login` kèm `device_token`.
 ```
 - **Response lỗi (`401 Unauthorized` - Sai mật khẩu < 5 lần)**:
 ```json
@@ -398,13 +480,45 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 }
 ```
 
-### 2.6. Đổi Mật Khẩu Tài Khoản (`UC05`, `EX-04`)
+### 2.6. Đổi Mật Khẩu Tài Khoản (`UC05`, `BR-02`, `EX-04`)
+
+#### 2.6.1. Yêu Cầu Gửi Mã OTP Đổi Mật Khẩu
+- **Endpoint**: `POST /api/v1/auth/change-password/otp`
+- **Quyền hạn**: Authenticated (`@jwt_required` - Tất cả các role)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: application/json`
+- **Quy tắc nghiệp vụ**:
+  - Email nhận mã được lấy trực tiếp từ `current_user` trong token đăng nhập.
+  - Áp dụng Rate Limiting theo cặp `(IP + email)`: Cooldown 60 giây giữa các lần bấm gửi và tối đa 5 lần/ngày.
+  - Mã OTP gồm 6 chữ số có thời hạn hiệu lực 5 phút (300 giây). Gửi email thật qua SMTP Gmail.
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Mã OTP xác nhận đổi mật khẩu đã được gửi tới email của bạn (vui lòng kiểm tra Hộp thư đến và Thư rác)",
+  "data": {
+    "email": "sinhvien@neu.edu.vn",
+    "expires_in_seconds": 300,
+    "daily_count": 1
+  }
+}
+```
+
+#### 2.6.2. Xác Nhận Đổi Mật Khẩu (Bằng OTP hoặc Mật Khẩu Cũ)
 - **Endpoint**: `POST /api/v1/auth/change-password`
 - **Quyền hạn**: Authenticated (`@jwt_required` - Tất cả các role)
 - **Headers**:
   - `Authorization: Bearer <access_token>`
   - `Content-Type: application/json`
-- **Request Body**:
+- **Request Body (Đổi bằng OTP)**:
+```json
+{
+  "otp": "123456",
+  "new_password": "newpassword456"
+}
+```
+- **Request Body (Đổi bằng Mật khẩu cũ)**:
 ```json
 {
   "old_password": "password123",
@@ -412,17 +526,14 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 }
 ```
 - **Ràng buộc dữ liệu (`schemas/auth.py`)**:
-  - `old_password`: Bắt buộc, độ dài từ 1 đến 128 ký tự.
+  - Phải gửi ít nhất `otp` (1 - 20 ký tự) HOẶC `old_password` (1 - 128 ký tự).
   - `new_password`: Bắt buộc, độ dài từ 6 đến 128 ký tự (`min_length=6, max_length=128`).
-- **Quy tắc nghiệp vụ & Cơ chế bảo mật (`UC05`, `EX-04`)**:
-  - Kiểm tra `old_password` có khớp với hash mật khẩu hiện tại trong DB hay không. Nếu sai $\rightarrow$ Trả về `400 Bad Request` (`"Mật khẩu hiện tại không chính xác"`).
-  - Kiểm tra `new_password` không được trùng với mật khẩu hiện tại (`old_password` hoặc hash DB). Nếu trùng $\rightarrow$ Trả về `400 Bad Request` (`"Mật khẩu mới không được trùng với mật khẩu hiện tại"`).
-  - Mật khẩu mới được băm bảo mật bằng thuật toán Bcrypt thông qua hàm `update_user_password(db, user, new_password)`.
-  - **Tự động thu hồi Access Token (Two-Tier Dual-Write / EX-04)**: Ngay sau khi đổi mật khẩu thành công, Access Token hiện tại được tự động thu hồi bằng cơ chế Dual-Write:
-    - Ghi nhận bản ghi vào bảng `revoked_tokens` trong PostgreSQL (`token_type = "access"`, `reason = "change_password"`).
-    - Nạp đồng thời vào Redis key `revoked_token:{jti}` với TTL bằng thời gian sống còn lại của Access Token (tối đa 15 phút - 900 giây).
-    - Nếu Redis ngoại tuyến, token vẫn được thu hồi an toàn và bền vững trong PostgreSQL (Graceful Fallback).
-    - Mọi request kế tiếp sử dụng token cũ này sẽ bị chặn tức thì qua Redis $O(1)$ và nhận lỗi `401 Unauthorized` (`"Phiên đăng nhập đã bị thu hồi hoặc đăng xuất"`), buộc người dùng phải đăng nhập lại bằng mật khẩu mới hoặc sử dụng Refresh Token để lấy token mới.
+- **Quy tắc nghiệp vụ & Cơ chế bảo mật (`UC05`, `BR-02`, `EX-04`)**:
+  - Nếu gửi `otp`: Xác thực mã OTP trong `OTP_STORE`. Nhập sai tăng số lần thử; sai liên tiếp 5 lần $\rightarrow$ Hủy mã OTP lập tức (`EX-04`).
+  - Nếu gửi `old_password`: Kiểm tra khớp hash mật khẩu hiện tại trong DB.
+  - Kiểm tra `new_password` không được trùng với mật khẩu hiện tại.
+  - Cập nhật mật khẩu mới băm Bcrypt, reset lockout và thu hồi toàn bộ token thiết bị tin cậy (`BR-02`).
+  - **Tự động thu hồi Access Token**: Ghi nhận bản ghi vào bảng `revoked_tokens` trong PostgreSQL (`reason = "change_password"`), buộc người dùng phải đăng nhập lại hoặc làm mới token.
 - **Response (`200 OK`)**:
 ```json
 {
@@ -478,9 +589,9 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 - **Quy tắc nghiệp vụ & Kịch bản ngoại lệ (`EX-04`)**:
   - Kiểm tra email có tồn tại trên hệ thống hay không; nếu không tồn tại $\rightarrow$ Trả về `404 Not Found` (`"Email không tồn tại trên hệ thống"`).
   - Kiểm tra tài khoản có bị vô hiệu hóa `is_active == false` hay không; nếu bị khóa $\rightarrow$ Trả về `403 Forbidden` (`"Tài khoản này đã bị khóa"`).
-  - **Giới hạn số lần gửi OTP (`EX-04`)**: Tối đa 3 lần/ngày/email (`daily_count >= 3` bị chặn) $\rightarrow$ Trả về `400 Bad Request` (`"Bạn đã vượt quá giới hạn gửi mã OTP tối đa 3 lần/ngày. Vui lòng thử lại vào ngày mai (EX-04)"`).
+  - **Giới hạn số lần gửi OTP (`EX-04`)**: Tối đa 3 lần/ngày cho mỗi cặp `(email + IP)` và tối đa 10 lần/ngày cho mỗi `email` $\rightarrow$ Trả về `429 Too Many Requests` nếu vi phạm.
   - **Hiệu lực OTP (`EX-04`)**: Mã OTP gồm đúng 6 chữ số ngẫu nhiên (`000000` - `999999`), có thời hạn hiệu lực chính xác `5 phút` (300 giây) kể từ thời điểm tạo.
-  - **Cơ chế lưu trữ in-memory & Hỗ trợ Dev/Test**: Lưu trữ trong `OTP_STORE` tại `routes/auth.py`. Trong môi trường phát triển (dev/test), trường `otp_debug` được trả kèm trong `data` phản hồi để tạo điều kiện kiểm thử tự động và test Postman mà không cần cấu hình Mail Server bên ngoài.
+  - **Gửi Email Thực Tế Qua SMTP (Gmail)**: Hệ thống sử dụng module `app.utils.email.send_otp_email_async` để gửi email HTML có thương hiệu NEUFood trực tiếp đến hòm thư người dùng qua giao thức SMTP (hỗ trợ `smtp.gmail.com` cổng 587 STARTTLS). Nếu chưa thiết lập biến môi trường `SMTP_USER`/`SMTP_PASSWORD`, hệ thống ghi nhận log cảnh báo và trả về `otp_debug` khi `FLASK_DEBUG=1` để phục vụ phát triển nội bộ.
 - **Response (`200 OK`)**:
 ```json
 {
@@ -899,6 +1010,39 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
   "success": false,
   "message": "Quản trị viên không thể tự đưa tài khoản của chính mình vào danh sách đen",
   "data": null
+}
+```
+
+#### 2.10.3. Cập Nhật Hoặc Giải Phóng Số Điện Thoại Người Dùng (`UC23`, `BR-01`)
+- **Endpoint**: `PATCH /api/v1/users/admin/<int:user_id>/phone`
+- **Quyền hạn**: Độc quyền Quản trị viên (`@role_required("admin")`)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: application/json`
+- **Request Body**:
+```json
+{
+  "phone_number": null
+}
+```
+*(Lưu ý: Truyền `"phone_number": null` hoặc `""` để giải phóng SĐT bị mạo danh/chiếm dụng. Truyền `"09xxxxxxxx"` để gán SĐT mới).*
+- **Ràng buộc dữ liệu (`schemas/user.py` - `AdminUserPhoneUpdateRequest`)**:
+  - `phone_number`: Tùy chọn (`Optional[str]`), nếu cung cấp phải đúng 10 số di động bắt đầu bằng `0` (`^0\d{9}$`).
+- **Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Đã giải phóng số điện thoại thành công",
+  "data": {
+    "id": 2,
+    "email": "sinhvien@neu.edu.vn",
+    "full_name": "Nguyễn Văn A",
+    "phone_number": null,
+    "student_id": "11210001",
+    "role": "customer",
+    "is_active": true,
+    "is_blacklisted": false
+  }
 }
 ```
 
@@ -1399,8 +1543,9 @@ Kiểm thử tích hợp: `backend/tests/test_order_creation.py`. Dùng PostgreS
 - **Endpoint**: `GET /api/v1/orders/admin/all`
 - **Quyền hạn**: Role `staff`, `manager`, `admin` (`@role_required("staff", "manager", "admin")`)
 - **Query Parameters**:
-  - `status`: Lọc theo trạng thái đơn hàng (`CHO_XAC_NHAN`, `DANG_CHUAN_BI`, `DANG_GIAO`, ...) (Optional).
+  - `status`: Lọc theo trạng thái đơn hàng (`CHO_XAC_NHAN`, `DANG_CHUAN_BI`, `DANG_GIAO`, ...) (Optional). Giá trị `active` trả các đơn chưa kết thúc; `all` hoặc bỏ trống trả mọi trạng thái.
   - `order_type`: Lọc theo hình thức nhận món (`delivery` / `pickup`) (Optional).
+  - `search`: Tìm mã đơn, tên người nhận hoặc số điện thoại (Optional).
   - `page`: Số trang, số nguyên $\ge 1$ (mặc định: `1`).
   - `limit`: Số lượng bản ghi trên một trang, số nguyên $\ge 1$ (mặc định: `20`, tự động giới hạn trần tối đa `limit <= 100` để chống cạn kiệt tài nguyên / DoS).
 - **Quy tắc phân trang an toàn (Input Sanitization & Safe Pagination)**:
@@ -1575,7 +1720,35 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
 
 ### 5.2. Gửi & Phân Xử Khiếu Nại (`UC15`, `UC25`, `BR-23`, `BR-24`, `EX-14`, `EX-15`)
 
-#### 5.2.1. Khách Hàng Gửi Ticket Khiếu Nại (`UC15`, `BR-23`, `EX-14`, `EX-15`)
+#### 5.2.1. Khách Hàng Tải Lên Ảnh Minh Chứng Khiếu Nại (`UC15`, `EX-14`)
+- **Endpoint**: `POST /api/v1/complaints/upload-proof`
+- **Quyền hạn**: Độc quyền Khách hàng (`@role_required("customer")`)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: multipart/form-data`
+- **Request Body (Form Data)**:
+  - `file`: Tệp hình ảnh minh chứng khiếu nại (bắt buộc; hỗ trợ các định dạng: `PNG`, `JPG`, `JPEG`, `WEBP`, `GIF`; kích thước tối đa 5MB).
+- **Quy tắc kiểm tra**:
+  - Trường `file` là bắt buộc. Nếu không có file đính kèm hoặc tên file rỗng $\rightarrow$ Trả về `400 Bad Request` (`"Vui lòng chọn file ảnh trong trường 'file'"`).
+  - Kiểm tra phần mở rộng file (đuôi ảnh): Chỉ chấp nhận `png`, `jpg`, `jpeg`, `webp`, `gif` (không phân biệt hoa thường). Nếu không hợp lệ $\rightarrow$ Trả về `400 Bad Request` (`"Định dạng ảnh không được hỗ trợ (chỉ nhận PNG, JPG, JPEG, WEBP, GIF)"`).
+  - Tự động sinh tên file ngẫu nhiên an toàn qua UUID v4 hex (`<uuid>.<ext>`) và lưu trữ vào thư mục cấu hình `uploads/`. Trả về đường dẫn tĩnh nội bộ `/uploads/<filename>` để truyền vào trường `proof_image_url` khi gửi ticket khiếu nại.
+- **Response thành công (`201 Created`)**:
+```json
+{
+  "success": true,
+  "message": "Tải ảnh minh chứng thành công",
+  "data": {
+    "proof_image_url": "/uploads/a1b2c3d4e5f6.jpg",
+    "filename": "a1b2c3d4e5f6.jpg"
+  }
+}
+```
+- **Mã lỗi thường gặp**:
+  - `400 Bad Request`: Thiếu trường `file` hoặc file ảnh không đúng định dạng cho phép.
+  - `401 Unauthorized`: Chưa gửi kèm Bearer token hoặc token không hợp lệ / hết hạn.
+  - `403 Forbidden`: Người dùng không có vai trò `customer` hoặc tài khoản bị vô hiệu hóa trong cơ sở dữ liệu.
+
+#### 5.2.2. Khách Hàng Gửi Ticket Khiếu Nại (`UC15`, `BR-23`, `EX-14`, `EX-15`)
 - **Endpoint**: `POST /api/v1/complaints`
 - **Quyền hạn**: Độc quyền Khách hàng (`@role_required("customer")`)
 - **Headers**:
@@ -1587,14 +1760,14 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
   "order_id": "NF2610155566",
   "reason": "Giao nhầm món ăn",
   "description": "Em đặt Phở Trộn nhưng nhận được Bún Riêu.",
-  "proof_image_url": "https://storage.neufood.vn/complaints/proof_123.jpg"
+  "proof_image_url": "/uploads/a1b2c3d4e5f6.jpg"
 }
 ```
 - **Ràng buộc Schema (`schemas/complaint.py` - `ComplaintCreateRequest`)**:
   - `order_id`: Chuỗi từ 2 đến 50 ký tự (`min_length=2, max_length=50`).
   - `reason`: Chuỗi từ 3 đến 255 ký tự (`min_length=3, max_length=255`).
   - `description`: Chuỗi từ 5 đến 2000 ký tự (`min_length=5, max_length=2000`).
-  - `proof_image_url`: Bắt buộc cung cấp ảnh chụp bằng chứng theo định dạng URL hợp lệ (`http://` hoặc `https://`) hoặc đường dẫn upload nội bộ (`/uploads/...`), chuỗi từ 5 đến 1000 ký tự (`pattern=r"^(https?://\S+|/[a-zA-Z0-9_\-\./]+)$"`, vi phạm ném lỗi `422`).
+  - `proof_image_url`: Bắt buộc cung cấp ảnh chụp bằng chứng theo định dạng URL hợp lệ (`http://` hoặc `https://`) hoặc đường dẫn upload nội bộ (`/uploads/...`), chuỗi từ 5 đến 1000 ký tự (`pattern=r"^(https?://\S+|/[a-zA-Z0-9_\-\./]+)$"`, vi phạm ném lỗi `422`). Khuyến khích sử dụng kết quả `proof_image_url` trả về từ `POST /api/v1/complaints/upload-proof`.
 - **Quy tắc nghiệp vụ & Giao dịch (`crud/complaint.py`)**:
   - Kiểm tra tài khoản khách hàng: Role trong DB phải là `customer` và `is_active == True` (`403 Forbidden`).
   - Kiểm tra đơn hàng: Đơn phải thuộc quyền sở hữu của khách hàng (`Order.user_id == user_id`). Nếu không tìm thấy trả về `404 Not Found` (`code: NOT_FOUND`). Khóa dòng đơn (`with_for_update`) trong giao dịch.
@@ -1614,7 +1787,7 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
     "user_name": "Nguyễn Văn A",
     "reason": "Giao nhầm món ăn",
     "description": "Em đặt Phở Trộn nhưng nhận được Bún Riêu.",
-    "proof_image_url": "https://storage.neufood.vn/complaints/proof_123.jpg",
+    "proof_image_url": "/uploads/a1b2c3d4e5f6.jpg",
     "status": "DANG_XU_LY",
     "admin_response": null,
     "resolved_by": null,
@@ -1625,13 +1798,88 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
 }
 ```
 
-#### 5.2.2. Xem Danh Sách & Chi Tiết Khiếu Nại
+#### 5.2.3. Xem Danh Sách & Chi Tiết Khiếu Nại (`UC15`, `UC25`, `BR-23`, `BR-24`)
+
 - `GET /api/v1/complaints` (`@jwt_required`):
-  - Nếu `role == "admin"`: Trả về toàn bộ danh sách khiếu nại trên hệ thống, sắp xếp giảm dần theo thời gian tạo (`created_at.desc()`).
-  - Nếu `role != "admin"`: Chỉ trả về danh sách các khiếu nại do chính người dùng hiện tại gửi.
+  - **Headers**: `Authorization: Bearer <access_token>`
+  - **Query Parameters**:
+    - `order_id` (Tùy chọn / Optional): Chuỗi mã đơn hàng (ví dụ: `?order_id=NF2610155566`) để lọc danh sách khiếu nại theo mã đơn hàng tương ứng.
+  - **Phân quyền & Dữ liệu trả về**:
+    - Nếu `role == "admin"`: Trả về toàn bộ danh sách khiếu nại trên hệ thống (lọc theo `order_id` nếu có), sắp xếp giảm dần theo thời gian tạo (`created_at.desc()`).
+    - Nếu `role != "admin"`: Chỉ trả về danh sách các khiếu nại do chính người dùng hiện tại gửi (lọc theo `order_id` nếu có).
+  - **Response thành công (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Thành công",
+  "data": [
+    {
+      "id": 1,
+      "order_id": "NF2610155566",
+      "user_id": 10,
+      "user_name": "Nguyễn Văn A",
+      "reason": "Giao nhầm món ăn",
+      "description": "Em đặt Phở Trộn nhưng nhận được Bún Riêu.",
+      "proof_image_url": "/uploads/a1b2c3d4e5f6.jpg",
+      "status": "DANG_XU_LY",
+      "admin_response": null,
+      "resolved_by": null,
+      "resolved_at": null,
+      "created_at": "2026-10-19T10:30:00+00:00",
+      "updated_at": "2026-10-19T10:30:00+00:00"
+    }
+  ]
+}
+```
+
+- `GET /api/v1/complaints/by-order/<order_id>` (`@jwt_required` - `UC15`, `BR-23`):
+  - **Mục đích**: Tra cứu nhanh thông tin chi tiết khiếu nại gắn liền với một mã đơn hàng cụ thể.
+  - **Headers**: `Authorization: Bearer <access_token>`
+  - **URL Parameters**:
+    - `order_id`: Chuỗi mã đơn hàng cần tra cứu (ví dụ: `NF2610155566`).
+  - **Phân quyền & Quy tắc kiểm tra**:
+    - Khách hàng (`customer`): Chỉ xem được thông tin khiếu nại nếu đơn hàng thuộc sở hữu của chính mình.
+    - Quản trị viên (`admin`): Được phép tra cứu khiếu nại của bất kỳ đơn hàng nào trên hệ thống.
+  - **Response thành công (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Thành công",
+  "data": {
+    "id": 1,
+    "order_id": "NF2610155566",
+    "user_id": 10,
+    "user_name": "Nguyễn Văn A",
+    "reason": "Giao nhầm món ăn",
+    "description": "Em đặt Phở Trộn nhưng nhận được Bún Riêu.",
+    "proof_image_url": "/uploads/a1b2c3d4e5f6.jpg",
+    "status": "DANG_XU_LY",
+    "admin_response": null,
+    "resolved_by": null,
+    "resolved_at": null,
+    "created_at": "2026-10-19T10:30:00+00:00",
+    "updated_at": "2026-10-19T10:30:00+00:00"
+  }
+}
+```
+  - **Response khi không tìm thấy (`404 Not Found`)**:
+    - Khi đơn hàng không có khiếu nại nào, hoặc khiếu nại thuộc về khách hàng khác (bảo mật dữ liệu):
+```json
+{
+  "success": false,
+  "message": "Không tìm thấy khiếu nại cho đơn hàng này",
+  "data": null,
+  "errors": [
+    {
+      "code": "NOT_FOUND"
+    }
+  ]
+}
+```
+
 - `GET /api/v1/complaints/<int:complaint_id>` (`@jwt_required`): Xem chi tiết một khiếu nại theo ID (chặn tràn số nguyên bằng giới hạn `max=2147483647`). Khách hàng chỉ xem được của mình (trả về `404 Not Found` nếu xem của người khác hoặc ID không tồn tại để ngăn chặn dò quét ID), Admin xem được tất cả.
 
-#### 5.2.3. Admin Phân Xử Khiếu Nại (`UC25`, `BR-24`, `EX-15`)
+#### 5.2.4. Admin Phân Xử Khiếu Nại (`UC25`, `BR-24`, `EX-15`)
 - **Endpoint**: `PATCH /api/v1/complaints/<int:complaint_id>/resolve`
 - **Quyền hạn**: Độc quyền Quản trị viên (`@role_required("admin")`)
 - **Headers**:
@@ -1712,6 +1960,57 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
   - `400 Bad Request`: `EX-14` (quá hạn hoặc đơn chưa giao), `EX-15` (đã có khiếu nại), `COMPLAINT_ALREADY_RESOLVED` (đã giải quyết trước đó với `CHAP_NHAN`/`TU_CHOI`), `INVALID_ORDER_STATUS` (đơn không ở trạng thái khiếu nại).
   - `422 Unprocessable Entity`: Body sai định dạng schema (status không thuộc `CHAP_NHAN`, `TU_CHOI`, `YEU_CAU_BO_SUNG`).
 
+#### 5.2.5. Khách Hàng Bổ Sung Minh Chứng Khiếu Nại (`UC15`, `EX-15`)
+- **Endpoint**: `POST /api/v1/complaints/<int:complaint_id>/supplement`
+- **Quyền hạn**: Độc quyền Khách hàng (`@role_required("customer")`)
+- **Headers**:
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: application/json`
+- **Request Body**:
+```json
+{
+  "proof_image_url": "/uploads/new_proof_evidence.jpg",
+  "description": "Em gửi thêm hình ảnh tem niêm phong và hóa đơn theo yêu cầu của Quản trị viên ạ."
+}
+```
+- **Ràng buộc Schema (`ComplaintSupplementRequest`)**:
+  - `proof_image_url` (Tùy chọn): Chuỗi từ 5 đến 1000 ký tự định dạng URL hoặc upload path.
+  - `description` (Tùy chọn): Chuỗi từ 3 đến 2000 ký tự.
+  - *Ít nhất 1 trong 2 trường phải có giá trị.*
+- **Quy tắc nghiệp vụ (`crud/complaint.py`)**:
+  - Kiểm tra quyền sở hữu ticket: `complaint.user_id == user_id` (`403 Forbidden` nếu không phải người tạo khiếu nại).
+  - Kiểm tra trạng thái ticket: Bắt buộc đang ở trạng thái `YEU_CAU_BO_SUNG` (`400 Bad Request` nếu ticket đang ở trạng thái khác).
+  - Cập nhật ảnh minh chứng mới nếu có; ghép thêm nội dung giải trình bổ sung vào `description` kèm mốc thời gian `[Bổ sung HH:mm dd/MM/yyyy]`.
+  - Chuyển trạng thái ticket từ `YEU_CAU_BO_SUNG` về lại `DANG_XU_LY` để Admin tiếp tục kiểm tra và phân xử.
+- **Response thành công (`200 OK`)**:
+```json
+{
+  "success": true,
+  "message": "Bổ sung minh chứng khiếu nại thành công",
+  "data": {
+    "id": 6,
+    "order_id": "NF2611051520",
+    "user_id": 4,
+    "user_name": "Nguyễn Sinh Viên",
+    "reason": "Món bị nguội / không đảm bảo nhiệt độ",
+    "description": "Nội dung ban đầu...\n\n[Bổ sung 17:23 05/11/2026]: Em gửi thêm hình ảnh tem niêm phong...",
+    "proof_image_url": "/uploads/new_proof_evidence.jpg",
+    "status": "DANG_XU_LY",
+    "admin_response": "Vui lòng cung cấp thêm hình ảnh tem niêm phong và hóa đơn",
+    "resolved_by": 5,
+    "resolved_at": null,
+    "created_at": "2026-11-05T17:15:00+00:00",
+    "updated_at": "2026-11-05T17:23:45+00:00"
+  }
+}
+```
+- **Mã lỗi thường gặp**:
+  - `400 Bad Request`: `INVALID_INPUT` (không cung cấp ảnh lẫn mô tả), `INVALID_STATUS` (ticket không ở trạng thái `YEU_CAU_BO_SUNG`).
+  - `401 Unauthorized`: Chưa đăng nhập hoặc token hết hạn.
+  - `403 Forbidden`: Người gọi không sở hữu khiếu nại này.
+  - `404 Not Found`: Không tìm thấy khiếu nại tương ứng.
+
+
 
 ### 5.3. Chốt Ca & Đối Soát Tiền COD Cuối Ca (`UC20`, `BR-25`, `EX-20`)
 
@@ -1756,6 +2055,7 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
 - **Request Body**:
 ```json
 {
+  "shift_date": "2026-10-19",
   "actual_cash": 450000.0,
   "actual_qr": 230000.0,
   "discrepancy_note": "Khớp 100% tiền mặt và sao kê QR"
@@ -1764,6 +2064,7 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
 - **Ràng buộc Schema (`schemas/shift.py` - `ShiftSubmitRequest`)**:
   - `actual_cash`: Số tiền mặt kiểm đếm thực tế, kiểu số không âm và tối đa 9,999,999,999.99 (`ge=0, le=9999999999.99, allow_inf_nan=False`).
   - `actual_qr`: Số tiền QR sao kê thực tế, kiểu số không âm và tối đa 9,999,999,999.99 (`ge=0, le=9999999999.99, allow_inf_nan=False`).
+  - `shift_date`: Ngày ca theo giờ Việt Nam từ số liệu nhân viên đã kiểm tra. Nếu ngày này không còn là ngày hiện tại khi gửi (ví dụ bản xác nhận cũ được gửi sau nửa đêm), API từ chối với `400 Bad Request` (`code: SHIFT_DATE_EXPIRED`) để tránh ghi nhầm thành ca của ngày mới. Trường này tùy chọn để giữ tương thích với các API client cũ.
   - `discrepancy_note`: Ghi chú giải trình (tối đa 1000 ký tự).
 - **Quy tắc nghiệp vụ & Xử lý chênh lệch (Quyết định D6, `BR-25`, `EX-20`)**:
   - Mỗi nhân viên chỉ có **tối đa 01 ca làm việc mỗi ngày** (tính theo ngày Việt Nam `Asia/Saigon`).

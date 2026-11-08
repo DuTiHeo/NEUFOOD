@@ -2,6 +2,7 @@ from typing import List, Optional
 from decimal import Decimal
 from datetime import datetime
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from app.schemas.auth import VN_PHONE_REGEX
 
 VALID_ORDER_STATUSES = (
     "^(CHO_XAC_NHAN|DANG_CHUAN_BI|DANG_GIAO|SAN_SANG_LAY|"
@@ -44,7 +45,8 @@ class OrderItemResponse(BaseModel):
 class OrderCreateRequest(BaseModel):
     order_type: str = Field(default="delivery", pattern="^(delivery|pickup)$")
     recipient_name: str = Field(..., min_length=2, max_length=150, pattern=r"\S")
-    recipient_phone: str = Field(..., pattern=r"^0[35789][0-9]{8}$")
+    # BR-01: Bắt buộc đúng 10 số di động Việt Nam bắt đầu bằng số 0
+    recipient_phone: str = Field(..., pattern=VN_PHONE_REGEX)
     campus_location_id: Optional[int] = Field(default=None, strict=True, gt=0)
     room_detail: Optional[str] = Field(default=None, max_length=100)
     delivery_address: Optional[str] = None
@@ -91,6 +93,7 @@ class OrderResponse(BaseModel):
     order_code_suffix: str
     user_id: Optional[int] = None
     staff_id: Optional[int] = None
+    shipper_id: Optional[int] = None
     order_type: str
     recipient_name: str
     recipient_phone: str

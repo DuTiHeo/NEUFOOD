@@ -3,6 +3,16 @@ import { CreateOrderPayload, Order, OrderIssuePayload, OrderListParams, OrderPro
 import { ApiResponse } from '../types/auth';
 
 export const orderService = {
+  async getShipperOrders(scope: 'available' | 'mine' | 'history', page = 1, limit = 100): Promise<{ items: Order[]; total: number }> {
+    const res = await api.get<ApiResponse<{ items: Order[]; total: number }>>('/orders/delivery/queue', { params: { scope, page, limit }, timeout: 30000 });
+    return res.data.data;
+  },
+
+  async claimDeliveryOrder(orderId: string): Promise<Order> {
+    const res = await api.post<ApiResponse<Order>>(`/orders/${orderId}/claim-delivery`);
+    return res.data.data;
+  },
+
   async createOrder(payload: CreateOrderPayload): Promise<Order> {
     const res = await api.post<ApiResponse<Order>>('/orders', payload);
     return res.data.data;

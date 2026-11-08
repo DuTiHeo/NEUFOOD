@@ -55,7 +55,9 @@ export interface CreateOrderPayload {
 }
 
 export interface OrderListParams {
-  status?: OrderStatus;
+  status?: string;
+  order_type?: string;
+  search?: string;
   page?: number;
   limit?: number;
 }
@@ -97,6 +99,7 @@ export interface Order {
   cancelled_reason?: string | null;
   user_id?: number;
   staff_id?: number | null;
+  shipper_id?: number | null;
   items?: OrderItem[];
   created_at?: string;
   date?: string;

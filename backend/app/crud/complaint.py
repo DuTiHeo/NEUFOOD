@@ -153,3 +153,48 @@ def resolve_complaint(
     return complaint
 
 
+def supplement_complaint(
+    db: Session,
+    user_id: int,
+    complaint_id: int,
+    proof_image_url: Optional[str] = None,
+    description: Optional[str] = None,
+) -> Complaint:
+    """
+    UC15, EX-15: Khách hàng bổ sung hình ảnh minh chứng hoặc giải trình theo yêu cầu của Admin.
+    Chuyển trạng thái ticket từ YEU_CAU_BO_SUNG về DANG_XU_LY để Admin tiếp tục duyệt.
+    Caller quản lý commit/rollback.
+    """
+    clean_img = proof_image_url.strip() if proof_image_url else None
+    clean_desc = description.strip() if description else None
+    if not clean_img and not clean_desc:
+        raise ComplaintError("Vui lòng tải lên ảnh minh chứng hoặc nhập nội dung giải trình bổ sung", "INVALID_INPUT", 400)
+
+    complaint = db.query(Complaint).filter(Complaint.id == complaint_id).with_for_update().first()
+    if not complaint:
+        raise ComplaintError("Không tìm thấy khiếu nại", "NOT_FOUND", 404)
+
+    if complaint.user_id != user_id:
+        raise ComplaintError("Bạn không có quyền chỉnh sửa khiếu nại này", "FORBIDDEN", 403)
+
+    if complaint.status != "YEU_CAU_BO_SUNG":
+        raise ComplaintError("Chỉ có thể bổ sung minh chứng khi Ban Quản lý yêu cầu (YEU_CAU_BO_SUNG)", "INVALID_STATUS", 400)
+
+    now = datetime.now(timezone.utc)
+    now_str = now.strftime("%H:%M %d/%m/%Y")
+
+    if clean_img:
+        complaint.proof_image_url = clean_img
+
+    if clean_desc:
+        complaint.description = f"{complaint.description}\n\n[Bổ sung {now_str}]: {clean_desc}"
+
+    # Đổi trạng thái ticket từ YEU_CAU_BO_SUNG về DANG_XU_LY (EX-15, State Machine)
+    complaint.status = "DANG_XU_LY"
+    complaint.updated_at = now
+
+    db.flush()
+    return complaint
+
+
+
