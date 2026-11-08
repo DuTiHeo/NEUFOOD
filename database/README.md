@@ -1,5 +1,8 @@
 # Tài Liệu Thiết Kế Cơ Sở Dữ Liệu NEUFood (12 Bảng Chuẩn Nghiệp Vụ) 🗄️
 
+Database đã có dữ liệu: xem [hướng dẫn migration và bàn giao](migrations/README.md)
+trước khi cập nhật. Không dùng `down -v` để cập nhật database hiện có.
+
 Hệ thống cơ sở dữ liệu quan hệ cho **NEUFood** sử dụng **PostgreSQL 16+** (tương thích với SQLAlchemy ORM cho cả MS SQL Server), hỗ trợ ràng buộc toàn vẹn dữ liệu (`CHECK CONSTRAINT`), trigger tự động cập nhật `updated_at` và chỉ mục tối ưu truy vấn.
 
 ---
