@@ -60,6 +60,7 @@ def _serialize_dish(dish, reviews=None) -> dict:
         "category_ids": [category.id for category in dish.categories],
         "categoryIds": [category.id for category in dish.categories],
         "badges": [badge.badge for badge in dish.badges],
+        "portion_groups": dish.portion_groups or [],
     }
     if reviews is not None:
         result["reviews"] = [_serialize_review(review) for review in reviews]

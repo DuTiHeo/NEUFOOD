@@ -9,6 +9,7 @@ from app.db.models import (
     Order, OrderItem, Dish, CampusLocation, User, Complaint, ACTIVE_ORDER_STATUSES
 )
 from app.crud.setting import get_setting_by_key, get_setting_int
+from app.crud.portion import resolve_portions, PortionError
 
 
 class OrderError(ValueError):
@@ -122,7 +123,26 @@ def create_order(
         campus_location_id = None
         room_detail = None
 
-    subtotal_amount = sum((dishes[key].price * quantity for key, quantity in quantities.items()), Decimal(0))
+    resolved_items = []
+    for item in items_data:
+        dish = dishes[item["dish_id"]]
+        try:
+            portions, extra = resolve_portions(dish.portion_groups or [], item.get("portions", []))
+        except PortionError as error:
+            raise OrderError(str(error), "INVALID_PORTION", 409) from error
+        unit_price = dish.price + extra
+        expected = item.get("expected_unit_price")
+        if extra and expected is None:
+            raise OrderError("Vui lòng xem và xác nhận lại giá phần thêm", "PRICE_CHANGED", 409)
+        if expected is not None:
+            try:
+                expected = Decimal(str(expected))
+            except Exception as error:
+                raise OrderError("Giá xác nhận không hợp lệ", "PRICE_CHANGED", 409) from error
+            if not expected.is_finite() or expected != unit_price:
+                raise OrderError("Giá món hoặc phần thêm đã thay đổi. Vui lòng xem và xác nhận lại.", "PRICE_CHANGED", 409)
+        resolved_items.append((item, dish, portions, unit_price, dish.base_price + extra))
+    subtotal_amount = sum((unit_price * item["quantity"] for item, _, _, unit_price, _ in resolved_items), Decimal(0))
     total_amount = subtotal_amount + ship_fee
     # Hai trần vẫn được bảo vệ bởi CHECK của schema PostgreSQL hiện hành.
     max_cod = min(500000, get_setting_int(db, "max_cod_amount", 500000))
@@ -158,11 +178,8 @@ def create_order(
     )
     db.add(order)
 
-    for item in items_data:
-        dish = dishes[item["dish_id"]]
+    for item, dish, portions, unit_price, base_price in resolved_items:
         dish_name = dish.name
-        unit_price = dish.price
-        base_price = dish.base_price
         quantity = item["quantity"]
         subtotal = unit_price * quantity
 
@@ -174,6 +191,7 @@ def create_order(
             base_price=base_price,
             quantity=quantity,
             note=item.get("note"),
+            portions=portions,
             subtotal=subtotal,
         )
         db.add(order_item)

@@ -299,3 +299,7 @@ CREATE TABLE IF NOT EXISTS chat_delivery_preferences (
     user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     details JSON NOT NULL
 );
+
+-- Extra-portion catalogs/snapshots; seeded after sample dishes.
+ALTER TABLE dishes ADD COLUMN IF NOT EXISTS portion_groups JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS portions JSONB NOT NULL DEFAULT '[]';

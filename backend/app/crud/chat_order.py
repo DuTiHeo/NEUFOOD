@@ -98,7 +98,7 @@ def order_args(db, payload):
 def order_summary(order):
     return {
         "items": [{"dish_id": i.dish_id, "name": i.dish_name, "quantity": i.quantity,
-                   "unit_price": str(i.unit_price), "subtotal": str(i.subtotal), "note": i.note}
+                   "unit_price": str(i.unit_price), "subtotal": str(i.subtotal), "note": i.note, "portions": i.portions or []}
                   for i in order.items],
         "recipient_name": order.recipient_name, "recipient_phone": order.recipient_phone,
         "order_type": order.order_type, "delivery_address": order.delivery_address,
@@ -148,6 +148,9 @@ def prepare_draft(db, user, session_id, changes):
     if user.is_blacklisted:
         raise OrderError("Tài khoản đang bị Blacklist COD", "EX-10", 403)
     update = DraftUpdate.model_validate(changes).model_dump(exclude_unset=True)
+    if any(selection.get("addon_ids") for item in update.get("items") or []
+           for selection in item.get("portions", [])):
+        raise OrderError("Vui lòng chọn phần thêm tại trang chi tiết món ăn.", "CHAT_PORTIONS_UNSUPPORTED", 409)
     draft = current_draft(db, user.id, session_id)
     if not draft or draft.order_id or aware(draft.expires_at) <= now():
         draft = ChatOrderDraft(id=uuid.uuid4().hex, user_id=user.id, session_id=session_id,
