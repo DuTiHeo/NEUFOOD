@@ -8,6 +8,9 @@ export interface RevenueReport {
   completed_orders: number
   cancelled_or_rejected_orders: number
   blacklisted_orders: number
+  discount_total?: number
+  simulated_deposit_total?: number
+  actual_cod_collected?: number
   gross_revenue: number
   canteen_net_revenue: number
   system_fee_total: number

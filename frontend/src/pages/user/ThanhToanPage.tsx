@@ -8,9 +8,11 @@ import { settingsService } from '../../services/settingsService'
 import { dishService } from '../../services/dishService'
 import { OrderingPolicy, orderService } from '../../services/orderService'
 import { getDishImageUrl, handleDishImageError } from '../../utils/dishImages'
-import { CreateOrderPayload, OrderType, PaymentMethod } from '../../types/order'
-import { orderingTimeError, scheduleBounds, scheduleInstant } from '../../utils/orderingTime'
+import { CreateOrderPayload, OrderType, PaymentMethod, Order } from '../../types/order'
+import { orderingTimeError, scheduleBounds, scheduleInstant, vietnamDateTime } from '../../utils/orderingTime'
 import { portionSummary } from '../../utils/portions'
+import DepositReview from '../../components/orders/DepositReview'
+import { calculateBulk, DEPOSIT_NOTICE } from '../../utils/bulkPricing'
 import Footer from '../../components/layout/Footer'
 import styles from './ThanhToanPage.module.css'
 
@@ -44,8 +46,18 @@ export default function ThanhToanPage() {
   const [deliveryNote, setDeliveryNote] = useState('')
   const [isPreorder, setIsPreorder] = useState(false)
   const [scheduledAt, setScheduledAt] = useState('')
+  useEffect(() => {
+    try {
+      const saved=JSON.parse(sessionStorage.getItem('neufood-checkout-from-chat') || 'null')
+      sessionStorage.removeItem('neufood-checkout-from-chat')
+      if(saved?.owner !== user?.id || !saved?.summary) return
+      const s=saved.summary
+      setOrderType(s.order_type === 'pickup' ? 'pickup' : 'delivery');setPaymentMethod(s.payment_method === 'cod_vietqr' ? 'cod_vietqr' : 'cod_cash')
+      setRecipientName(s.recipient_name || '');setRecipientPhone(s.recipient_phone || '');setSelectedLocationId(String(s.campus_location_id || ''));setRoomDetail(s.room_detail || '');setDeliveryNote(s.delivery_note || '')
+      setIsPreorder(Boolean(s.is_preorder));setScheduledAt(s.scheduled_at ? vietnamDateTime(Date.parse(s.scheduled_at)).slice(0,16) : '')
+    } catch { /* Invalid handoff data is ignored; the server validates checkout. */ }
+  }, [user?.id])
   const [deliveryFee, setDeliveryFee] = useState(5000)
-  const [maxCodAmount, setMaxCodAmount] = useState(500000)
   const [maxDishQuantity, setMaxDishQuantity] = useState(10)
   const [policy, setPolicy] = useState<OrderingPolicy | null>(null)
   const [clock, setClock] = useState({ epoch: 0, monotonic: 0 })
@@ -75,6 +87,9 @@ export default function ThanhToanPage() {
   const [locationError, setLocationError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [confirmError, setConfirmError] = useState('')
+  const [review, setReview] = useState<{ quote: Order; payload: CreateOrderPayload } | null>(null)
+  const fingerprint = JSON.stringify([lines, orderType, recipientName, recipientPhone, selectedLocationId, roomDetail, deliveryNote, isPreorder, scheduledAt, paymentMethod])
+  useEffect(() => { setReview(null) }, [fingerprint])
 
   useEffect(() => {
     if (!recipientName && user?.full_name) setRecipientName(user.full_name)
@@ -95,10 +110,8 @@ export default function ThanhToanPage() {
       if (settingsResult.status === 'fulfilled') {
         const config = Object.fromEntries(settingsResult.value.map((setting) => [setting.setting_key, setting.setting_value]))
         const fee = Number(config.delivery_fee)
-        const codLimit = Number(config.max_cod_amount)
         const quantityLimit = Number(config.max_dish_quantity_per_order)
         setDeliveryFee(Number.isFinite(fee) && fee >= 0 ? fee : 5000)
-        setMaxCodAmount(Math.min(500000, Number.isFinite(codLimit) && codLimit >= 0 ? codLimit : 500000))
         setMaxDishQuantity(Math.min(10, Number.isFinite(quantityLimit) && quantityLimit > 0 ? quantityLimit : 10))
 
       }
@@ -108,13 +121,13 @@ export default function ThanhToanPage() {
   }, [])
 
   const selectedLocation = locations.find((location) => String(location.id) === selectedLocationId)
-  const shipping = orderType === 'delivery' && totalCount > 0 ? deliveryFee : 0
-  const total = subtotal + shipping
+  const pricing = calculateBulk(subtotal, lines.reduce((n,l)=>n+Number(l.dish.eligible_servings || 0)*l.qty,0), orderType === 'delivery' && totalCount > 0 ? deliveryFee : 0)
+  const shipping = pricing.shipping_fee
+  const total = pricing.total_amount
   const serverNow = clock.epoch + performance.now() - clock.monotonic
   const bounds = policy ? scheduleBounds(policy, serverNow) : { min: '', max: '' }
   const timeError = policyError || orderingTimeError(policy, serverNow, isPreorder, scheduledAt)
   const phoneIsValid = /^0[35789]\d{8}$/.test(recipientPhone.trim())
-  const overCodLimit = total > maxCodAmount
   const overDishQuantityLimit = lines.some((line) => line.qty > maxDishQuantity)
 
   async function handleConfirmOrder(event: FormEvent<HTMLFormElement>) {
@@ -140,10 +153,6 @@ export default function ThanhToanPage() {
     }
     const currentTimeError = policyError || orderingTimeError(policy, clock.epoch + performance.now() - clock.monotonic, isPreorder, scheduledAt)
     if (currentTimeError) { setConfirmError(currentTimeError); return }
-    if (overCodLimit) {
-      setConfirmError(`Đơn COD không được vượt quá ${formatPrice(maxCodAmount)}. Vui lòng giảm số lượng món.`)
-      return
-    }
     if (overDishQuantityLimit) {
       setConfirmError(`Mỗi món chỉ được đặt tối đa ${maxDishQuantity} phần theo cấu hình hiện tại.`)
       return
@@ -169,15 +178,29 @@ export default function ThanhToanPage() {
         payment_method: paymentMethod,
         items: lines.map(({ dish, qty, note, portions, unitPrice }) => ({ dish_id: dish.id, quantity: qty, note, portions, expected_unit_price: unitPrice })),
       }
-      const order = await orderService.createOrder(payload)
-      clear()
-      void refreshOrders()
-      navigate(`/don-hang/${order.id}`, { state: { orderPlaced: true } })
+      const quote = await orderService.quoteOrder(payload)
+      if (Number(quote.bulk_pricing?.deposit_amount) > 0 || Number(quote.total_amount) !== total) {
+        setReview({ quote, payload }); return
+      }
+      await finishOrder({ ...payload, expected_pricing: quote.bulk_pricing })
     } catch (error) {
       setConfirmError(getErrorMessage(error))
     } finally {
       setSubmitting(false)
     }
+  }
+
+  async function finishOrder(payload: CreateOrderPayload) {
+    const order = await orderService.createOrder(payload)
+    clear(); void refreshOrders()
+    navigate(`/don-hang/${order.id}`, { state: { orderPlaced: true } })
+  }
+  async function confirmReview() {
+    if (!review || submitting) return
+    setSubmitting(true); setConfirmError('')
+    try { await finishOrder({ ...review.payload, expected_pricing: review.quote.bulk_pricing, deposit_token: review.quote.deposit_token }) }
+    catch (error) { setConfirmError(getErrorMessage(error)); setReview(null) }
+    finally { setSubmitting(false) }
   }
 
   if (totalCount === 0) {
@@ -297,12 +320,13 @@ export default function ThanhToanPage() {
                     <div className={styles.billRow}><span>Phí giao hàng</span><span className={styles.billRowInk}>{formatPrice(shipping)}</span></div>
                   </div>
                   <div className={styles.billSep} />
+                  <p>Suất đủ điều kiện: {pricing.eligible_servings} · Giảm {pricing.discount_rate}%: {formatPrice(pricing.discount_amount)}{pricing.eligible_servings >= 5 && orderType === 'delivery' ? ' · Miễn phí giao hàng' : ''}</p>
+                  {pricing.deposit_amount > 0 && <><p><em>{DEPOSIT_NOTICE}</em></p><p>Cọc mô phỏng 50%: {formatPrice(pricing.deposit_amount)} · Còn {formatPrice(pricing.cod_due)} thanh toán COD khi nhận.</p></>}
                   <div className={styles.billSum}><div><span className={styles.billSumL}>Tổng thanh toán</span><p className={styles.billVat}>COD, thanh toán khi bàn giao</p></div><span className={styles.billSumN}>{formatPrice(total)}</span></div>
-                  {overCodLimit ? <p className={styles.billErr} role="alert">Đơn COD tối đa {formatPrice(maxCodAmount)}.</p> : null}
                   {overDishQuantityLimit ? <p className={styles.billErr} role="alert">Mỗi món tối đa {maxDishQuantity} phần theo cấu hình hiện tại.</p> : null}
                   {confirmError ? <p className={styles.billErr} role="alert">{confirmError}</p> : null}
-                  <button type="submit" className={styles.billGo} disabled={submitting || Boolean(timeError) || unavailableLines.length > 0 || overCodLimit || overDishQuantityLimit || (orderType === 'delivery' && (loadingLocations || Boolean(locationError)))}>
-                    <span className="material-symbols-outlined material-symbols-fill">shopping_bag</span>{submitting ? 'Đang gửi đơn…' : 'Xác nhận đặt hàng'}
+                  <button type="submit" className={styles.billGo} disabled={submitting || Boolean(timeError) || unavailableLines.length > 0 || overDishQuantityLimit || (orderType === 'delivery' && (loadingLocations || Boolean(locationError)))}>
+                    <span className="material-symbols-outlined material-symbols-fill">shopping_bag</span>{submitting ? 'Đang gửi đơn…' : pricing.deposit_amount > 0 ? 'Đặt cọc' : 'Xác nhận đặt hàng'}
                   </button>
                   <Link to="/gio-hang" className={styles.billLegalLink}>Quay lại giỏ hàng</Link>
                 </div>
@@ -311,6 +335,7 @@ export default function ThanhToanPage() {
           </form>
         </div>
       </main>
+      {review && <DepositReview quote={review.quote} busy={submitting} error={confirmError} onClose={()=>setReview(null)} onConfirm={()=>void confirmReview()} />}
       <Footer />
     </>
   )

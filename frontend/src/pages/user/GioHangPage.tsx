@@ -8,7 +8,7 @@ import Footer from '../../components/layout/Footer'
 import styles from './GioHangPage.module.css'
 
 export default function GioHangPage() {
-  const { lines, add, setQuantity, totalCount, subtotal, unavailableLines, maxDishQuantity, reviewLine, getQty } = useCart()
+  const { bulkPricing, lines, add, setQuantity, totalCount, subtotal, unavailableLines, maxDishQuantity, reviewLine, getQty } = useCart()
 
   const visibleItems = useMemo(() => lines.map((l) => ({ ...l.dish, price: l.unitPrice, qty: l.qty, key: l.lineId, line: l, isMissing: l.isMissing })), [lines])
 
@@ -98,12 +98,14 @@ export default function GioHangPage() {
                 </div>
                 <div className={styles.sumRow}>
                   <span>Phí giao / nhận</span>
-                  <span className={styles.sumRowAccent}>Tính ở bước đặt hàng</span>
+                  <span className={styles.sumRowAccent}>{bulkPricing.eligible_servings >= 5 ? "Miễn phí" : formatVnd(bulkPricing.shipping_fee)}</span>
                 </div>
               </div>
+              <p>Suất đủ điều kiện: {bulkPricing.eligible_servings} · Giảm {bulkPricing.discount_rate}%: {formatVnd(bulkPricing.discount_amount)}</p>
+              <p>Dự kiến giao tận nơi; chọn nhận tại quầy ở bước thanh toán.</p>
               <div className={styles.sumTotal}>
                 <span className={styles.sumTotalLabel}>Tổng cộng</span>
-                  <span className={styles.sumTotalValue}>{formatVnd(subtotal)}</span>
+                  <span className={styles.sumTotalValue}>{formatVnd(bulkPricing.total_amount)}</span>
               </div>
               <div className={styles.sumActions}>
                 {totalCount > 0 ? (

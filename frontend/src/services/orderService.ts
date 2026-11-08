@@ -14,6 +14,10 @@ export interface OrderingPolicy {
 }
 
 export const orderService = {
+  async quoteOrder(payload: CreateOrderPayload): Promise<Order> {
+    const res = await api.post<ApiResponse<Order>>('/orders/quote', payload);
+    return res.data.data;
+  },
   async getPolicy(): Promise<OrderingPolicy> {
     const res = await api.get<ApiResponse<OrderingPolicy>>('/orders/policy');
     return res.data.data;

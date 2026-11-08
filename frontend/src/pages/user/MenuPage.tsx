@@ -256,7 +256,7 @@ const DOCK_FULL_TOP_PX = 68
 const SCROLL_DELTA_PX = 10
 
 export default function MenuPage() {
-  const { add, setQuantity, lines, totalCount, subtotal } = useCart()
+  const { add, setQuantity, lines, totalCount, bulkPricing } = useCart()
   const { dishes, categories, isLoading, error, refresh } = useDishes()
   const { menuSearch: search, setMenuSearch } = useMenuSearch()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -646,8 +646,8 @@ export default function MenuPage() {
                 <div className={styles.cartFooter}>
                   {totalCount > 0 && (
                     <div className={styles.cartSubtotalRow}>
-                      <span className={styles.cartSubtotalLabel}>Tạm tính:</span>
-                      <span className={styles.cartSubtotalVal}>{formatVnd(subtotal)}</span>
+                      <span className={styles.cartSubtotalLabel}>Dự kiến giao tận nơi:</span>
+                      <span className={styles.cartSubtotalVal}>{formatVnd(bulkPricing.total_amount)}</span>
                     </div>
                   )}
                   <Link
@@ -658,6 +658,7 @@ export default function MenuPage() {
                     <ShoppingBag size={18} />
                     <span>Xem giỏ & thanh toán</span>
                   </Link>
+                  {totalCount > 0 && <p>{bulkPricing.eligible_servings} suất đủ điều kiện · Giảm {bulkPricing.discount_rate}%{bulkPricing.eligible_servings >= 5 ? ' · Miễn phí giao hàng' : ''}</p>}
                   <p className={styles.cartHint}>⚡ Giao nhanh 15–20p tại khuôn viên NEU</p>
                 </div>
               </div>

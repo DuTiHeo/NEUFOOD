@@ -91,20 +91,20 @@ export default function AdminBaoCaoPage() {
 
       {!isLoading && report ? <>
         <section className={styles.metrics} aria-label="Chỉ số tổng hợp">
-          <article className={styles.mc}><div className={styles.mcTop}><span className={`material-symbols-outlined ${styles.mcIco}`} style={{ background: '#eff6ff', color: '#2563eb' }}>payments</span></div><p className={styles.mcLbl}>Tổng doanh thu đã thu</p><p className={styles.mcVal}>{money(reportForDisplay.gross_revenue)}</p></article>
+          <article className={styles.mc}><div className={styles.mcTop}><span className={`material-symbols-outlined ${styles.mcIco}`} style={{ background: '#eff6ff', color: '#2563eb' }}>payments</span></div><p className={styles.mcLbl}>Tổng doanh thu đã thu</p><p className={styles.mcVal}>{money(reportForDisplay.actual_cod_collected ?? reportForDisplay.gross_revenue)}</p></article>
           <article className={styles.mc}><div className={styles.mcTop}><span className={`material-symbols-outlined ${styles.mcIco}`} style={{ background: '#eef2ff', color: '#4f46e5' }}>receipt_long</span></div><p className={styles.mcLbl}>Tổng đơn trong kỳ</p><p className={styles.mcVal}>{reportForDisplay.total_orders.toLocaleString('vi-VN')}</p></article>
-          <article className={styles.mc}><div className={styles.mcTop}><span className={`material-symbols-outlined ${styles.mcIco}`} style={{ background: '#ecfdf5', color: '#059669' }}>storefront</span></div><p className={styles.mcLbl}>Doanh thu Canteen</p><p className={styles.mcVal}>{money(reportForDisplay.canteen_net_revenue)}</p></article>
+          <article className={styles.mc}><div className={styles.mcTop}><span className={`material-symbols-outlined ${styles.mcIco}`} style={{ background: '#ecfdf5', color: '#059669' }}>storefront</span></div><p className={styles.mcLbl}>Giá trị phân bổ Canteen</p><p className={styles.mcVal}>{money(reportForDisplay.canteen_net_revenue)}</p></article>
           <article className={styles.mc}><div className={styles.mcTop}><span className={`material-symbols-outlined ${styles.mcIco}`} style={{ background: '#fffbeb', color: '#d97706' }}>task_alt</span></div><p className={styles.mcLbl}>Đã bàn giao / hoàn tất</p><p className={styles.mcVal}>{reportForDisplay.completed_orders.toLocaleString('vi-VN')}</p></article>
         </section>
 
         <section className={styles.charts}>
           <article className={styles.chartCard}>
-            <div className={styles.chartHd}><div><h2 className={styles.chartTit}>Cơ cấu doanh thu</h2><p className={styles.chartSub}>Khoản thu từ đơn đã thanh toán trong kỳ</p></div></div>
+            <div className={styles.chartHd}><div><h2 className={styles.chartTit}>Cơ cấu giá trị đơn</h2><p className={styles.chartSub}>Phân bổ theo toàn đơn, gồm cọc mô phỏng; tiền COD thực thu được tách riêng</p></div></div>
             <dl className={styles.reportBreakdown}>
-              <div><dt>Doanh thu món (Canteen)</dt><dd>{money(reportForDisplay.canteen_net_revenue)}</dd></div>
+              <div><dt>Giá trị món phân bổ Canteen</dt><dd>{money(reportForDisplay.canteen_net_revenue)}</dd></div>
               <div><dt>Phụ phí hệ thống</dt><dd>{money(reportForDisplay.system_fee_total)}</dd></div>
               <div><dt>Phí giao hàng</dt><dd>{money(reportForDisplay.ship_fee_total)}</dd></div>
-              <div className={styles.reportTotal}><dt>Tổng tiền đã thu</dt><dd>{money(reportForDisplay.gross_revenue)}</dd></div>
+              <div><dt>Giảm giá căn tin chịu</dt><dd>{money(reportForDisplay.discount_total || 0)}</dd></div><div><dt>Cọc mô phỏng, không phải tiền thực thu</dt><dd>{money(reportForDisplay.simulated_deposit_total || 0)}</dd></div><div><dt>Giá trị đơn đã bàn giao</dt><dd>{money(reportForDisplay.gross_revenue)}</dd></div><div className={styles.reportTotal}><dt>Tổng tiền đã thu</dt><dd>{money(reportForDisplay.actual_cod_collected ?? reportForDisplay.gross_revenue)}</dd></div>
             </dl>
             <p className={styles.chartSub}>Kỳ báo cáo: {new Date(`${reportForDisplay.from_date}T00:00:00`).toLocaleDateString('vi-VN')} – {new Date(`${reportForDisplay.to_date}T00:00:00`).toLocaleDateString('vi-VN')}</p>
           </article>
