@@ -182,8 +182,9 @@ NGUYÊN TẮC PHẢN HỒI:
 4. Nếu khách hỏi món nằm trong danh sách tạm hết hàng hôm nay ({unavail_text}), hãy báo rõ món đó đang tạm hết và gợi ý món tương tự đang còn bán.
 
 QUY ĐỊNH VẬN HÀNH & NGHIỆP VỤ CANTEEN A2 (NEUFOOD):
-- Đặt ngay chỉ từ {open_time} đến đúng {cutoff_time}:00 giờ Việt Nam; làm xong sớm giao sớm, không chờ30 phút. Đặt hẹn giờ được tạo bất kỳ lúc nào, kể cả ngoài giờ; giờ nhận từ {open_time} đến đúng {close_time}:00 trong hôm nay và7 ngày tiếp theo, cách lúc tạo ít nhất {preorder_lead} phút. Tester được miễn khung giờ nhưng không miễn thời gian đặt trước,7 ngày hay điều kiện COD; không suy quyền từ email.
-- **Giờ mở cửa phục vụ**: **{open_time} – {close_time}** hàng ngày tại Canteen A2 (Tầng 1, Nhà A2).
+- Canteen nghỉ Chủ nhật (theo ngày Việt Nam). Khách thường không đặt ngay hoặc hẹn nhận vào Chủ nhật; vẫn được tạo đơn hẹn trong ngày nghỉ để nhận thứ Hai–thứ Bảy, trong giới hạn7 ngày và giờ phục vụ. Tester có ngoại lệ ngày nghỉ do máy chủ xác định.
+- Đặt ngay chỉ từ {open_time} đến đúng {cutoff_time}:00 giờ Việt Nam; làm xong sớm giao sớm, không chờ30 phút. Đặt hẹn giờ được tạo bất kỳ lúc nào, kể cả ngoài giờ; giờ nhận từ {open_time} đến đúng {close_time}:00 trong hôm nay và7 ngày tiếp theo, cách lúc tạo ít nhất {preorder_lead} phút. Tester được miễn khung giờ nhưng không miễn thời gian đặt trước,7 ngày hay điều kiện COD; không suy quyền từ email; ngoại lệ tester cũng bao gồm ngày nghỉ Chủ nhật.
+- **Giờ mở cửa phục vụ**: **{open_time} – {close_time}** từ thứ Hai đến thứ Bảy tại Canteen A2 (Tầng 1, Nhà A2).
 - **Công thức giá**: Giá niêm yết trên web đã bao gồm **{_format_vnd(system_fee)}** phụ phí bảo trì hệ thống (BR-12).
 - **Phí giao hàng**: Cố định **{_format_vnd(delivery_fee)}/đơn** khi chọn **Giao tận nơi (`delivery`)** tới các tòa nhà trong trường; **Miễn phí (0đ)** khi chọn **Nhận tại quầy Canteen A2 (`pickup`)**.
 - **Thời gian giao dự kiến**: Giao tận nơi khoảng **15 – 25 phút**; Nhận tại quầy khoảng **10 – 15 phút**. Đơn đặt hẹn trước (Pre-order) cần đặt trước tối thiểu **{preorder_lead} phút**.
@@ -420,8 +421,9 @@ def _build_local_fallback_reply(
     if any(kw in msg_norm for kw in time_keywords):
         return (
             f"Thông tin thời gian phục vụ của **Canteen A2 - NEUFood**:\n"
+            f"- Canteen phục vụ thứ Hai–thứ Bảy, nghỉ Chủ nhật. Chủ nhật vẫn được tạo đơn hẹn nhận vào ngày làm việc trong7 ngày tiếp theo.\n"
             f"- Đặt ngay: {open_time}–{cutoff_time}, xong sớm giao sớm. Hẹn giờ: được tạo cả ngoài giờ, nhận trong hôm nay và7 ngày tiếp theo.\n"
-            f"- **Giờ mở cửa**: **{open_time} – {close_time}** hàng ngày.\n"
+            f"- **Giờ mở cửa**: **{open_time} – {close_time}** từ thứ Hai đến thứ Bảy.\n"
             f"- **Giao tận nơi nội khu (`delivery`)**: Dự kiến **15 – 25 phút** (phí ship **{_format_vnd(delivery_fee)}**).\n"
             f"- **Nhận tại quầy Canteen A2 (`pickup`)**: Chuẩn bị trong **10 – 15 phút** (miễn phí ship **0đ**, giữ món tối đa **{pickup_hold} phút**).\n"
             f"- Bạn cũng có thể chọn **Đặt hẹn giờ trước** (cách thời điểm hiện tại tối thiểu **{max(30, int(float(cfg.get('min_preorder_lead_minutes', '30'))))} phút**)."

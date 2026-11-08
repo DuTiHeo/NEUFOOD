@@ -31,4 +31,4 @@ if __name__ == "__main__":
     password = getpass.getpass("Mật khẩu tài khoản tester mới: ") if args.create else None
     with get_db() as db:
         set_exemption(db, args.email, args.action == "grant", password)
-    print("Đã cập nhật quyền ngoại lệ khung giờ.")
+    print("Đã cập nhật quyền ngoại lệ khung giờ và ngày nghỉ Chủ nhật.")

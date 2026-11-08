@@ -1,10 +1,22 @@
 # Khung thời gian đặt đơn — quyết định 08/11/2026
 
-Tài liệu này ghi nhận quyết định sau cùng của người dùng, thay phần yêu cầu ban đầu cấm tạo đơn hẹn ngoài giờ. Canteen A2, giờ Việt Nam UTC+7, thời gian máy chủ.
+Tài liệu này ghi nhận quyết định sau cùng của người dùng, thay phần yêu cầu ban đầu cấm tạo đơn hẹn ngoài giờ. Canteen A2 phục vụ thứ Hai–thứ Bảy, nghỉ Chủ nhật; giờ Việt Nam UTC+7, thời gian máy chủ.
+
+## Bổ sung nghỉ Chủ nhật
+
+Khách thường không được đặt ngay vào Chủ nhật, cả giao tận nơi lẫn nhận tại quầy. Vẫn được tạo đơn hẹn trong ngày Chủ nhật để nhận thứ Hai–thứ Bảy trong giờ phục vụ và hôm nay +7 ngày. Không được hẹn nhận vào Chủ nhật dù tạo đơn ngày khác. Không tự kéo dài giới hạn đến +8 ngày để bỏ qua Chủ nhật. Tester có quyền ngoại lệ được đặt ngay/nhận hẹn vào Chủ nhật; vẫn giữ thời gian đặt trước và các giới hạn khác. Quyền cũ `ordering_hours_exempt` bao gồm ngoại lệ ngày nghỉ, không cần migration hoặc cấp quyền mới.
+
+`GET /api/v1/orders/policy` bổ sung `closed_weekdays: [7]` (ISO weekday, thứ Hai=1, Chủ nhật=7). Lỗi400 `ORDER_CLOSED_DAY` khi đặt ngay Chủ nhật, `SCHEDULE_CLOSED_DAY` khi hẹn nhận Chủ nhật. Giữ nguyên giỏ/nháp và thông báo lý do, hướng dẫn đặt hẹn ngày làm việc. Backend kiểm tra mọi đường tạo đơn; checkout cũng kiểm tra ngày chọn và đề xuất giờ sớm nhất bỏ qua Chủ nhật.
+
+Đơn cũ hẹn Chủ nhật không bị tự đổi lịch hoặc hủy vì ngày nghỉ. API Orders thêm `sunday_schedule_warning` cho đơn hẹn Chủ nhật đang hoạt động của khách không có ngoại lệ. Danh sách và hộp chi tiết của Staff/Manager hiển thị cảnh báo liên hệ khách thống nhất đổi lịch; không thêm thao tác tự đổi lịch. Đơn của tester không bị cảnh báo xung đột ngày nghỉ. SLA hiện hành tiếp tục áp dụng độc lập, không thêm tác vụ hủy theo ngày nghỉ.
+
+Footer khách hàng hiển thị mọi ngày một dòng chữ tĩnh, đậm, vàng (#facc15) trên nền tối, không phải nút: “Canteen phục vụ từ thứ Hai đến thứ Bảy và nghỉ Chủ nhật. Vào Chủ nhật, quý khách vui lòng đặt hẹn nhận vào ngày làm việc tiếp theo, trong khung giờ phục vụ.”
+
+Phần bổ sung không thay schema hay sửa dữ liệu đơn đang có. Khi cập nhật local, khởi động lại backend và xóa riêng cache `neufood:chat:knowledge_context`; không reset database.
 
 - Đặt ngay: chỉ từ07:30:00 đến đúng18:30:00. Sau18:30:00, kể cả18:30:00.000001, không nhận đơn đặt ngay. Làm xong sớm giao sớm, không chờ30 phút.
 - Hẹn giờ: được tạo bất kỳ lúc nào, kể cả22:00 để nhận09:00 hôm sau. Giờ nhận phải từ07:30:00 đến đúng19:00:00 và cách lúc tạo ít nhất30 phút (hoặc cấu hình cao hơn). Cho phép hôm nay và7 ngày tiếp theo theo ngày lịch Việt Nam. Ví dụ08/11 được hẹn đến19:00 ngày15/11; không tính bằng168 giờ.
-- Tester miễn khung giờ tạo/nhận, vẫn giữ thời gian đặt trước và giới hạn7 ngày, một đơn hoạt động, tối đa10 phần cùng món, tổng COD500k gồm ship/phần thêm, xác thực/Blacklist/món/địa điểm. Không tự nhận đơn/thanh toán/bàn giao.
+- Tester miễn khung giờ tạo/nhận và ngày nghỉ Chủ nhật, vẫn giữ thời gian đặt trước và giới hạn7 ngày, một đơn hoạt động, tối đa10 phần cùng món, tổng COD500k gồm ship/phần thêm, xác thực/Blacklist/món/địa điểm. Không tự nhận đơn/thanh toán/bàn giao.
 - Không thêm tác vụ hủy/đóng đơn khi đến18:30 hoặc19:00. Đơn đã nhận vẫn xử lý/đối soát; SLA duyệt10 phút và các quy tắc giữ món tiếp tục áp dụng, kể cả đơn hẹn xa ngày.
 
 ## Cấu hình và API

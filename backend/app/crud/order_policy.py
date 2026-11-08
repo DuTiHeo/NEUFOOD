@@ -20,6 +20,7 @@ def get_order_policy(db, user, now=None):
         "close_time": get_setting_by_key(db, "canteen_close_time", "19:00"),
         "min_lead_minutes": max(30, get_setting_int(db, "min_preorder_lead_minutes", 30)),
         "max_days": 7,
+        "closed_weekdays": [7],
         "exempt_hours": bool(user.ordering_hours_exempt),
     }
 
@@ -38,9 +39,20 @@ def validate_order_time(policy, is_preorder, scheduled_at, now):
         local_schedule = scheduled_at.astimezone(VIETNAM)
         if not local_now.date() <= local_schedule.date() <= local_now.date() + timedelta(days=policy["max_days"]):
             raise OrderError("Chỉ được hẹn nhận trong hôm nay và 7 ngày tiếp theo (giờ Việt Nam).", "SCHEDULE_DATE_RANGE")
+        if not policy["exempt_hours"] and local_schedule.isoweekday() == 7:
+            raise OrderError("Canteen nghỉ Chủ nhật. Vui lòng hẹn nhận từ thứ Hai đến thứ Bảy trong khung giờ phục vụ.", "SCHEDULE_CLOSED_DAY")
         if not policy["exempt_hours"] and not opening <= local_schedule.time() <= closing:
             raise OrderError(f"Thời gian hẹn nhận phải nằm trong khung giờ từ {policy['open_time']} đến {policy['close_time']}.", "SCHEDULE_OUTSIDE_HOURS")
     elif scheduled_at is not None:
         raise OrderError("Chỉ gửi scheduled_at khi đặt hẹn giờ", "EX-08")
+    elif not policy["exempt_hours"] and local_now.isoweekday() == 7:
+        raise OrderError("Canteen nghỉ Chủ nhật nên không nhận đơn đặt ngay. Bạn có thể đặt hẹn nhận từ thứ Hai đến thứ Bảy trong khung giờ phục vụ.", "ORDER_CLOSED_DAY")
     elif not policy["exempt_hours"] and not opening <= local_now.time() <= cutoff:
-        raise OrderError(f"Canteen nhận đơn đặt ngay từ {policy['open_time']} đến {policy['order_cutoff_time']} hằng ngày và phục vụ đến {policy['close_time']}. Bạn có thể đặt hẹn giờ cho thời gian phục vụ phù hợp.", "ORDER_OUTSIDE_HOURS")
+        raise OrderError(f"Canteen nhận đơn đặt ngay từ {policy['open_time']} đến {policy['order_cutoff_time']} từ thứ Hai đến thứ Bảy và phục vụ đến {policy['close_time']}. Bạn có thể đặt hẹn giờ cho thời gian phục vụ phù hợp.", "ORDER_OUTSIDE_HOURS")
+
+
+def has_sunday_schedule_conflict(order):
+    from app.db.models import ACTIVE_ORDER_STATUSES
+    return bool(order.is_preorder and order.scheduled_at and order.status in ACTIVE_ORDER_STATUSES
+                and order.scheduled_at.astimezone(VIETNAM).isoweekday() == 7
+                and not (order.user and order.user.ordering_hours_exempt))

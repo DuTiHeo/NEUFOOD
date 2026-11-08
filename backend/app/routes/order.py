@@ -2,7 +2,7 @@ from flask import Blueprint, request, g
 from pydantic import ValidationError
 from app.db.session import get_db
 from app.db.models import User
-from app.crud.order_policy import get_order_policy
+from app.crud.order_policy import get_order_policy, has_sunday_schedule_conflict
 from app.crud.order import (
     create_order, cancel_order, get_order_by_id, get_user_orders, get_all_orders, update_order_status, OrderError,
     handover_order, report_delivery_issue, confirm_order_receipt,
@@ -33,6 +33,7 @@ def _serialize_order(o: object) -> dict:
         "delivery_note": o.delivery_note,
         "is_preorder": o.is_preorder,
         "scheduled_at": o.scheduled_at.isoformat() if o.scheduled_at else None,
+        "sunday_schedule_warning": has_sunday_schedule_conflict(o),
         "payment_method": o.payment_method,
         "payment_status": o.payment_status,
         "subtotal_amount": float(o.subtotal_amount),
