@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(150) NOT NULL,
-    phone_number VARCHAR(20) NOT NULL,
+    phone_number VARCHAR(20) UNIQUE,
     student_id VARCHAR(30),
     role VARCHAR(20) NOT NULL DEFAULT 'customer' 
         CHECK (role IN ('customer', 'staff', 'manager', 'admin')),
@@ -119,6 +119,7 @@ CREATE TABLE IF NOT EXISTS orders (
     order_code_suffix VARCHAR(4) NOT NULL,
     user_id INT REFERENCES users(id) ON DELETE SET NULL,
     staff_id INT REFERENCES users(id) ON DELETE SET NULL,
+    shipper_id INT REFERENCES users(id) ON DELETE SET NULL,
     order_type VARCHAR(20) NOT NULL DEFAULT 'delivery' 
         CHECK (order_type IN ('delivery', 'pickup')),
     recipient_name VARCHAR(150) NOT NULL,
@@ -152,6 +153,8 @@ CREATE TABLE IF NOT EXISTS orders (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipper_id INT REFERENCES users(id) ON DELETE SET NULL;
 
 DROP TRIGGER IF EXISTS set_timestamp_orders ON orders;
 CREATE TRIGGER set_timestamp_orders
@@ -253,7 +256,29 @@ CREATE TABLE IF NOT EXISTS revoked_tokens (
     reason VARCHAR(255)
 );
 
--- 16. INDEXES
+-- 16. BẢNG USER_DEVICES (Thiết bị tin cậy & Chống khóa oan tài khoản - BR-02, EX-02)
+CREATE TABLE IF NOT EXISTS user_devices (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    device_id VARCHAR(64) NOT NULL,
+    token_hash VARCHAR(64) NOT NULL UNIQUE,
+    device_name VARCHAR(150),
+    failed_login_attempts INT DEFAULT 0 NOT NULL,
+    locked_until TIMESTAMP WITH TIME ZONE,
+    last_used_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    is_revoked BOOLEAN DEFAULT FALSE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT uq_user_device_id UNIQUE (user_id, device_id)
+);
+
+DROP TRIGGER IF EXISTS set_timestamp_user_devices ON user_devices;
+CREATE TRIGGER set_timestamp_user_devices
+BEFORE UPDATE ON user_devices
+FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
+
+-- 17. INDEXES
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_blacklisted ON users(is_blacklisted);
@@ -267,6 +292,7 @@ CREATE INDEX IF NOT EXISTS idx_dish_categories_cat ON dish_categories(category_i
 
 CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_staff_id ON orders(staff_id);
+CREATE INDEX IF NOT EXISTS idx_orders_shipper_id ON orders(shipper_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_type ON orders(order_type);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
@@ -304,3 +330,5 @@ CREATE TABLE IF NOT EXISTS chat_delivery_preferences (
 -- Extra-portion catalogs/snapshots; seeded after sample dishes.
 ALTER TABLE dishes ADD COLUMN IF NOT EXISTS portion_groups JSONB NOT NULL DEFAULT '[]';
 ALTER TABLE order_items ADD COLUMN IF NOT EXISTS portions JSONB NOT NULL DEFAULT '[]';
+CREATE INDEX IF NOT EXISTS idx_user_devices_token_hash ON user_devices(token_hash);
+CREATE INDEX IF NOT EXISTS idx_user_devices_user_id ON user_devices(user_id);

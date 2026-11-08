@@ -44,9 +44,15 @@ def get_dishes(
     search: Optional[str] = None,
     page: int = 1,
     limit: int = 20,
+    include_inactive: bool = False,
+    include_deleted: bool = False,
 ) -> Tuple[List[Dish], int]:
-    """Return active, non-deleted dishes with optional category/search filters."""
-    query = db.query(Dish).filter(Dish.is_deleted.is_(False), Dish.is_active.is_(True))
+    """Return non-deleted dishes, optionally including inactive management entries."""
+    query = db.query(Dish)
+    if not include_deleted:
+        query = query.filter(Dish.is_deleted.is_(False))
+    if not include_inactive:
+        query = query.filter(Dish.is_active.is_(True))
 
     if category_id and category_id != "all":
         query = query.filter(
@@ -210,3 +216,13 @@ def delete_dish(db: Session, dish: Dish) -> bool:
     db.delete(dish)
     db.flush()
     return False
+
+
+def restore_dish(db: Session, dish: Dish) -> Dish:
+    """Restore a soft-deleted dish to the manager catalog without auto-selling it."""
+    dish.is_deleted = False
+    dish.is_active = True
+    dish.is_available = False
+    db.flush()
+    db.refresh(dish)
+    return dish

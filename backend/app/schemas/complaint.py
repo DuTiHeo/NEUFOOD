@@ -26,6 +26,24 @@ class ComplaintResolveRequest(BaseModel):
     admin_response: str = Field(..., min_length=3, max_length=2000, pattern=r"\S", description="Phản hồi và kết luận phân xử của Admin")
 
 
+class ComplaintSupplementRequest(BaseModel):
+    """Schema bổ sung hình ảnh hoặc mô tả khiếu nại theo yêu cầu của Admin (UC15, EX-15)."""
+    proof_image_url: Optional[str] = Field(
+        default=None,
+        min_length=5,
+        max_length=1000,
+        pattern=r"^(https?://\S+|/[a-zA-Z0-9_\-\./]+)$",
+        description="Đường dẫn URL ảnh minh chứng mới bổ sung",
+    )
+    description: Optional[str] = Field(
+        default=None,
+        min_length=3,
+        max_length=2000,
+        pattern=r"\S",
+        description="Nội dung giải trình hoặc mô tả bổ sung",
+    )
+
+
 class ComplaintResponse(BaseModel):
     """Schema định dạng dữ liệu trả về của ticket khiếu nại."""
     id: int

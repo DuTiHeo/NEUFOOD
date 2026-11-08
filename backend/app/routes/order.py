@@ -5,7 +5,7 @@ from app.db.models import User
 from app.crud.order_policy import get_order_policy, has_sunday_schedule_conflict
 from app.crud.order import (
     create_order, cancel_order, get_order_by_id, get_user_orders, get_all_orders, update_order_status, OrderError,
-    handover_order, report_delivery_issue, confirm_order_receipt,
+    handover_order, report_delivery_issue, confirm_order_receipt, get_shipper_orders, claim_delivery_order,
 )
 from app.core.security import jwt_required, role_required
 from app.schemas.order import (
@@ -23,6 +23,7 @@ def _serialize_order(o: object) -> dict:
         "order_code_suffix": o.order_code_suffix,
         "user_id": o.user_id,
         "staff_id": o.staff_id,
+        "shipper_id": o.shipper_id,
         "order_type": o.order_type,
         "status": o.status,
         "recipient_name": o.recipient_name,
@@ -171,6 +172,8 @@ def get_order_details(order_id: str):
 @role_required("staff", "manager", "admin")
 def get_all_orders_admin():
     status = request.args.get("status")
+    order_type = request.args.get("order_type")
+    search = request.args.get("search")
     page_raw = request.args.get("page", 1)
     limit_raw = request.args.get("limit", 20)
 
@@ -194,9 +197,54 @@ def get_all_orders_admin():
     limit = min(limit, 100)
 
     with get_db() as db:
-        orders, total = get_all_orders(db, status=status, page=page, limit=limit)
+        if order_type not in (None, "all", "delivery", "pickup"):
+            return api_response(message="order_type không hợp lệ", status_code=400, success=False)
+        orders, total = get_all_orders(db, status=status, order_type=order_type, search=search, page=page, limit=limit)
         items = [_serialize_order(o) for o in orders]
         return api_response(data={"items": items, "total": total, "page": page, "limit": limit})
+
+
+@order_bp.route("/delivery/queue", methods=["GET"])
+@role_required("staff")
+def get_delivery_queue():
+    """Danh sách đơn có thể nhận, đơn đang giao và lịch sử của nhân viên hiện tại."""
+    try:
+        shipper_id = int(g.current_user["sub"])
+        page = int(request.args.get("page", 1))
+        limit = min(int(request.args.get("limit", 100)), 100)
+    except (KeyError, TypeError, ValueError):
+        return api_response(message="Tham số hoặc phiên đăng nhập không hợp lệ", status_code=400, success=False)
+    if page < 1 or limit < 1:
+        return api_response(message="Tham số phân trang phải lớn hơn hoặc bằng 1", status_code=400, success=False)
+
+    scope = request.args.get("scope", "available")
+    try:
+        with get_db() as db:
+            items, total = get_shipper_orders(db, shipper_id, scope, page, limit)
+            return api_response(data={
+                "items": [_serialize_order(order) for order in items],
+                "total": total,
+                "page": page,
+                "limit": limit,
+            })
+    except OrderError as e:
+        return api_response(message=str(e), errors=[{"code": e.code}], status_code=e.status_code, success=False)
+
+
+@order_bp.route("/<order_id>/claim-delivery", methods=["POST"])
+@role_required("staff")
+def claim_delivery(order_id: str):
+    """Nhận một đơn giao đang chờ; khóa hàng giúp chống nhận trùng đồng thời."""
+    try:
+        shipper_id = int(g.current_user["sub"])
+    except (KeyError, TypeError, ValueError):
+        return api_response(message="Phiên đăng nhập không hợp lệ", status_code=401, success=False)
+    try:
+        with get_db() as db:
+            order = claim_delivery_order(db, order_id, shipper_id)
+            return api_response(data=_serialize_order(order), message="Đã nhận đơn giao hàng")
+    except OrderError as e:
+        return api_response(message=str(e), errors=[{"code": e.code}], status_code=e.status_code, success=False)
 
 
 @order_bp.route("/<order_id>/status", methods=["PATCH"])

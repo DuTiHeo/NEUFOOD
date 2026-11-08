@@ -115,6 +115,7 @@ def submit_shift(
     actual_cash: float,
     actual_qr: float,
     discrepancy_note: Optional[str] = None,
+    shift_date: Optional[date] = None,
 ) -> tuple[StaffShift, bool]:
     """
     UC20: Nhân viên nộp số liệu chốt ca COD cuối ngày (BR-25, EX-20, Quyết định D6).
@@ -139,6 +140,11 @@ def submit_shift(
         raise ShiftError("Tài khoản không có quyền nộp chốt ca", "FORBIDDEN", 403)
 
     today_vn = get_vn_today()
+
+    # A client may still be submitting a draft reviewed before midnight.
+    # Never let that previous day's draft silently become a new day's shift.
+    if shift_date is not None and shift_date != today_vn:
+        raise ShiftError("Ngày ca đã qua; hãy tải lại số liệu cho ngày hiện tại", "SHIFT_DATE_EXPIRED", 400)
 
     # 2. Tìm ca làm việc của ngày hôm nay sau khi đã có khóa độc quyền
     shift = db.query(StaffShift).filter(

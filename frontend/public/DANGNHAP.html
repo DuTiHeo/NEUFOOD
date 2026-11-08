@@ -98,7 +98,7 @@
         </div>
     </main>
     <footer class="pageFooter">
-        <p class="pageFooterText">© 2024 NEU Food. Hệ thống cung cấp suất ăn thông minh tại cơ sở.</p>
+        <p class="pageFooterText">© 2026 NEU Food. Hệ thống cung cấp suất ăn thông minh tại cơ sở.</p>
         <nav class="pageFooterNav" aria-label="Liên kết pháp lý">
             <a class="pageFooterLink" href="ChinhSachBaoMat.html">Chính sách bảo mật</a>
             <a class="pageFooterLink" href="DieuKhoanDichVu.html">Điều khoản dịch vụ</a>
@@ -156,15 +156,23 @@
             setMessage('Đang xác thực tài khoản…', 'loading');
 
             try {
+                const deviceToken = localStorage.getItem('neufood_device_token') || undefined;
                 const response = await fetch(`${API_URL}/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password }),
+                    body: JSON.stringify({ email, password, device_token: deviceToken }),
                 });
                 const result = await response.json().catch(() => null);
                 const auth = result?.data;
-                if (!response.ok) throw new Error(result?.message || 'Email hoặc mật khẩu chưa chính xác.');
+                if (!response.ok) {
+                    const errMsg = result?.message || 'Email hoặc mật khẩu chưa chính xác.';
+                    throw new Error(errMsg);
+                }
                 if (!auth?.access_token || !auth?.user) throw new Error('Máy chủ trả về dữ liệu đăng nhập không hợp lệ.');
+
+                if (auth.device_token) {
+                    localStorage.setItem('neufood_device_token', auth.device_token);
+                }
 
                 saveAuth(auth, remember);
                 setMessage('Đăng nhập thành công! Đang chuyển trang…', 'success');

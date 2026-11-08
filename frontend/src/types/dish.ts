@@ -5,6 +5,7 @@ export interface Category {
   description?: string;
   display_order?: number;
   is_active?: boolean;
+  is_deleted?: boolean;
 }
 
 export interface Dish {
@@ -29,6 +30,7 @@ export interface Dish {
   badges?: string[];
   is_available?: boolean;
   is_active?: boolean;
+  is_deleted?: boolean;
   reviews?: DishReview[];
 }
 

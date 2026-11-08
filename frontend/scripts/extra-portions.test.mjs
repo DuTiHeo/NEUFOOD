@@ -57,3 +57,10 @@ test('combo2 independently chooses mains; canned drinks have no groups',()=>{
  assert.equal(result.snapshot[0].choice_id,'com-tam');assert.equal(result.snapshot[1].choice_id,'bun-cha')
  assert.deepEqual(catalogs.pepsi,[]);assert.deepEqual(catalogs['coca-cola'],[])
 })
+
+ test('inactive dishes cannot be added and existing configured rows block checkout', () => {
+ const row = addCartLine([], bread, 1, 10, { portions: pate })[0]
+ const inactive = { ...bread, is_active: false }
+ assert.deepEqual(addCartLine([], inactive, 1, 10, { portions: pate }), [])
+ assert.ok(resolveCartLine(row, inactive).invalidReason)
+ })

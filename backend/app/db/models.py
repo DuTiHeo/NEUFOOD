@@ -1,6 +1,6 @@
 from datetime import datetime, date, timezone
 from sqlalchemy import (
-    Column, Integer, String, Text, Numeric, Boolean, DateTime, Date, ForeignKey, Table, JSON
+    Column, Integer, String, Text, Numeric, Boolean, DateTime, Date, ForeignKey, Table, JSON, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 from .session import Base
@@ -59,7 +59,7 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(150), nullable=False)
-    phone_number = Column(String(20), nullable=False)
+    phone_number = Column(String(20), unique=True, nullable=True, index=True)
     student_id = Column(String(30), nullable=True)
     role = Column(String(20), nullable=False, default="customer", index=True)  # 'customer' | 'staff' | 'manager' | 'admin'
     avatar_url = Column(Text, nullable=True)
@@ -79,9 +79,11 @@ class User(Base):
 
     orders = relationship("Order", foreign_keys="Order.user_id", back_populates="user")
     handled_orders = relationship("Order", foreign_keys="Order.staff_id", back_populates="staff")
+    delivery_orders = relationship("Order", foreign_keys="Order.shipper_id", back_populates="shipper")
     reviews = relationship("Review", back_populates="user")
     complaints = relationship("Complaint", foreign_keys="Complaint.user_id", back_populates="user")
     shifts = relationship("StaffShift", foreign_keys="StaffShift.staff_id", back_populates="staff")
+    devices = relationship("UserDevice", back_populates="user", cascade="all, delete-orphan")
 
 
 class CampusLocation(Base):
@@ -173,6 +175,7 @@ class Order(Base):
     order_code_suffix = Column(String(4), nullable=False, index=True)  # 4 chữ số cuối đối chiếu khi nhận hàng (BR-18)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     staff_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    shipper_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     order_type = Column(String(20), nullable=False, default="delivery", index=True)  # 'delivery' | 'pickup'
     recipient_name = Column(String(150), nullable=False)
     recipient_phone = Column(String(20), nullable=False)
@@ -203,6 +206,7 @@ class Order(Base):
 
     user = relationship("User", foreign_keys=[user_id], back_populates="orders")
     staff = relationship("User", foreign_keys=[staff_id], back_populates="handled_orders")
+    shipper = relationship("User", foreign_keys=[shipper_id], back_populates="delivery_orders")
     campus_location = relationship("CampusLocation", back_populates="orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
     reviews = relationship("Review", back_populates="order", cascade="all, delete-orphan")
@@ -326,4 +330,33 @@ class RevokedToken(Base):
     reason = Column(String(255), nullable=True)
 
     user = relationship("User", foreign_keys=[user_id])
+
+
+class UserDevice(Base):
+    """16. Bảng USER_DEVICES - Thiết bị tin cậy & Chống khóa oan tài khoản (BR-02, EX-02)."""
+    __tablename__ = "user_devices"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    device_id = Column(String(64), nullable=False)
+    token_hash = Column(String(64), unique=True, nullable=False, index=True)
+    device_name = Column(String(150), nullable=True)
+    failed_login_attempts = Column(Integer, nullable=False, default=0)
+    locked_until = Column(DateTime(timezone=True), nullable=True)
+    last_used_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    is_revoked = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    user = relationship("User", back_populates="devices")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "device_id", name="uq_user_device_id"),
+    )
 
