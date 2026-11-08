@@ -36,7 +36,7 @@ export default function StoryPage() {
               </blockquote>
 
               <p>
-                Đứng phía sau quầy phục vụ, chị Hương — một nhân viên lâu năm của canteen NEU — chứng kiến tình trạng này diễn ra mỗi ngày. Chị nhận ra một vấn đề lớn: dù lượng sinh viên đông, nhu cầu cao, nhưng doanh thu của canteen vẫn chưa tương xứng. Nguyên nhân không nằm ở chất lượng món ăn, mà ở cách vận hành chưa tối ưu. Những giờ cao điểm thì quá tải, còn những thời điểm khác lại dư thừa đồ ăn. Việc phục vụ hoàn toàn thủ công khiến quá trình bán hàng bị gián đoạn, mất đi nhiều cơ hội phục vụ khách hàng.
+                Đứng phía sau quầy phục vụ, chị Hương - một nhân viên lâu năm của canteen NEU - chứng kiến tình trạng này diễn ra mỗi ngày. Chị nhận ra một vấn đề lớn: dù lượng sinh viên đông, nhu cầu cao, nhưng doanh thu của canteen vẫn chưa tương xứng. Nguyên nhân không nằm ở chất lượng món ăn, mà ở cách vận hành chưa tối ưu. Những giờ cao điểm thì quá tải, còn những thời điểm khác lại dư thừa đồ ăn. Việc phục vụ hoàn toàn thủ công khiến quá trình bán hàng bị gián đoạn, mất đi nhiều cơ hội phục vụ khách hàng.
               </p>
 
               <p>
@@ -54,7 +54,7 @@ export default function StoryPage() {
               </div>
 
               <p>
-                Từ ý tưởng ấy, <strong>NEUFood</strong> ra đời — nền tảng đặt đồ ăn trực tuyến dành riêng cho sinh viên trong trường. Thông qua hệ thống này, sinh viên có thể xem thực đơn, đặt món trước và lựa chọn thời gian nhận phù hợp. Điều này giúp giảm đáng kể tình trạng chen lấn, đồng thời phân tán lượng khách theo từng khung giờ, giúp canteen vận hành mượt mà hơn.
+                Từ ý tưởng ấy, <strong>NEUFood</strong> ra đời - nền tảng đặt đồ ăn trực tuyến dành riêng cho sinh viên trong trường. Thông qua hệ thống này, sinh viên có thể xem thực đơn, đặt món trước và lựa chọn thời gian nhận phù hợp. Điều này giúp giảm đáng kể tình trạng chen lấn, đồng thời phân tán lượng khách theo từng khung giờ, giúp canteen vận hành mượt mà hơn.
               </p>
 
               <p>
@@ -62,7 +62,7 @@ export default function StoryPage() {
               </p>
 
               <p className={styles.closing}>
-                Và từ đó, mỗi giờ ra chơi không còn là áp lực thời gian, mà trở thành một khoảng nghỉ đúng nghĩa — nơi chỉ cần một cú chạm trên điện thoại, bữa ăn nóng hổi đã sẵn sàng phục vụ bạn ngay tại giảng đường.
+                Và từ đó, mỗi giờ ra chơi không còn là áp lực thời gian, mà trở thành một khoảng nghỉ đúng nghĩa - nơi chỉ cần một cú chạm trên điện thoại, bữa ăn nóng hổi đã sẵn sàng phục vụ bạn ngay tại giảng đường.
               </p>
             </div>
           </article>
