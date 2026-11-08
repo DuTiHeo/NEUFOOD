@@ -145,7 +145,7 @@ export default function RecruitPage() {
               <p>Bạn được chọn từng ngày và ca phù hợp với lịch học từ <strong>thứ Hai đến thứ Bảy</strong>; <strong>nghỉ Chủ nhật</strong>.</p>
               <ul><li>Ca sáng: <strong>07:00–12:00</strong>.</li><li>Ca chiều: <strong>12:00–19:00</strong>.</li></ul>
               <p>Đăng ký <strong>tối thiểu 4 buổi/tuần</strong>. Mỗi ca tính 1 buổi; chọn cả sáng và chiều cùng ngày tính 2 buổi. Ví dụ: sáng và chiều thứ Hai, sáng thứ Tư, chiều thứ Sáu là 4 buổi.</p>
-              <p>Liên hệ anh: <strong>Hoàng Văn Quản Lý</strong> – SĐT: <a href="tel:0812852613" className={styles.positionLink}>0812 852 613</a></p>
+              <p>Liên hệ để giải đáp thắc mắc: anh <strong>Hoàng Văn Quản Lý</strong> – SĐT: <a href="tel:0812852613" className={styles.positionLink}>0812 852 613</a></p>
               <a href="#recruit-form" className={styles.homeBtn}>Ứng tuyển ngay</a>
             </section>
           </article>
