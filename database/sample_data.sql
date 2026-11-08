@@ -64,16 +64,16 @@ VALUES
 ('pho-bo-tai-lan', 'Phở Bò Tái Lăn', 'Phở truyền thống, nước dùng thanh ngọt, thịt bò mềm.', 'Bát phở truyền thống với nước dùng được ninh từ xương bò nhiều giờ, kết hợp cùng bánh phở dai mềm và thịt bò tươi ngon xào tái lăn thơm nức.', 45000, 5000, 50000, 4.8, 312, 'https://live2makan.com/wp-content/uploads/2022/08/l2m-vn-2207-pho10-05.jpg', TRUE, TRUE, FALSE),
 
 -- Món 2: Phở trộn chua ngọt (Còn món)
-('pho-tron-chua-ngot', 'Phở Trộn Chua Ngọt', 'Phở trộn đậm đà cùng sốt me chua ngọt.', 'Bánh phở mềm dai trộn cùng thịt bò mềm, rau sống tươi mát, lạc rang giòn bùi và nước sốt me chua ngọt đặc trưng của Canteen A2.', 40000, 5000, 45000, 4.6, 154, 'https://cdn.tgdd.vn/2021/08/CookRecipe/Avatar/pho-ga-tron-sa-te-thumbnail.jpg', TRUE, TRUE, FALSE),
+('pho-tron-chua-ngot', 'Phở Trộn Chua Ngọt', 'Phở trộn đậm đà cùng sốt me chua ngọt.', 'Bánh phở mềm dai trộn cùng thịt bò mềm, rau sống tươi mát, lạc rang giòn bùi và nước sốt me chua ngọt đặc trưng của Canteen A2.', 40000, 5000, 45000, 4.6, 154, 'https://storage.googleapis.com/onelife-public/blog.onelife.vn/2021/11/cach-lam-pho-tron-chua-ngot-mon-chinh-418842578612.jpg', TRUE, TRUE, FALSE),
 
 -- Món 3: Bún bò xứ Huế (Còn món)
-('bun-bo-hue', 'Bún Bò Xứ Huế', 'Bún bò chuẩn vị Huế, cay nồng, đậm đà.', 'Nước dùng thơm lừng mùi mắm ruốc và sả, full topping với thịt bò bắp, giò heo giòn sần sật, chả cua và tiết luộc nóng hổi.', 50000, 5000, 55000, 4.9, 420, 'https://cdn.tgdd.vn/Files/2017/03/24/964495/cach-nau-bun-bo-hue-gio-heo-ngon-cong-thuc-chuan-vi-202208251617593627.jpg', TRUE, TRUE, FALSE),
+('bun-bo-hue', 'Bún Bò Huế', 'Bún bò chuẩn vị Huế, cay nồng, đậm đà.', 'Nước dùng thơm lừng mùi mắm ruốc và sả, full topping với thịt bò bắp, giò heo giòn sần sật, chả cua và tiết luộc nóng hổi.', 50000, 5000, 55000, 4.9, 420, 'https://images.baodantoc.vn/uploads/2025/Thang-4/Ngay-4/Duy-Long/3t48.jpg', TRUE, TRUE, FALSE),
 
 -- Món 4: Bún riêu cua đồng (Còn món)
-('bun-rieu-cua-dong', 'Bún Riêu Cua Đồng', 'Bún riêu cua đồng thanh mát ngọt vị.', 'Bún riêu cua đồng với nước dùng chua thanh từ cà chua và giấm bỗng, gạch cua xào béo ngậy, đậu hũ chiên vàng và chả lá lốt.', 35000, 5000, 40000, 4.5, 180, 'https://i.ytimg.com/vi/C1P1Cw9J1-I/maxresdefault.jpg', TRUE, TRUE, FALSE),
+('bun-rieu-cua-dong', 'Bún Riêu Cua Đồng', 'Bún riêu cua đồng thanh mát ngọt vị.', 'Bún riêu cua đồng với nước dùng chua thanh từ cà chua và giấm bỗng, gạch cua xào béo ngậy, đậu hũ chiên vàng và chả lá lốt.', 35000, 5000, 40000, 4.5, 180, 'https://img-global.cpcdn.com/recipes/3ac5e426317b0733/751x532cq70/bun-rieu-cua-d%E1%BB%93ng-recipe-main-photo.jpg', TRUE, TRUE, FALSE),
 
 -- Món 5: Cơm gà xối mỡ (Còn món - Best Seller)
-('com-ga-xoi-mo', 'Cơm Gà Xối Mỡ Da Giòn', 'Đùi gà chiên da giòn rụm, cơm rang thơm béo.', 'Cơm rang hạt tơi màu đỏ hạt điều, ăn cùng đùi gà góc tư chiên xối mỡ giòn tan rụm và dưa chuột, đồ chua kèm nước mắm tỏi ớt.', 40000, 5000, 45000, 4.9, 530, 'https://cdn.tgdd.vn/2021/01/CookRecipe/GalleryStep/thanh-pham-362.jpg', TRUE, TRUE, FALSE),
+('com-ga-xoi-mo', 'Cơm Gà Xối Mỡ Da Giòn', 'Đùi gà chiên da giòn rụm, cơm rang thơm béo.', 'Cơm rang hạt tơi màu đỏ hạt điều, ăn cùng đùi gà góc tư chiên xối mỡ giòn tan rụm và dưa chuột, đồ chua kèm nước mắm tỏi ớt.', 40000, 5000, 45000, 4.9, 530, 'https://static.vinwonders.com/production/2025/02/com-ga-xoi-mo-ngon-nhat-sai-gon.jpg', TRUE, TRUE, FALSE),
 
 -- Món 6: Cơm sườn nướng mật ong (Hết món hôm nay để test BR-06, EX-05)
 ('com-suon-nuong', 'Cơm Sườn Nướng Mật Ong', 'Miếng sườn cốt lết dày dặn ướp sốt mật ong thơm lừng.', 'Cơm tấm dẻo thơm ăn kèm sườn cốt lết nướng than hoa vàng óng, mỡ hành béo ngậy và trứng ốp la lòng đào.', 40000, 5000, 45000, 4.7, 210, 'https://mms.img.susercontent.com/vn-11134513-7r98o-lsvb7d0ao3b826@resize_ss1242x600!@crop_w1242_h600_cT', FALSE, TRUE, FALSE),
@@ -94,7 +94,7 @@ VALUES
 ('pho', 'Phở', 'Phở truyền thống, nước dùng thanh ngọt, thịt bò mềm.', 'Bát phở truyền thống với nước dùng được ninh từ xương bò nhiều giờ, kết hợp cùng bánh phở dai mềm và thịt bò tươi ngon.', 45000, 5000, 50000, 4.8, 312, 'https://live2makan.com/wp-content/uploads/2022/08/l2m-vn-2207-pho10-05.jpg', TRUE, TRUE, FALSE),
 
 -- Món 12: Phở Trộn (pho-tron)
-('pho-tron', 'Phở Trộn', 'Phở trộn đậm đà cùng sốt me chua ngọt.', 'Bánh phở mềm dai trộn cùng thịt bò mềm, rau sống tươi mát và nước sốt me chua ngọt đặc trưng.', 40000, 5000, 45000, 4.6, 154, 'https://cdn.tgdd.vn/2021/08/CookRecipe/Avatar/pho-ga-tron-sa-te-thumbnail.jpg', TRUE, TRUE, FALSE),
+('pho-tron', 'Phở Trộn', 'Phở trộn đậm đà cùng sốt me chua ngọt.', 'Bánh phở mềm dai trộn cùng thịt bò mềm, rau sống tươi mát và nước sốt me chua ngọt đặc trưng.', 40000, 5000, 45000, 4.6, 154, 'https://media.phunutoday.vn/files/news/2025/09/02/cach-lam-pho-tron-thit-bo-thanh-ngot-tuoi-mat-de-an-de-lam-232403.jpg', TRUE, TRUE, FALSE),
 
 -- Món 13: Bún Riêu (bun-rieu)
 ('bun-rieu', 'Bún Riêu', 'Bún riêu cua đồng thanh mát.', 'Bún riêu cua đồng với nước dùng chua thanh từ cà chua, gạch cua béo ngậy, đậu hũ chiên và chả.', 35000, 5000, 40000, 4.5, 180, 'https://i.ytimg.com/vi/C1P1Cw9J1-I/maxresdefault.jpg', TRUE, TRUE, FALSE),
@@ -103,10 +103,10 @@ VALUES
 ('hu-tieu', 'Hủ Tiếu', 'Hủ tiếu Nam Vang nước dùng ngọt thanh.', 'Sợi hủ tiếu dai ngon ăn kèm tôm, thịt băm, gan heo và trứng cút, nước dùng thanh ngọt từ xương.', 40000, 5000, 45000, 4.7, 210, 'https://cdn2.fptshop.com.vn/unsafe/1920x0/filters:format(webp):quality(75)/2023_10_26_638339340847153253_hu-tieu-go.jpg', TRUE, TRUE, FALSE),
 
 -- Món 15: Miến Gà (mien-ga)
-('mien-ga', 'Miến Gà', 'Miến dong mộc nhĩ, thịt gà ta dai ngon.', 'Sợi miến dai mềm kết hợp cùng nước luộc gà ngọt thanh và thịt gà ta xé phay, thêm nấm hương thơm lừng.', 35000, 5000, 40000, 4.4, 120, 'https://cdn.tgdd.vn/Files/2017/03/22/963778/bi-quyet-nau-mien-ga-thom-ngon-da-ga-vang-gion-202208261323269332.jpg', TRUE, TRUE, FALSE),
+('mien-ga', 'Miến Gà', 'Miến dong mộc nhĩ, thịt gà ta dai ngon.', 'Sợi miến dai mềm kết hợp cùng nước luộc gà ngọt thanh và thịt gà ta xé phay, thêm nấm hương thơm lừng.', 35000, 5000, 40000, 4.4, 120, 'https://bizweb.dktcdn.net/thumb/large/100/406/838/products/mien-ga-1-1-2.webp?v=1766486166870', TRUE, TRUE, FALSE),
 
 -- Món 16: Cháo Sườn (chao-suon)
-('chao-suon', 'Cháo Sườn', 'Cháo sườn sụn sánh mịn, quẩy giòn tan.', 'Cháo được nấu nhuyễn mịn cùng sườn sụn ninh nhừ, ăn kèm quẩy giòn và chút hạt tiêu thơm nồng.', 20000, 5000, 25000, 4.8, 305, 'https://cdn.tgdd.vn/2021/05/CookProduct/axresdefault(1)-1200x676.jpg', TRUE, TRUE, FALSE),
+('chao-suon', 'Cháo Sườn', 'Cháo sườn sụn sánh mịn, quẩy giòn tan.', 'Cháo được nấu nhuyễn mịn cùng sườn sụn ninh nhừ, ăn kèm quẩy giòn và chút hạt tiêu thơm nồng.', 20000, 5000, 25000, 4.8, 305, 'https://img.tripi.vn/cdn-cgi/image/width%3D700%2Cheight%3D700/https%3A/gcs.tripi.vn/public-tripi/tripi-feed/img/473485NBK/image-2-cach-nau-chao-suon-thom-ngon-bocc89-duocc83ng-voi-cong-thuc-cucca3c-decc83-lam-165668309487429.jpg', TRUE, TRUE, FALSE),
 
 -- Món 17: Bánh Canh (banh-canh)
 ('banh-canh', 'Bánh Canh', 'Bánh canh chả cá đậm vị miền Trung.', 'Sợi bánh canh dai dai, nước lèo ngọt thanh từ cá, topping chả cá chiên và chả cá hấp.', 35000, 5000, 40000, 4.5, 140, 'https://i.ytimg.com/vi/ZjAxz95VJKQ/maxresdefault.jpg', TRUE, TRUE, FALSE),
@@ -115,22 +115,22 @@ VALUES
 ('bun-moc', 'Bún Mọc', 'Bún mọc sườn non thanh đạm.', 'Viên mọc nhĩ nấm giòn giòn, sườn non mềm nục, nước dùng trong vắt thanh tao.', 35000, 5000, 40000, 4.6, 160, 'https://i.ytimg.com/vi/AwppaRlywik/maxresdefault.jpg', TRUE, TRUE, FALSE),
 
 -- Món 19: Bún Thang (bun-thang)
-('bun-thang', 'Bún Thang', 'Tinh hoa ẩm thực Hà thành.', 'Bát bún thang cầu kỳ với gà xé, trứng tráng thái chỉ, giò lụa, tôm khô và nước dùng trong vắt ngọt lịm.', 45000, 5000, 50000, 4.7, 195, 'https://noiphodien123.vn/wp-content/uploads/2022/02/bun-thang-ngon.jpg', TRUE, TRUE, FALSE),
+('bun-thang', 'Bún Thang', 'Tinh hoa ẩm thực Hà thành.', 'Bát bún thang cầu kỳ với gà xé, trứng tráng thái chỉ, giò lụa, tôm khô và nước dùng trong vắt ngọt lịm.', 45000, 5000, 50000, 4.7, 195, 'https://statics.vinpearl.com/bun-thang-hanoi-03_1689515457.jpeg', TRUE, TRUE, FALSE),
 
 -- Món 20: Bún Cá (bun-ca)
-('bun-ca', 'Bún Cá', 'Bún cá rô đồng chiên giòn.', 'Miếng cá rô phi chiên giòn rụm bên ngoài, mềm ngọt bên trong, ăn kèm bún, dọc mùng và nước dùng chua thanh.', 35000, 5000, 40000, 4.5, 130, 'https://cdn.tgdd.vn/Files/2020/04/03/1246339/cach-nau-bun-ca-ha-noi-thom-ngon-chuan-vi-khong-ta-13.jpg', TRUE, TRUE, FALSE),
+('bun-ca', 'Bún Cá', 'Bún cá rô đồng chiên giòn.', 'Miếng cá rô phi chiên giòn rụm bên ngoài, mềm ngọt bên trong, ăn kèm bún, dọc mùng và nước dùng chua thanh.', 35000, 5000, 40000, 4.5, 130, 'https://media.phunutoday.vn/files/content/2025/07/01/bun-ca-nau-sao-cho-ngon-1-1001.jpg', TRUE, TRUE, FALSE),
 
 -- Món 21: Bún Chả (bun-cha)
 ('bun-cha', 'Bún Chả', 'Bún chả thịt nướng than hoa thơm lừng.', 'Chả miếng và chả băm nướng than hoa cháy xém, ăn cùng bún rối và nước mắm chua ngọt dưa góp.', 40000, 5000, 45000, 4.9, 520, 'https://www.seriouseats.com/thmb/J0g7JWjk9r6CHESo1CIrD1BfGd0=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/20231204-SEA-VyTran-BunChaHanoi-19-f623913c6ef34a9185bcd6e5680c545f.jpg', TRUE, TRUE, FALSE),
 
 -- Món 22: Bún Mắm (bun-mam)
-('bun-mam', 'Bún Mắm', 'Bún mắm miền Tây đậm đà, full topping.', 'Nước lèo mắm linh thơm phức, đầy ắp hải sản tôm mực, heo quay và các loại rau đặc trưng miền Tây.', 50000, 5000, 55000, 4.6, 110, 'https://cdn.tgdd.vn/Files/2019/03/12/1154316/cach-nau-bun-mam-mien-tay-chuan-thom-ngon-don-gian-tai-nha-202112211640380018.jpg', TRUE, TRUE, FALSE),
+('bun-mam', 'Bún Mắm', 'Bún mắm miền Tây đậm đà, full topping.', 'Nước lèo mắm linh thơm phức, đầy ắp hải sản tôm mực, heo quay và các loại rau đặc trưng miền Tây.', 50000, 5000, 55000, 4.6, 110, 'https://image-fworker.momocdn.net/common/u/2e02fb5fe4f64fb55bc713540643c6f8eae702d101cea8c59afc49cfc505fc37/92315567-47fc-44dc-bb1c-826fe55126e1624ybmae.jpeg?referer=attachment.momocdn.net&size=XL', TRUE, TRUE, FALSE),
 
 -- Món 23: Bún Đậu Mắm Tôm (bun-dau-mam-tom)
 ('bun-dau-mam-tom', 'Bún Đậu Mắm Tôm', 'Bún đậu tá lả mắm tôm chuẩn vị.', 'Mẹt bún đậu đầy đặn với đậu hũ chiên giòn, thịt luộc, chả cốm, dồi sụn và mắm tôm đánh bọt.', 45000, 5000, 50000, 4.8, 415, 'https://static.vinwonders.com/2023/01/bun-dau-mam-tom-thumb.jpg', TRUE, TRUE, FALSE),
 
 -- Món 24: Nem Nướng Nha Trang (nem-nuong-nha-trang)
-('nem-nuong-nha-trang', 'Nem Nướng Nha Trang', 'Nem nướng cuốn ram giòn, sốt chấm đậu phộng.', 'Nem nướng lụi thơm lừng, cuốn cùng bánh tráng, ram chiên giòn, rau sống và chấm nước sốt đặc biệt.', 40000, 5000, 45000, 4.7, 230, 'https://cdn.tgdd.vn/2021/09/CookDish/cach-lam-nem-nuong-nha-trang-bang-noi-chien-khong-dau-thom-avt-1200x676.jpg', TRUE, TRUE, FALSE),
+('nem-nuong-nha-trang', 'Nem Nướng Nha Trang', 'Nem nướng cuốn ram giòn, sốt chấm đậu phộng.', 'Nem nướng lụi thơm lừng, cuốn cùng bánh tráng, ram chiên giòn, rau sống và chấm nước sốt đặc biệt.', 40000, 5000, 45000, 4.7, 230, 'https://luhanhvietnam.com.vn/du-lich/vnt_upload/news/11_2021/pho-nem-nuong-le-loi-min.jpg', TRUE, TRUE, FALSE),
 
 -- Món 25: Gỏi Cuốn (goi-cuon)
 ('goi-cuon', 'Gỏi Cuốn', 'Gỏi cuốn tôm thịt thanh mát, chấm tương đen.', 'Cuốn tôm thịt luộc tươi ngon cùng bún và rau thơm, chấm mắm nêm hoặc tương đen bùi béo.', 25000, 5000, 30000, 4.5, 155, 'https://images.squarespace-cdn.com/content/v1/52d3fafee4b03c7eaedee15f/30cf6af1-a5a1-456f-ba8e-3d09713608e3/thumbnail-9264.jpg', TRUE, TRUE, FALSE),
@@ -160,7 +160,7 @@ VALUES
 ('com-ga-xoi-mo-2', 'Cơm Gà Xối Mỡ', 'Gà xối mỡ giòn rụm, cơm chiên tỏi.', 'Đùi gà góc tư xối mỡ giòn da, thịt bên trong mọng nước, ăn cùng cơm chiên mỡ tỏi thơm phức.', 40000, 5000, 45000, 4.7, 250, 'https://ticotravel.com.vn/wp-content/uploads/2022/06/Com-ga-xoi-mo-15.jpg', TRUE, TRUE, FALSE),
 
 -- Món 34: Cơm Trộn Hàn Quốc (com-tron)
-('com-tron', 'Cơm Trộn Hàn Quốc', 'Bibimbap trộn tương ớt Hàn thơm ngon.', 'Cơm trộn thịt bò xào, các loại nấm, rau củ và trứng ốp la đào, trộn đều với tương ớt Gochujang.', 50000, 5000, 55000, 4.6, 190, 'https://cdn.tgdd.vn/Files/2018/07/05/1099587/cach-lam-com-tron-han-quoc-bibimbap-ngon-nhu-nha-hang-202205241021184780.jpg', TRUE, TRUE, FALSE),
+('com-tron', 'Cơm Trộn Hàn Quốc', 'Bibimbap trộn tương ớt Hàn thơm ngon.', 'Cơm trộn thịt bò xào, các loại nấm, rau củ và trứng ốp la đào, trộn đều với tương ớt Gochujang.', 50000, 5000, 55000, 4.6, 190, 'https://cdn.hstatic.net/files/200000700229/file/cach-lam-com-tron-han-quoc-5.jpg', TRUE, TRUE, FALSE),
 
 -- Món 35: Cơm Cà Ri Gà (com-ca-ri)
 ('com-ca-ri', 'Cơm Cà Ri Gà', 'Cà ri gà nước cốt dừa béo ngậy.', 'Gà nấu cà ri cay nhẹ, khoai tây và cà rốt mềm tan sệt cùng nước cốt dừa bùi béo.', 40000, 5000, 45000, 4.5, 130, 'https://www.huongnghiepaau.com/wp-content/uploads/2024/07/cach-nau-com-ca-ri-nhat.jpg', TRUE, TRUE, FALSE),
@@ -172,7 +172,7 @@ VALUES
 ('banh-mi', 'Bánh Mì Thịt', 'Bánh mì vỏ giòn, nhân thịt chả pate đầy đặn.', 'Ổ bánh mì Việt Nam giòn rụm với bơ, pate, thịt nguội, chả lụa, dưa leo và rau mùi thơm lừng.', 20000, 5000, 25000, 4.9, 650, 'https://tse4.mm.bing.net/th/id/OIP.yxsHU68P6sAzYizPNk64IwHaEo?pid=Api&P=0&h=180', TRUE, TRUE, FALSE),
 
 -- Món 38: Bánh Xèo (banh-xeo)
-('banh-xeo', 'Bánh Xèo', 'Bánh xèo miền Tây vỏ giòn, tôm thịt giá đỗ.', 'Vỏ bánh mỏng giòn rụm, nhân tôm thịt nấm đầy đặn, cuốn cùng cải xanh và chấm nước mắm chua ngọt.', 35000, 5000, 40000, 4.7, 210, 'https://cdn.tgdd.vn/2020/12/CookProduct/11-1200x676.jpg', TRUE, TRUE, FALSE),
+('banh-xeo', 'Bánh Xèo', 'Bánh xèo miền Tây vỏ giòn, tôm thịt giá đỗ.', 'Vỏ bánh mỏng giòn rụm, nhân tôm thịt nấm đầy đặn, cuốn cùng cải xanh và chấm nước mắm chua ngọt.', 35000, 5000, 40000, 4.7, 210, 'https://www.vietnamairlines.com/content/dam/legacy-site-assets/SEO-images/2025%20SEO/Thay%20Anh%20Traffic%20Tieng%20Anh/vietnam%20food%20dishes/banh-xeo-is-popular-throughout-vietnam-especially-in-the-southern-and-central-regions.jpeg', TRUE, TRUE, FALSE),
 
 -- Món 39: Bánh Cuốn (banh-cuon)
 ('banh-cuon', 'Bánh Cuốn', 'Bánh cuốn nhân thịt mộc nhĩ tráng mỏng.', 'Bánh cuốn tráng tay mềm mướt, nhân thịt băm mộc nhĩ, ăn kèm chả quế và hành phi.', 25000, 5000, 30000, 4.6, 180, 'https://i.ytimg.com/vi/5CRLn1Bb1bg/maxresdefault.jpg', TRUE, TRUE, FALSE),
@@ -187,10 +187,10 @@ VALUES
 ('banh-uot', 'Bánh Ướt Lòng Gà', 'Bánh ướt dẻo dai trộn lòng gà xé.', 'Bánh ướt Đà Lạt mềm mướt, trộn cùng lòng gà, thịt gà xé phay giòn dai và mắm chua ngọt.', 30000, 5000, 35000, 4.5, 120, 'https://img-global.cpcdn.com/recipes/922a89ff50818a94/1200x630cq70/photo.jpg', TRUE, TRUE, FALSE),
 
 -- Món 43: Bánh Đúc Nóng (banh-duc)
-('banh-duc', 'Bánh Đúc Nóng', 'Bánh đúc dẻo quánh, thịt băm mộc nhĩ ấm lòng.', 'Bát bánh đúc nóng hổi dẻo quánh, chan nước mắm ngọt dầm thịt băm mộc nhĩ và hành phi.', 15000, 5000, 20000, 4.8, 205, 'https://cdn.tgdd.vn/2020/10/CookProduct/1260-1200x676-31.jpg', TRUE, TRUE, FALSE),
+('banh-duc', 'Bánh Đúc Nóng', 'Bánh đúc dẻo quánh, thịt băm mộc nhĩ ấm lòng.', 'Bát bánh đúc nóng hổi dẻo quánh, chan nước mắm ngọt dầm thịt băm mộc nhĩ và hành phi.', 15000, 5000, 20000, 4.8, 205, 'https://image.vietnam.travel/sites/default/files/inline-images/shutterstock_382662007_0.jpg', TRUE, TRUE, FALSE),
 
 -- Món 44: Bánh Hỏi Heo Quay (banh-hoi)
-('banh-hoi', 'Bánh Hỏi Heo Quay', 'Bánh hỏi mỡ hành, heo quay da giòn.', 'Bánh hỏi tơi mềm thoảng mùi mỡ hành hẹ, ăn kèm thịt heo quay da giòn rụm và nước mắm nêm.', 40000, 5000, 45000, 4.6, 165, 'https://cdn.tgdd.vn/2021/05/content/hoi-3-800x450.jpg', TRUE, TRUE, FALSE),
+('banh-hoi', 'Bánh Hỏi Heo Quay', 'Bánh hỏi mỡ hành, heo quay da giòn.', 'Bánh hỏi tơi mềm thoảng mùi mỡ hành hẹ, ăn kèm thịt heo quay da giòn rụm và nước mắm nêm.', 40000, 5000, 45000, 4.6, 165, 'https://bizweb.dktcdn.net/100/446/747/products/img-9673-jpeg.jpg?v=1706266689597', TRUE, TRUE, FALSE),
 
 -- Món 45: Bánh Tráng Nướng (banh-trang-nuong)
 ('banh-trang-nuong', 'Bánh Tráng Nướng', 'Pizza Đà Lạt nướng mỡ hành trứng cút.', 'Bánh tráng nướng than hoa với trứng cút, xúc xích, ruốc, phô mai và sốt mayonnaise.', 15000, 5000, 20000, 4.8, 300, 'https://tse4.mm.bing.net/th/id/OIP.YM3x3rt1KAYSy542j8U6cAHaEK?pid=Api&P=0&h=180', TRUE, TRUE, FALSE),
@@ -574,7 +574,7 @@ UPDATE dishes SET portion_groups = '[{"id": "main", "label": "Suất ăn", "choi
 UPDATE dishes SET portion_groups = '[{"id": "main", "label": "Suất ăn", "choices": [{"id": "banh-trang-tron", "name": "Bánh Tráng Trộn", "addons": [{"id": "banh-trang-tron-1", "name": "Bánh tráng", "price": 5000, "is_available": true}, {"id": "banh-trang-tron-2", "name": "Bò khô", "price": 10000, "is_available": true}], "is_available": true}]}]'::jsonb WHERE id = 'banh-trang-tron' AND portion_groups::jsonb = '[]'::jsonb;
 UPDATE dishes SET portion_groups = '[{"id": "main", "label": "Suất ăn", "choices": [{"id": "banh-uot", "name": "Bánh Ướt Lòng Gà", "addons": [{"id": "banh-uot-1", "name": "Bánh ướt", "price": 5000, "is_available": true}, {"id": "banh-uot-2", "name": "Lòng gà", "price": 10000, "is_available": true}, {"id": "banh-uot-3", "name": "Gà xé", "price": 10000, "is_available": true}], "is_available": true}]}]'::jsonb WHERE id = 'banh-uot' AND portion_groups::jsonb = '[]'::jsonb;
 UPDATE dishes SET portion_groups = '[{"id": "main", "label": "Suất ăn", "choices": [{"id": "banh-xeo", "name": "Bánh Xèo", "addons": [{"id": "banh-xeo-1", "name": "Bánh xèo", "price": 10000, "is_available": true}, {"id": "banh-xeo-2", "name": "Tôm", "price": 10000, "is_available": true}, {"id": "banh-xeo-3", "name": "Thịt", "price": 10000, "is_available": true}], "is_available": true}]}]'::jsonb WHERE id = 'banh-xeo' AND portion_groups::jsonb = '[]'::jsonb;
-UPDATE dishes SET portion_groups = '[{"id": "main", "label": "Suất ăn", "choices": [{"id": "bun-bo-hue", "name": "Bún Bò Xứ Huế", "addons": [{"id": "bun-bo-hue-1", "name": "Bún", "price": 5000, "is_available": true}, {"id": "bun-bo-hue-2", "name": "Thịt bò", "price": 10000, "is_available": true}], "is_available": true}]}]'::jsonb WHERE id = 'bun-bo-hue' AND portion_groups::jsonb = '[]'::jsonb;
+UPDATE dishes SET portion_groups = '[{"id": "main", "label": "Suất ăn", "choices": [{"id": "bun-bo-hue", "name": "Bún Bò Huế", "addons": [{"id": "bun-bo-hue-1", "name": "Bún", "price": 5000, "is_available": true}, {"id": "bun-bo-hue-2", "name": "Thịt bò", "price": 10000, "is_available": true}], "is_available": true}]}]'::jsonb WHERE id = 'bun-bo-hue' AND portion_groups::jsonb = '[]'::jsonb;
 UPDATE dishes SET portion_groups = '[{"id": "main", "label": "Suất ăn", "choices": [{"id": "bun-ca", "name": "Bún Cá", "addons": [{"id": "bun-ca-1", "name": "Bún", "price": 5000, "is_available": true}, {"id": "bun-ca-2", "name": "Cá chiên", "price": 10000, "is_available": true}], "is_available": true}]}]'::jsonb WHERE id = 'bun-ca' AND portion_groups::jsonb = '[]'::jsonb;
 UPDATE dishes SET portion_groups = '[{"id": "main", "label": "Suất ăn", "choices": [{"id": "bun-cha", "name": "Bún Chả", "addons": [{"id": "bun-cha-1", "name": "Bún", "price": 5000, "is_available": true}, {"id": "bun-cha-2", "name": "Chả nướng", "price": 10000, "is_available": true}], "is_available": true}]}]'::jsonb WHERE id = 'bun-cha' AND portion_groups::jsonb = '[]'::jsonb;
 UPDATE dishes SET portion_groups = '[{"id": "main", "label": "Suất ăn", "choices": [{"id": "bun-dau-mam-tom", "name": "Bún Đậu Mắm Tôm", "addons": [{"id": "bun-dau-mam-tom-1", "name": "Bún", "price": 5000, "is_available": true}, {"id": "bun-dau-mam-tom-2", "name": "Đậu rán", "price": 10000, "is_available": true}], "is_available": true}]}]'::jsonb WHERE id = 'bun-dau-mam-tom' AND portion_groups::jsonb = '[]'::jsonb;
