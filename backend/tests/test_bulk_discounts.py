@@ -119,7 +119,8 @@ class BulkIntegrationTests(unittest.TestCase):
         sample=(Path(__file__).resolve().parents[2]/'database/sample_data.sql').read_text(encoding='utf-8')
         self.assertEqual(sample.split('-- BULK_SERVINGS_SEED_BEGIN\n')[1].split('-- BULK_SERVINGS_SEED_END')[0].strip(),seed.strip())
         self.assertEqual([counts[k] for k in ['combo-2-nguoi','combo-3-nguoi','combo-4-5-nguoi','combo-com-ga-tra-dao','combo-nhom-an-nhe-toi']],[2,3,4,1,5])
-        self.assertEqual(counts['pepsi'],0);self.assertEqual(counts['khoai-tay-chien'],0)
+        self.assertEqual(counts['pepsi'],1);self.assertEqual(counts['khoai-tay-chien'],1)
+        self.assertTrue(all(count > 0 for count in counts.values()))
         with self.sessions.begin() as db:db.add(Dish(id='combo',name='Combo3',price=150000,base_price=145000,eligible_servings=3))
         p=self.payload();p['items']=[{'dish_id':'combo','quantity':4}]
         r=self.quote(p);self.assertEqual(r.status_code,200,r.get_json())
@@ -154,9 +155,23 @@ class BulkIntegrationTests(unittest.TestCase):
             r=c.post(f'/api/v1/orders/{order_id}/cancel',headers={'Authorization':f'Bearer {token}'})
         self.assertEqual(r.get_json()['data']['bulk_pricing']['deposit_status'],'cancelled')
 
-    def test_eligible_count_not_addon_or_drink_quantity_and_full_discount_base(self):
-        with self.sessions.begin() as db:db.add(Dish(id='drink',name='Tea',price=10000,base_price=5000))
+    def test_drinks_count_towards_servings_and_full_discount_base(self):
+        with self.sessions.begin() as db:db.add(Dish(id='drink',name='Tea',price=10000,base_price=5000,eligible_servings=1))
         p=self.payload();p['items']=[{'dish_id':'rice','quantity':10},{'dish_id':'drink','quantity':2}]
         r=self.post(p);self.assertEqual(r.status_code,201,r.get_json())
         q=r.get_json()['data']['bulk_pricing']
-        self.assertEqual(q['eligible_servings'],10);self.assertEqual(Decimal(q['discount_amount']),22200)
+        self.assertEqual(q['eligible_servings'],12);self.assertEqual(Decimal(q['discount_amount']),22200)
+
+    def test_snack_quantities_across_duplicate_lines_get_freeship(self):
+        with self.sessions.begin() as db:
+            db.add_all([Dish(id='snack',name='Nem',price=35000,base_price=30000,eligible_servings=1),
+                        Dish(id='salad',name='Bánh tráng',price=20000,base_price=15000,eligible_servings=1)])
+        p=self.payload();p['items']=[{'dish_id':'snack','quantity':2},{'dish_id':'salad','quantity':1},
+                                   {'dish_id':'snack','quantity':1},{'dish_id':'rice','quantity':1}]
+        q=self.quote(p);self.assertEqual(q.status_code,200,q.get_json())
+        pricing=q.get_json()['data']['bulk_pricing']
+        self.assertEqual(pricing['eligible_servings'],5)
+        self.assertEqual(Decimal(pricing['shipping_fee']),0)
+        self.assertEqual(Decimal(pricing['discount_amount']),0)
+        r=self.post(p);self.assertEqual(r.status_code,201,r.get_json())
+        self.assertEqual(r.get_json()['data']['bulk_pricing']['eligible_servings'],5)

@@ -4,7 +4,7 @@ Quyết định08/11/2026 thay quy định cũ trần COD500.000đ/cấm giảm 
 
 ## Suất và tiền
 
-Dish.eligible_servings là số suất chính trên mỗi món/combo. Ánh xạ65 món ở database/bulk_servings.sql, nạp cho DB mới trong sample_data; không suy runtime theo tên/category. Món chính trong danh sách=1; đồ uống/ăn vặt/phần thêm=0. Combo2 Người=2, Combo3 Người=3, Combo4–5 Người=4 (hai bún đậu+hai bánh mì), Combo cơm gà/trà đào=1, Combo ăn nhẹ tối=5 (năm bánh mì, bánh bao/bánh tráng là ăn vặt). Nhân đúng số combo mua. Manager chỉnh số suất ở form/API món; Staff không được sửa. Đơn cũ dùng snapshot, không đếm lại.
+Dish.eligible_servings là số suất tính ưu đãi trên mỗi món/combo. Ánh xạ65 món ở database/bulk_servings.sql, nạp cho DB mới trong sample_data; không suy runtime theo tên/category. Theo chốt mới ngày08/11/2026, món chính, ăn vặt và đồ uống trong danh sách đều=1; chỉ phần thêm=0. Số lượng trên từng dòng được nhân và cộng cả dòng trùng món. Combo2 Người=2, Combo3 Người=3, Combo4–5 Người=4 (hai bún đậu+hai bánh mì), Combo cơm gà/trà đào=1, Combo ăn nhẹ tối=5 (giữ số suất combo đã cấu hình). Nhân đúng số combo mua. Manager chỉnh số suất ở form/API món; Staff không được sửa. Đơn cũ dùng snapshot, không đếm lại.
 
 | Suất đủ điều kiện | Giảm tiền hàng | Ship delivery |
 |---|---|---|
@@ -32,7 +32,7 @@ Chatbot cùng báo giá. Đơn cần cọc trả ORDER_CHECKOUT_REQUIRED và chu
 
 ## UI, bàn giao và kế toán
 
-Chi tiết món có chữ nhỏ in nghiêng đúng nội dung ưu đãi. Giỏ/menu sidebar báo số suất, giảm, phí và tổng dự kiến giao; checkout tính lại theo delivery/pickup. Cọc có thông báo in nghiêng nguyên văn đã chốt. Nút Đặt cọc mở native dialog có focus/ESC, QR SVG watermark MÔ PHỎNG không chứa payload chuyển khoản. MB Bank/0866451723 là thông tin giả lập. Đóng dialog không tạo đơn; chỉ xác nhận mô phỏng mới gửi. Input đổi bỏ xác nhận cũ. 50% còn lại hiển thị số tiền COD sau làm tròn.
+Chi tiết món có chữ nhỏ in nghiêng đúng nội dung ưu đãi. Giỏ/menu sidebar có thông báo ưu đãi. Giỏ và checkout hiển thị giá gốc, khoản giảm (số âm khi có), phí ship và tổng thanh toán; checkout tính lại theo delivery/pickup và chỉ báo ưu đãi thực tế khi đủ điều kiện. Cọc có thông báo in nghiêng nguyên văn đã chốt. Nút Đặt cọc mở native dialog có focus/ESC, QR SVG watermark MÔ PHỎNG không chứa payload chuyển khoản. MB Bank/0866451723 là thông tin giả lập. Đóng dialog không tạo đơn; chỉ xác nhận mô phỏng mới gửi. Input đổi bỏ xác nhận cũ. 50% còn lại hiển thị số tiền COD sau làm tròn.
 
 Staff/Manager phải gọi khách, gửi phone_confirmed:true khi accept/process hoặc status DANG_CHUAN_BI cho đơn có cọc; thiếu trả400 PHONE_CONFIRMATION_REQUIRED. Chưa thu đủ tiền/tiếp nhận tự động sau cọc. Bàn giao mã4 số, thu cod_due thay vì toàn đơn. Hủy lúc chờ/từ chối/quá10 phút/bỏ đơn làm deposit_status hiển thị cancelled từ trạng thái đơn; không có hoàn tiền thật.
 
@@ -43,3 +43,9 @@ Staff/Manager phải gọi khách, gửi phone_confirmed:true khi accept/process
 DB hiện có: chạy database/migrations/004_bulk_discounts.sql trước backend mới. Thêm cột snapshot/reference/count, bỏ CHECK500k (giữ không âm), bỏ cấu hình cũ, nạp65 ánh xạ; không xóa đơn/người dùng. Chạy seed/migration trước khi tùy chỉnh số suất; chạy lại seed áp lại danh sách chuẩn. DB mới init+sample đã đủ. Xóa riêng cache neufood:dishes:*, neufood:settings:all, neufood:chat:knowledge_context; không flush Redis/down -v.
 
 Backend test_bulk_discounts.py và hồi quy với TEST_DATABASE_URL/DATABASE_URL riêng hậu tố _orders_test, không truncate DB ứng dụng. Frontend node --test scripts/bulk-pricing.test.mjs, TypeScript/build; browser dùng quote thật nhưng chặn POST tạo đơn. Không thử QR trong ứng dụng ngân hàng.
+
+## Cập nhật số suất món ăn/đồ uống
+
+DB hiện có chạy database/migrations/006_food_drink_servings.sql: đổi22 món ăn vặt/đồ uống có số suất0 thành1, giữ số suất combo và cấu hình không bằng0 đã chỉnh. DB mới dùng seed hiện hành. Không đổi giá hay snapshot đơn đã tạo; báo giá/cọc chưa gửi phải xác nhận lại nếu nội dung hoặc tiền thay đổi. Xóa cache neufood:dishes:* và neufood:chat:knowledge_context sau cập nhật; tải lại trang để nạp thực đơn. Mỗi chai/lon/ly tính một suất, mỗi phần ăn tính một suất, không đếm số miếng bên trong. Khôi phục dữ liệu nếu cần bằng bản ghi số suất trước cập nhật, không sửa snapshot đơn cũ.
+
+Kiểm chứng cập nhật08/11/2026:13 kiểm thử backend và4 kiểm thử frontend qua; TypeScript/build qua. Trình duyệt + API local xác nhận đơn3 nem chua rán+1 bánh tráng trộn+1 bún chả=5 suất,170.000đ,freeship;20 suất gồm đồ uống được giảm8%; nhận tại quầy không báo freeship. Chưa tạo đơn thật trong thử nghiệm trình duyệt; đơn mô phỏng kiểm tra trên DB test riêng.
