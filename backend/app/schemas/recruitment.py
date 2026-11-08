@@ -1,6 +1,6 @@
 from datetime import date
 from typing import Literal
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 RecruitmentRole = Literal['shipper', 'packing', 'customer_support', 'communications']
 RecruitmentStatus = Literal['pending', 'contacting', 'hired', 'rejected']
@@ -48,6 +48,14 @@ class EmployeeCreate(BaseModel):
     start_date: date | None = None
     weekly_schedule: list[str] = Field(default_factory=list, max_length=12)
     notes: str = Field(default='', max_length=2000)
+
+    @model_validator(mode='after')
+    def fulltime_kitchen(self):
+        if self.position in ('chef', 'kitchen_assistant'):
+            self.student_id = ''
+            if self.employment_status == 'active':
+                self.weekly_schedule = list(SLOTS)
+        return self
 
     @field_validator('weekly_schedule')
     @classmethod

@@ -10,11 +10,13 @@ from .complaint import complaint_bp
 from .shift import shift_bp
 from .chat import chat_bp
 from .recruitment import recruitment_bp
+from .article import article_bp
 
 
 def register_routes(app: Flask):
     """Đăng ký tất cả các Flask Blueprints với tiền tố /api/v1."""
     api_prefix = "/api/v1"
+    app.register_blueprint(article_bp, url_prefix=f"{api_prefix}/articles")
     app.register_blueprint(recruitment_bp, url_prefix=f"{api_prefix}/recruitment")
     # Phân hệ TV1: Xác thực, Người dùng, Blacklist & Cấu hình hệ thống
     app.register_blueprint(auth_bp, url_prefix=f"{api_prefix}/auth")

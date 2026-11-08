@@ -33,3 +33,7 @@ Migration cộng3bảng, không sửaUsers/Orders. Có thể rollback applicatio
 
 ## Kiểm chứng08/11/2026
 13 kiểm thử PostgreSQL/API và48 hồi quy frontend qua; TypeScript/build qua. Trình duyệt local đã gửi hồ sơ thật, Manager xem/chấp nhận/tạo nhân viên một lần, phân ca, tạm nghỉ gỡ lịch và xem lịch sử; lỗi gửi giữ dữ liệu, giới thiệu HTML không thực thi, màn hình390px không tràn trang/hộp thoại. Dữ liệu UITEST đã dọn riêng, giữ21hồsơ mẫu. Các tài khoản/đơn cũ không đổi. Chưa tích hợp CMS hoặc cấp/liên kết tài khoản; bundlefrontend có cảnh báo kích thước sẵn có.
+
+Cập nhật nhân sự mẫu08/11/2026: migration009_employee_sample_contacts.sql đổi tên/SĐT giả lập cho16demoactive;8phụbếp/đầubếp Fulltime,cả2caMon–Sat(12buổi). API chuẩn hóa lịch active của2vịtrínày thành12ca; tạmnghỉ/nghỉvẫngỡlịch. Bảnglịchca còn lạihiểnthịngaykhôngcầnmở. Khôngphảidữliệuliênhệthật,khôngtạoUser.
+
+Các bổ sung sau đó:21hồ sơ mẫu đều có tên/SĐT/emailđuôi@neufood.com giả lập (không tạo hộp thư). MSV8chữsố1123/1124/1125 cho các vịtrí phùhợp; đầu bếp/phụbếp không cóMSV.8nhân viên bếp Fulltime cả12ca;8nhân viên hỗtrợ/thu ngân có lịch6buổi khácnhau, đảm bảo mọi caMon–Sat có người vàthu ngân.5đãnghỉkhôngphânca. Migration009 chỉ cậpnhật IDs demo tươngứng.

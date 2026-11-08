@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from app.db.article_models import RecruitmentPosition
 from app.db.recruitment_models import RecruitmentApplication, PersonnelAudit
 
 TRANSITIONS = {'pending': ('contacting',), 'contacting': ('hired', 'rejected'), 'hired': (), 'rejected': ()}
@@ -11,6 +12,9 @@ class RecruitmentError(Exception):
 
 
 def create_application(db, data):
+    position=db.query(RecruitmentPosition).filter_by(position=data['position']).with_for_update(read=True).populate_existing().first()
+    if not position or not position.is_open:
+        raise RecruitmentError('Vị trí này đã ngừng nhận hồ sơ. Vui lòng chọn vị trí khác.', 'POSITION_CLOSED',409)
     application = RecruitmentApplication(**data)
     db.add(application)
     db.flush()

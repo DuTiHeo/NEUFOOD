@@ -51,6 +51,8 @@ def submit_application():
             application = create_application(db, data.model_dump(mode='json'))
             receipt = {'id': application.id, 'created_at': application.created_at.isoformat()}
         return api_response(data=receipt, message='Đã tiếp nhận hồ sơ ứng tuyển', status_code=201)
+    except RecruitmentError as error:
+        return _invalid(str(error), error.status, error.code)
     except IntegrityError as error:
         if getattr(getattr(error.orig, 'diag', None), 'constraint_name', None) == 'recruitment_one_open_student':
             return _invalid('Mã sinh viên này đã có hồ sơ đang chờ xem xét hoặc đang xem xét. Vui lòng liên hệ căn tin để cập nhật.', 409, 'APPLICATION_ALREADY_OPEN')
@@ -248,7 +250,7 @@ def employ_applicant(application_id):
             return _invalid('Hồ sơ ứng tuyển đã thay đổi, vui lòng tải lại', 409, 'APPLICATION_CHANGED')
         if db.query(EmployeeProfile.id).filter_by(source_application_id=application_id).first():
             return _invalid('Hồ sơ này đã được tạo thành nhân viên', 409, 'EMPLOYEE_ALREADY_CREATED')
-        if data.student_id != application.student_id:
+        if data.position not in ('chef','kitchen_assistant') and data.student_id != application.student_id:
             return _invalid('Mã sinh viên phải khớp hồ sơ đã được chấp nhận')
         employee = EmployeeProfile(**data.model_dump(exclude={'expected_application_version'}), source_application_id=application_id)
         if employee.employment_status != 'active':

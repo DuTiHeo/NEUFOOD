@@ -367,3 +367,36 @@ CREATE TABLE IF NOT EXISTS personnel_audit (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS ix_personnel_audit_record_id ON personnel_audit(record_id);
+
+CREATE TABLE IF NOT EXISTS articles (
+ id VARCHAR(32) PRIMARY KEY,
+ kind VARCHAR(20) NOT NULL CHECK (kind IN ('recruitment','story','announcement','news')),
+ status VARCHAR(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','published','hidden')),
+ draft JSONB NOT NULL,
+ published JSONB,
+ version INTEGER NOT NULL DEFAULT 1 CHECK (version>=1),
+ blocked_by_admin BOOLEAN NOT NULL DEFAULT FALSE,
+ hidden_reason TEXT NOT NULL DEFAULT '',
+ created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+ updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+ updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+ published_at TIMESTAMPTZ
+);
+CREATE UNIQUE INDEX IF NOT EXISTS article_one_featured_kind ON articles(kind) WHERE status='published' AND kind IN ('recruitment','story');
+CREATE TABLE IF NOT EXISTS article_audit (
+ id SERIAL PRIMARY KEY,
+ article_id VARCHAR(32) REFERENCES articles(id),
+ actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+ action VARCHAR(40) NOT NULL,
+ details JSONB NOT NULL,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS recruitment_positions (
+ position VARCHAR(30) PRIMARY KEY CHECK (position IN ('shipper','packing','customer_support','communications')),
+ is_open BOOLEAN NOT NULL DEFAULT TRUE,
+ version INTEGER NOT NULL DEFAULT 1,
+ updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+ updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+INSERT INTO recruitment_positions(position) VALUES ('shipper'),('packing'),('customer_support'),('communications') ON CONFLICT(position) DO NOTHING;

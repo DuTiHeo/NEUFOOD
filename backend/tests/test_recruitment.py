@@ -30,6 +30,8 @@ class RecruitmentTests(unittest.TestCase):
             conn.execute(text('DROP TABLE IF EXISTS personnel_audit, employee_profiles, recruitment_applications CASCADE'))
             sql=(Path(__file__).resolve().parents[2]/'database/migrations/008_recruitment.sql').read_text(encoding='utf-8')
             conn.exec_driver_sql(sql.replace('BEGIN;','').replace('COMMIT;',''))
+            article_sql=(Path(__file__).resolve().parents[2]/'database/migrations/010_articles.sql').read_text(encoding='utf-8')
+            conn.exec_driver_sql(article_sql.replace('BEGIN;','').replace('COMMIT;','').replace('%','%%'))
         cls.app=Flask(__name__)
         cls.app.config.update(TESTING=True,RATELIMIT_ENABLED=False)
         limiter.init_app(cls.app)
@@ -46,6 +48,7 @@ class RecruitmentTests(unittest.TestCase):
     def setUp(self):
         with self.engine.begin() as conn:
             conn.execute(text('TRUNCATE users, employee_profiles, personnel_audit RESTART IDENTITY CASCADE'))
+            conn.execute(text("INSERT INTO recruitment_positions(position,is_open,version) VALUES ('shipper',true,1),('packing',true,1),('customer_support',true,1),('communications',true,1) ON CONFLICT(position) DO UPDATE SET is_open=true,version=1"))
         with self.sessions.begin() as db:
             for i,role in enumerate(('customer','manager','staff','admin'),1):
                 db.add(User(id=i,email=f'recruit-{i}@example.com',full_name=f'Nhân sự {i}',phone_number='0977112233',password_hash='unused',role=role))
@@ -201,6 +204,15 @@ class RecruitmentTests(unittest.TestCase):
         with self.sessions() as db:self.assertEqual(db.query(User).count(),5)
         self.assertEqual(self.request('POST','/employees',data,user=2).status_code,422)
         data.pop('expected_version');self.assertEqual(self.request('POST','/employees',data,user=2).status_code,409)
+
+    def test_kitchen_fulltime_is_twelve_slots_except_when_on_leave(self):
+        for role in ('chef','kitchen_assistant'):
+            r=self.request('POST','/employees',{'full_name':'Fulltime thử nghiệm','position':role,'weekly_schedule':['mon-morning']},user=2)
+            self.assertEqual(r.status_code,201,r.get_json())
+            self.assertEqual(len(r.get_json()['data']['weekly_schedule']),12)
+            data={'full_name':'Fulltime thử nghiệm','position':role,'employment_status':'on_leave','expected_version':1,'weekly_schedule':['mon-morning']}
+            r=self.request('PATCH','/employees/'+r.get_json()['data']['id'],data,user=2)
+            self.assertEqual(r.status_code,200,r.get_json());self.assertEqual(r.get_json()['data']['weekly_schedule'],[])
 
     def test_filters_weekly_duplicate_and_account_fields_forbidden(self):
         p={'full_name':'Lịch kiểm thử','email':'worker@example.com','position':'chef','weekly_schedule':['mon-morning','fri-afternoon']}
