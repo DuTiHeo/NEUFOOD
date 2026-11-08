@@ -15,6 +15,11 @@ class ChatHistoryItem(BaseModel):
         return value
 
 
+class ChatRecipientUpdate(BaseModel):
+    recipient_name: str = Field(..., min_length=2, max_length=150, pattern=r"\S")
+    recipient_phone: str = Field(..., pattern=r"^0[35789][0-9]{8}$")
+
+
 class ChatMessageRequest(BaseModel):
     """DTO kiểm tra đầu vào cho API gửi tin nhắn tới Chatbot AI (/api/v1/chat/message)."""
     message: str = Field(..., min_length=1, max_length=500, description="Câu hỏi hoặc yêu cầu của người dùng")
@@ -22,6 +27,7 @@ class ChatMessageRequest(BaseModel):
     draft_id: Optional[str] = Field(default=None, pattern=r"^[a-f0-9]{32}$")
     revision: Optional[int] = Field(default=None, strict=True, ge=1)
     decision: Optional[Literal["confirm", "cancel"]] = None
+    recipient_update: Optional[ChatRecipientUpdate] = None
     history: Optional[List[ChatHistoryItem]] = Field(
         default=None,
         max_length=20,

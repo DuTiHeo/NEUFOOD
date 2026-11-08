@@ -174,6 +174,20 @@ def send_chat_message():
         )
 
         normalized = re.sub(r"[.!?,]+$", "", _strip_accents(dto.message).strip())
+        if dto.recipient_update:
+            if not current_user:
+                return api_response(data=None, message="Vui lòng đăng nhập", status_code=401, success=False)
+            try:
+                user = lock_customer(db, current_user["id"])
+                draft = current_draft(db, user.id, session_id)
+                if not draft or draft.id != dto.draft_id or draft.revision != dto.revision or draft.order_id or aware(draft.expires_at) <= now():
+                    raise OrderError("Đơn nháp đã thay đổi hoặc hết hạn. Vui lòng xem lại.", "STALE_DRAFT", 409)
+                reply, action = prepare_draft(db, user, session_id, {
+                    **dto.recipient_update.model_dump(), "order_for_self": False,
+                })
+                return api_response(data={"reply": reply, "action": action, "provider": "fallback", "session_id": session_id, "suggested_dishes": []})
+            except OrderError as err:
+                return api_response(data=None, message=str(err), status_code=err.status_code, success=False)
         agreed = normalized in {"dong y", "dong y dat don", "xac nhan dat don", "xac nhan", "ok dat don", "dat don"}
         cancelled = normalized in {"bo don nhap", "huy don nhap", "khong dat nua"}
         if dto.decision or agreed or cancelled:

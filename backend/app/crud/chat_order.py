@@ -66,12 +66,8 @@ def order_args(db, payload):
         ("recipient_name", "họ tên người nhận"), ("recipient_phone", "SĐT người nhận"),
         ("payment_method", "tiền mặt hay VietQR khi nhận hàng"),
     ) if not payload.get(key)]
-    if type(payload.get("order_for_self")) is not bool:
-        missing.append("đặt cho bạn hay đặt hộ")
     if type(payload.get("is_preorder")) is not bool:
         missing.append("nhận ngay hay hẹn ngày giờ cụ thể")
-    if not payload.get("notes_confirmed"):
-        missing.append("ghi chú món/giao hàng (hoặc không có)")
     location = None
     if payload.get("order_type") == "delivery":
         if not payload.get("building_code") or not (payload.get("room_detail") or "").strip():
@@ -123,9 +119,10 @@ def preview(db, user_id, args):
         savepoint.rollback()
 
 
-def draft_action(draft):
-    return {"type": "ORDER_CONFIRMATION", "draft_id": draft.id, "revision": draft.revision,
-            "expires_at": aware(draft.expires_at).isoformat(), "summary": draft.quote}
+def draft_action(draft, action_type="ORDER_CONFIRMATION"):
+    return {"type": action_type, "draft_id": draft.id, "revision": draft.revision,
+            "expires_at": aware(draft.expires_at).isoformat(), "summary": draft.quote,
+            "recipient": {key: draft.payload.get(key) or "" for key in ("recipient_name", "recipient_phone")}}
 
 
 def summary_text(summary):
@@ -159,14 +156,21 @@ def prepare_draft(db, user, session_id, changes):
     payload = dict(draft.payload)
     if (type(update.get("order_for_self")) is bool
             and update["order_for_self"] != payload.get("order_for_self")):
-        for key in ("recipient_name", "recipient_phone", "building_code", "room_detail"):
+        for key in ("recipient_name", "recipient_phone"):
             payload.pop(key, None)
     payload.update(update)
+    if payload.get("order_for_self") is None:
+        payload["order_for_self"] = True
+    for key, value in {"payment_method": "cod_cash", "is_preorder": False,
+                       "notes_confirmed": True}.items():
+        if payload.get(key) is None:
+            payload[key] = value
     if payload.get("order_for_self") is True:
         pref = db.get(ChatDeliveryPreference, user.id)
-        defaults = pref.details if pref else {"recipient_name": user.full_name, "recipient_phone": user.phone_number}
+        defaults = {**(pref.details if pref else {}), "recipient_name": user.full_name,
+                    "recipient_phone": user.phone_number}
         for key, value in defaults.items():
-            if value and not payload.get(key):
+            if value and (key in ("recipient_name", "recipient_phone") or not payload.get(key)):
                 if key != "recipient_phone" or re.fullmatch(r"0[35789][0-9]{8}", value):
                     payload[key] = value
     draft.payload = payload
@@ -176,7 +180,10 @@ def prepare_draft(db, user, session_id, changes):
     db.flush()
     args, missing = order_args(db, payload)
     if missing:
-        return "Bạn cho mình biết thêm: " + "; ".join(missing) + ".", {"type": "ORDER_COLLECTING"}
+        recipient = payload.get("recipient_name") or "chưa có tên"
+        phone = payload.get("recipient_phone") or "chưa có SĐT"
+        return (f"Người nhận: {recipient} — {phone}. Bạn có thể bấm Sửa thông tin đặt hàng nếu đặt hộ.\n"
+                + "Bạn cho mình biết thêm: " + "; ".join(missing) + ".", draft_action(draft, "ORDER_COLLECTING"))
     draft.quote = preview(db, user.id, args)
     db.flush()
     return summary_text(draft.quote), draft_action(draft)
