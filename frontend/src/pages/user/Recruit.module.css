@@ -170,6 +170,7 @@
 .article h3 { font-size: 1.25rem; line-height: 1.4; margin: 0; }
 .positionGrid, .scheduleGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .positionCard { display: flex; flex-direction: column; align-items: flex-start; padding: 1.25rem; border: 1px solid var(--color-edge); border-radius: 1rem; background: var(--color-panel); }
+.positionCard h3 { width: 100%; text-align: center; font-weight: 800; color: #000; }
 .positionCard p { flex: 1; }
 .positionCard strong { color: var(--color-brand); }
 .positionLink { display: inline-flex; align-items: center; min-height: 44px; margin-top: 0.5rem; color: var(--color-brand); font-weight: 700; }
