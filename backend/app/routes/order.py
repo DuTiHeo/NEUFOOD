@@ -159,6 +159,8 @@ def get_order_details(order_id: str):
 @role_required("staff", "manager", "admin")
 def get_all_orders_admin():
     status = request.args.get("status")
+    order_type = request.args.get("order_type")
+    search = request.args.get("search")
     page_raw = request.args.get("page", 1)
     limit_raw = request.args.get("limit", 20)
 
@@ -182,7 +184,9 @@ def get_all_orders_admin():
     limit = min(limit, 100)
 
     with get_db() as db:
-        orders, total = get_all_orders(db, status=status, page=page, limit=limit)
+        if order_type not in (None, "all", "delivery", "pickup"):
+            return api_response(message="order_type không hợp lệ", status_code=400, success=False)
+        orders, total = get_all_orders(db, status=status, order_type=order_type, search=search, page=page, limit=limit)
         items = [_serialize_order(o) for o in orders]
         return api_response(data={"items": items, "total": total, "page": page, "limit": limit})
 

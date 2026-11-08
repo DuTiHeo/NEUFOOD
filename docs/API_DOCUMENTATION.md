@@ -1543,8 +1543,9 @@ Kiểm thử tích hợp: `backend/tests/test_order_creation.py`. Dùng PostgreS
 - **Endpoint**: `GET /api/v1/orders/admin/all`
 - **Quyền hạn**: Role `staff`, `manager`, `admin` (`@role_required("staff", "manager", "admin")`)
 - **Query Parameters**:
-  - `status`: Lọc theo trạng thái đơn hàng (`CHO_XAC_NHAN`, `DANG_CHUAN_BI`, `DANG_GIAO`, ...) (Optional).
+  - `status`: Lọc theo trạng thái đơn hàng (`CHO_XAC_NHAN`, `DANG_CHUAN_BI`, `DANG_GIAO`, ...) (Optional). Giá trị `active` trả các đơn chưa kết thúc; `all` hoặc bỏ trống trả mọi trạng thái.
   - `order_type`: Lọc theo hình thức nhận món (`delivery` / `pickup`) (Optional).
+  - `search`: Tìm mã đơn, tên người nhận hoặc số điện thoại (Optional).
   - `page`: Số trang, số nguyên $\ge 1$ (mặc định: `1`).
   - `limit`: Số lượng bản ghi trên một trang, số nguyên $\ge 1$ (mặc định: `20`, tự động giới hạn trần tối đa `limit <= 100` để chống cạn kiệt tài nguyên / DoS).
 - **Quy tắc phân trang an toàn (Input Sanitization & Safe Pagination)**:
@@ -2054,6 +2055,7 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
 - **Request Body**:
 ```json
 {
+  "shift_date": "2026-10-19",
   "actual_cash": 450000.0,
   "actual_qr": 230000.0,
   "discrepancy_note": "Khớp 100% tiền mặt và sao kê QR"
@@ -2062,6 +2064,7 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
 - **Ràng buộc Schema (`schemas/shift.py` - `ShiftSubmitRequest`)**:
   - `actual_cash`: Số tiền mặt kiểm đếm thực tế, kiểu số không âm và tối đa 9,999,999,999.99 (`ge=0, le=9999999999.99, allow_inf_nan=False`).
   - `actual_qr`: Số tiền QR sao kê thực tế, kiểu số không âm và tối đa 9,999,999,999.99 (`ge=0, le=9999999999.99, allow_inf_nan=False`).
+  - `shift_date`: Ngày ca theo giờ Việt Nam từ số liệu nhân viên đã kiểm tra. Nếu ngày này không còn là ngày hiện tại khi gửi (ví dụ bản xác nhận cũ được gửi sau nửa đêm), API từ chối với `400 Bad Request` (`code: SHIFT_DATE_EXPIRED`) để tránh ghi nhầm thành ca của ngày mới. Trường này tùy chọn để giữ tương thích với các API client cũ.
   - `discrepancy_note`: Ghi chú giải trình (tối đa 1000 ký tự).
 - **Quy tắc nghiệp vụ & Xử lý chênh lệch (Quyết định D6, `BR-25`, `EX-20`)**:
   - Mỗi nhân viên chỉ có **tối đa 01 ca làm việc mỗi ngày** (tính theo ngày Việt Nam `Asia/Saigon`).

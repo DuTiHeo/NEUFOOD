@@ -156,10 +156,12 @@ function DishCard({ dish }: { dish: any }) {
               type="button"
               className={`${styles.addToCartBtn} ${added ? styles.addToCartBtnSuccess : ''}`}
               onClick={addToCart}
-              disabled={dish.is_available === false || reachedLimit}
+              disabled={dish.is_active === false || dish.is_available === false || reachedLimit}
               aria-label={`Thêm ${draft} ${dish.name} vào giỏ hàng`}
             >
-              {dish.is_available === false ? (
+              {dish.is_active === false ? (
+                <span>Ngừng kinh doanh</span>
+              ) : dish.is_available === false ? (
                 <span>Hết món</span>
               ) : reachedLimit ? (
                 <span>Đủ số lượng</span>

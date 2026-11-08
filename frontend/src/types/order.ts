@@ -54,7 +54,9 @@ export interface CreateOrderPayload {
 }
 
 export interface OrderListParams {
-  status?: OrderStatus;
+  status?: string;
+  order_type?: string;
+  search?: string;
   page?: number;
   limit?: number;
 }

@@ -1,0 +1,86 @@
+@media (max-width: 700px) {
+  .shipper-orders-page .manager-table-wrap {
+    overflow: visible;
+  }
+
+  .shipper-orders-page .manager-table,
+  .shipper-orders-page .manager-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .shipper-orders-page .manager-table thead {
+    display: none;
+  }
+
+  .shipper-orders-page .manager-table tbody {
+    display: grid;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .shipper-orders-page .manager-table tbody tr {
+    display: grid;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid #e1e8ef;
+    border-radius: 10px;
+    background: #fff;
+  }
+
+  .shipper-orders-page .manager-table td {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 8px;
+    min-width: 0 !important;
+    padding: 10px 12px;
+    border-top: 1px solid #edf1f5;
+    overflow-wrap: anywhere;
+  }
+
+  .shipper-orders-page .manager-table td:first-child {
+    border-top: 0;
+  }
+
+  .shipper-orders-page .manager-table td::before {
+    color: #8294a5;
+    font-size: 10px;
+    font-weight: 650;
+  }
+
+  .shipper-orders-page .manager-table td:nth-child(1)::before { content: 'Đơn / khách'; }
+  .shipper-orders-page .manager-table td:nth-child(2)::before { content: 'Địa chỉ / giờ'; }
+  .shipper-orders-page .manager-table td:nth-child(3)::before { content: 'Thanh toán'; }
+  .shipper-orders-page .manager-table td:nth-child(4)::before { content: 'Trạng thái'; }
+  .shipper-orders-page .manager-table td:nth-child(5)::before { content: 'Thao tác'; }
+
+  .shipper-orders-page .manager-table td[colspan] {
+    display: block;
+    padding: 18px 12px;
+    border-top: 0;
+    text-align: center;
+  }
+
+  .shipper-orders-page .manager-table td[colspan]::before {
+    content: none;
+  }
+
+  .shipper-orders-page .manager-actions {
+    gap: 6px;
+  }
+
+  .shipper-orders-page .manager-actions .manager-button {
+    min-height: 36px;
+    height: auto;
+    padding: 7px 9px;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 380px) {
+  .shipper-orders-page .manager-table td {
+    grid-template-columns: 78px minmax(0, 1fr);
+    padding-right: 9px;
+    padding-left: 9px;
+  }
+}

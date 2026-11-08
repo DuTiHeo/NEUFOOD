@@ -5,6 +5,7 @@ export interface Category {
   description?: string;
   display_order?: number;
   is_active?: boolean;
+  is_deleted?: boolean;
 }
 
 export interface Dish {
