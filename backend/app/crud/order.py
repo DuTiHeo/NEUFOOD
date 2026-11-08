@@ -10,6 +10,7 @@ from app.db.models import (
 )
 from app.crud.setting import get_setting_int
 from app.crud.portion import resolve_portions, PortionError
+from app.crud.bulk_pricing import compute_bulk, issue_deposit_quote, verify_deposit_quote
 from app.crud.order_policy import OrderError, get_order_policy, validate_order_time
 
 
@@ -39,6 +40,7 @@ def create_order(
     scheduled_at,
     payment_method: str,
     items_data: list,
+    deposit_token=None, expected_pricing=None, _quote_only=False,
 ) -> Order:
     """Tạo COD nguyên tử; caller commit/rollback qua get_db()."""
     # Khóa khách thay vì khóa đơn: khách chưa có đơn vẫn cần chống hai request đồng thời.
@@ -121,13 +123,26 @@ def create_order(
                 raise OrderError("Giá món hoặc phần thêm đã thay đổi. Vui lòng xem và xác nhận lại.", "PRICE_CHANGED", 409)
         resolved_items.append((item, dish, portions, unit_price, dish.base_price + extra))
     subtotal_amount = sum((unit_price * item["quantity"] for item, _, _, unit_price, _ in resolved_items), Decimal(0))
-    total_amount = subtotal_amount + ship_fee
-    # Hai trần vẫn được bảo vệ bởi CHECK của schema PostgreSQL hiện hành.
-    max_cod = min(500000, get_setting_int(db, "max_cod_amount", 500000))
-    if ship_fee < 0 or total_amount > max_cod:
-        raise OrderError(
-            f"Đơn hàng COD không được vượt quá {max_cod:,.0f} VNĐ. Vui lòng giảm số lượng món", "EX-11",
-        )
+    if ship_fee < 0:
+        raise OrderError("Phí giao hàng không hợp lệ", "INVALID_ORDER")
+    servings = sum(dishes[item["dish_id"]].eligible_servings * item["quantity"] for item in items_data)
+    pricing = compute_bulk(subtotal_amount, servings, ship_fee)
+    if expected_pricing is not None and expected_pricing != pricing:
+        raise OrderError("Ưu đãi hoặc tổng tiền đã thay đổi. Vui lòng kiểm tra lại.", "PRICE_CHANGED", 409)
+    ship_fee = Decimal(pricing['shipping_fee'])
+    total_amount = Decimal(pricing['total_amount'])
+    if total_amount > Decimal('9999999999.99'):
+        raise OrderError("Tổng tiền vượt khả năng xử lý của hệ thống", "INVALID_ORDER")
+    content = dict(order_type=order_type, recipient_name=recipient_name, recipient_phone=recipient_phone,
+                   campus_location_id=campus_location_id, room_detail=room_detail, delivery_address=resolved_address,
+                   delivery_note=delivery_note, scheduled_at=scheduled_at, payment_method=payment_method,
+                   items=[dict(id=d.id,quantity=i['quantity'],note=i.get('note'),portions=p,unit_price=str(u))
+                          for i,d,p,u,_ in resolved_items])
+    reference = None
+    if Decimal(pricing['deposit_amount']) and not _quote_only:
+        reference = verify_deposit_quote(deposit_token,user_id,content,pricing)
+        if db.query(Order.id).filter(Order.deposit_reference == reference).first():
+            raise OrderError("Xác nhận cọc này đã được dùng cho một đơn hàng.", "DEPOSIT_ALREADY_USED",409)
 
     order_id = generate_order_id(db)
     order_code_suffix = order_id[-4:]
@@ -146,6 +161,7 @@ def create_order(
         is_preorder=is_preorder,
         scheduled_at=scheduled_at,
         status="CHO_XAC_NHAN",
+        bulk_pricing=pricing, deposit_reference=reference,
         subtotal_amount=subtotal_amount,
         ship_fee=ship_fee,
         total_amount=total_amount,
@@ -154,6 +170,8 @@ def create_order(
         eta="15 - 25 phút" if order_type == "delivery" else "10 - 15 phút",
         created_at=now,
     )
+    if _quote_only and Decimal(pricing["deposit_amount"]):
+        order.deposit_quote_token = issue_deposit_quote(user_id,content,pricing)
     db.add(order)
 
     for item, dish, portions, unit_price, base_price in resolved_items:
@@ -272,7 +290,7 @@ def get_all_orders(
 
 def update_order_status(
     db: Session, order: Order, new_status: str, cancelled_reason: Optional[str] = None,
-    staff_id: Optional[int] = None,
+    staff_id: Optional[int] = None, phone_confirmed: bool = False,
 ) -> Order:
     # Đọc lại sau khi lấy khóa để không ghi đè đơn vừa được khách hủy.
     db.refresh(order, with_for_update=True)
@@ -285,6 +303,10 @@ def update_order_status(
     if order.status == "TU_DONG_HUY":
         raise OrderError("Đơn đã quá thời hạn xác nhận và đã tự động hủy", "EX-16")
     if order.status == "CHO_XAC_NHAN" and new_status in ("DANG_CHUAN_BI", "TU_CHOI"):
+        if new_status == "DANG_CHUAN_BI" and Decimal((order.bulk_pricing or {}).get('deposit_amount','0')):
+            if not phone_confirmed:
+                raise OrderError("Cần gọi điện xác nhận với khách trước khi tiếp nhận đơn có cọc mô phỏng.", "PHONE_CONFIRMATION_REQUIRED")
+            order.bulk_pricing = {**order.bulk_pricing, 'phone_confirmed':True}
         if new_status == "TU_CHOI":
             if not (cancelled_reason or "").strip():
                 raise OrderError("Cần nhập lý do từ chối đơn", "INVALID_REASON")

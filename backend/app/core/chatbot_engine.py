@@ -121,7 +121,6 @@ def build_system_instruction(
     cutoff_time = cfg.get("canteen_order_cutoff_time", "18:30")
     delivery_fee = int(float(cfg.get("delivery_fee", "5000")))
     system_fee = int(float(cfg.get("system_maintenance_fee", "5000")))
-    max_cod = int(float(cfg.get("max_cod_amount", "500000")))
     max_qty = int(float(cfg.get("max_dish_quantity_per_order", "10")))
     pickup_hold = int(float(cfg.get("pickup_hold_minutes", "30")))
     order_timeout = int(float(cfg.get("order_timeout_minutes", "10")))
@@ -182,6 +181,7 @@ NGUYÊN TẮC PHẢN HỒI:
 4. Nếu khách hỏi món nằm trong danh sách tạm hết hàng hôm nay ({unavail_text}), hãy báo rõ món đó đang tạm hết và gợi ý món tương tự đang còn bán.
 
 QUY ĐỊNH VẬN HÀNH & NGHIỆP VỤ CANTEEN A2 (NEUFOOD):
+- Từ5 suất chính được freeship; từ10/20/30 suất giảm6/8/12% toàn bộ tiền hàng gồm đồ uống/phần thêm, không gồm ship. Không tự suy số suất combo từ tên; dùng báo giá máy chủ. Bỏ trần500k. Đơn từ500k cần cọc50% MÔ PHỎNG; không tích hợp ngân hàng, phải chuyển sang checkout và chờ nhân viên gọi xác nhận. Không tuyên bố đã thanh toán thật.
 - Canteen nghỉ Chủ nhật (theo ngày Việt Nam). Khách thường không đặt ngay hoặc hẹn nhận vào Chủ nhật; vẫn được tạo đơn hẹn trong ngày nghỉ để nhận thứ Hai–thứ Bảy, trong giới hạn7 ngày và giờ phục vụ. Tester có ngoại lệ ngày nghỉ do máy chủ xác định.
 - Đặt ngay chỉ từ {open_time} đến đúng {cutoff_time}:00 giờ Việt Nam; làm xong sớm giao sớm, không chờ30 phút. Đặt hẹn giờ được tạo bất kỳ lúc nào, kể cả ngoài giờ; giờ nhận từ {open_time} đến đúng {close_time}:00 trong hôm nay và7 ngày tiếp theo, cách lúc tạo ít nhất {preorder_lead} phút. Tester được miễn khung giờ nhưng không miễn thời gian đặt trước,7 ngày hay điều kiện COD; không suy quyền từ email; ngoại lệ tester cũng bao gồm ngày nghỉ Chủ nhật.
 - **Giờ mở cửa phục vụ**: **{open_time} – {close_time}** từ thứ Hai đến thứ Bảy tại Canteen A2 (Tầng 1, Nhà A2).
@@ -189,7 +189,7 @@ QUY ĐỊNH VẬN HÀNH & NGHIỆP VỤ CANTEEN A2 (NEUFOOD):
 - **Phí giao hàng**: Cố định **{_format_vnd(delivery_fee)}/đơn** khi chọn **Giao tận nơi (`delivery`)** tới các tòa nhà trong trường; **Miễn phí (0đ)** khi chọn **Nhận tại quầy Canteen A2 (`pickup`)**.
 - **Thời gian giao dự kiến**: Giao tận nơi khoảng **15 – 25 phút**; Nhận tại quầy khoảng **10 – 15 phút**. Đơn đặt hẹn trước (Pre-order) cần đặt trước tối thiểu **{preorder_lead} phút**.
 - **Phương thức thanh toán**: **100% COD** khi nhận món (Tiền mặt hoặc quét mã **VietQR** trực tiếp với nhân viên/shipper).
-- **Giới hạn đặt hàng**: Tối đa **{_format_vnd(max_cod)}/đơn** (BR-14), số lượng từ **1 đến {max_qty} phần/món** (BR-07). Mỗi tài khoản chỉ có 1 đơn đang hoạt động tại một thời điểm.
+- **Giới hạn đặt hàng**: Không giới hạn tổng500.000đ; từ500.000đ sau ưu đãi cần cọc50% mô phỏng tại trang thanh toán; số lượng từ **1 đến {max_qty} phần/món** (BR-07). Mỗi tài khoản chỉ có 1 đơn đang hoạt động tại một thời điểm.
 - **Quy định nhận hàng & Hủy đơn**:
   - Khi nhận món, sinh viên cần đọc **4 chữ số cuối của mã đơn hàng** để nhân viên đối chiếu (BR-18).
   - Khách chỉ được hủy đơn khi đơn đang ở trạng thái **Chờ xác nhận (`CHO_XAC_NHAN`)**. Khi bếp đã chuyển sang **Đang chuẩn bị (`DANG_CHUAN_BI`)** thì không thể hủy.
@@ -358,7 +358,6 @@ def _build_local_fallback_reply(
     close_time = cfg.get("canteen_close_time", "19:00")
     cutoff_time = cfg.get("canteen_order_cutoff_time", "18:30")
     delivery_fee = int(float(cfg.get("delivery_fee", "5000")))
-    max_cod = int(float(cfg.get("max_cod_amount", "500000")))
     max_qty = int(float(cfg.get("max_dish_quantity_per_order", "10")))
     pickup_hold = int(float(cfg.get("pickup_hold_minutes", "30")))
 
@@ -437,7 +436,7 @@ def _build_local_fallback_reply(
     if any(kw in msg_norm for kw in guide_keywords):
         return (
             f"**Hướng dẫn đặt món & thanh toán trên NEUFood**:\n"
-            f"1. **Chọn món**: Vào trang **Thực đơn**, thêm món vào giỏ (tối đa **{max_qty} phần/món**, tổng đơn tối đa **{_format_vnd(max_cod)}**).\n"
+            f"1. **Chọn món**: Vào trang **Thực đơn**, thêm món vào giỏ (tối đa **{max_qty} phần/món**; đơn từ500.000đ cần cọc50% mô phỏng ở trang thanh toán).\n"
             f"2. **Chọn hình thức nhận**:\n"
             f"   - **Giao tận nơi**: Phí ship **{_format_vnd(delivery_fee)}/đơn** tới các tòa A1, A2, B, C, D, KTX, Thư viện, Nhà Văn Hóa.\n"
             f"   - **Nhận tại quầy Canteen A2**: Phí ship **0đ**.\n"

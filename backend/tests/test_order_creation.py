@@ -181,21 +181,25 @@ class OrderCreationTests(unittest.TestCase):
                 payload["campus_location_id"] = location
                 self.assert_rejected(payload, "EX-07")
 
-    def test_cod_cap_includes_shipping(self):
+    def test_deposit_threshold_includes_shipping(self):
         payload = self.payload()
         payload["items"] = [{"dish_id": "premium", "quantity": 10}]
-        self.assert_rejected(payload, "EX-11")
+        self.assert_rejected(payload, "DEPOSIT_CONFIRMATION_REQUIRED",409)
         payload["order_type"] = "pickup"
+        token = create_access_token({"sub":"1","role":"customer"})
+        with self.app.test_client() as client:
+            quote=client.post('/api/v1/orders/quote',json=payload,headers={'Authorization':f'Bearer {token}'}).get_json()['data']
+        payload['deposit_token']=quote['deposit_token']
         response = self.post(payload)
         self.assertEqual(response.status_code, 201, response.get_json())
         self.assertEqual(response.get_json()["data"]["total_amount"], 500000)
 
-    def test_cod_one_dong_above_cap_rejected(self):
+    def test_one_dong_above_threshold_requires_deposit(self):
         with self.sessions.begin() as db:
             db.get(Dish, "rice").price = Decimal("495001")
         payload = self.payload()
         payload["items"][0]["quantity"] = 1
-        self.assert_rejected(payload, "EX-11")
+        self.assert_rejected(payload, "DEPOSIT_CONFIRMATION_REQUIRED",409)
 
     def test_preorder_lead_boundary_and_timezone(self):
         payload = self.payload()
@@ -255,7 +259,7 @@ class OrderCreationTests(unittest.TestCase):
         payload["items"] = [{"dish_id": "rice", "quantity": 6}, {"dish_id": "rice", "quantity": 5}]
         self.assert_rejected(payload, "EX-06")
         payload["items"] = [{"dish_id": "premium", "quantity": 10}]
-        self.assert_rejected(payload, "EX-11")
+        self.assert_rejected(payload, "DEPOSIT_CONFIRMATION_REQUIRED",409)
 
     def test_schema_rejects_bad_input(self):
         for quantity in (0, 11, True, 1.5, "2"):

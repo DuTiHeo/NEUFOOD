@@ -404,7 +404,6 @@ VALUES
 ('complaint_window_hours', '24', 'Thời gian tối đa cho phép khách hàng gửi ticket khiếu nại sau khi nhận hàng (giờ)'),
 ('system_maintenance_fee', '5000', 'Phụ phí bảo trì hệ thống trực tuyến cộng vào giá niêm yết mỗi món (VNĐ)'),
 ('delivery_fee', '5000', 'Phí vận chuyển cố định cho đơn giao tận nơi nội khu NEU (VNĐ)'),
-('max_cod_amount', '500000', 'Hạn mức giá trị tối đa cho một đơn hàng thanh toán COD (VNĐ)'),
 ('max_dish_quantity_per_order', '10', 'Số lượng tối đa của một món ăn trong một đơn hàng (phần)'),
 ('min_preorder_lead_minutes', '30', 'Thời gian đặt trước tối thiểu cho đơn hẹn giờ (phút)'),
 ('canteen_open_time', '07:30', 'Giờ mở cửa phục vụ hàng ngày của Canteen A2'),
@@ -627,3 +626,71 @@ UPDATE dishes SET portion_groups = '[{"id": "main", "label": "Suất ăn", "choi
 UPDATE dishes SET portion_groups = '[{"id": "main", "label": "Suất ăn", "choices": [{"id": "tra-tac", "name": "Trà Tắc (Quất)", "addons": [{"id": "tra-tac-1", "name": "Xí muội", "price": 5000, "is_available": true}, {"id": "tra-tac-2", "name": "Trà tắc 500ml", "price": 10000, "is_available": true}], "is_available": true}]}]'::jsonb WHERE id = 'tra-tac' AND portion_groups::jsonb = '[]'::jsonb;
 UPDATE dishes SET portion_groups = '[{"id": "main", "label": "Suất ăn", "choices": [{"id": "xien-ban", "name": "Xiên Bẩn (Chiên)", "addons": [{"id": "xien-ban-1", "name": "Xiên", "price": 10000, "is_available": true}], "is_available": true}]}]'::jsonb WHERE id = 'xien-ban' AND portion_groups::jsonb = '[]'::jsonb;
 -- EXTRA_PORTIONS_SEED_END
+
+-- BULK_SERVINGS_SEED_BEGIN
+UPDATE dishes SET eligible_servings=0 WHERE id='banh-bao';
+UPDATE dishes SET eligible_servings=0 WHERE id='banh-bot-loc';
+UPDATE dishes SET eligible_servings=1 WHERE id='banh-can';
+UPDATE dishes SET eligible_servings=1 WHERE id='banh-canh';
+UPDATE dishes SET eligible_servings=1 WHERE id='banh-cuon';
+UPDATE dishes SET eligible_servings=0 WHERE id='banh-duc';
+UPDATE dishes SET eligible_servings=1 WHERE id='banh-hoi';
+UPDATE dishes SET eligible_servings=1 WHERE id='banh-khot';
+UPDATE dishes SET eligible_servings=1 WHERE id='banh-mi';
+UPDATE dishes SET eligible_servings=0 WHERE id='banh-trang-nuong';
+UPDATE dishes SET eligible_servings=0 WHERE id='banh-trang-phoi-suong';
+UPDATE dishes SET eligible_servings=0 WHERE id='banh-trang-tron';
+UPDATE dishes SET eligible_servings=1 WHERE id='banh-uot';
+UPDATE dishes SET eligible_servings=1 WHERE id='banh-xeo';
+UPDATE dishes SET eligible_servings=1 WHERE id='bun-bo-hue';
+UPDATE dishes SET eligible_servings=1 WHERE id='bun-ca';
+UPDATE dishes SET eligible_servings=1 WHERE id='bun-cha';
+UPDATE dishes SET eligible_servings=1 WHERE id='bun-dau-mam-tom';
+UPDATE dishes SET eligible_servings=1 WHERE id='bun-mam';
+UPDATE dishes SET eligible_servings=1 WHERE id='bun-moc';
+UPDATE dishes SET eligible_servings=1 WHERE id='bun-rieu';
+UPDATE dishes SET eligible_servings=1 WHERE id='bun-rieu-cua-dong';
+UPDATE dishes SET eligible_servings=1 WHERE id='bun-thang';
+UPDATE dishes SET eligible_servings=0 WHERE id='ca-vien-chien-mam';
+UPDATE dishes SET eligible_servings=0 WHERE id='chan-ga-sa-tac';
+UPDATE dishes SET eligible_servings=1 WHERE id='chao-suon';
+UPDATE dishes SET eligible_servings=0 WHERE id='che-anh-dep-trai';
+UPDATE dishes SET eligible_servings=0 WHERE id='coca-cola';
+UPDATE dishes SET eligible_servings=1 WHERE id='com-bo-luc-lac';
+UPDATE dishes SET eligible_servings=1 WHERE id='com-ca-kho';
+UPDATE dishes SET eligible_servings=1 WHERE id='com-ca-ri';
+UPDATE dishes SET eligible_servings=1 WHERE id='com-chien';
+UPDATE dishes SET eligible_servings=1 WHERE id='com-ga';
+UPDATE dishes SET eligible_servings=1 WHERE id='com-ga-xoi-mo';
+UPDATE dishes SET eligible_servings=1 WHERE id='com-ga-xoi-mo-2';
+UPDATE dishes SET eligible_servings=1 WHERE id='com-nieu';
+UPDATE dishes SET eligible_servings=1 WHERE id='com-suon';
+UPDATE dishes SET eligible_servings=1 WHERE id='com-suon-nuong';
+UPDATE dishes SET eligible_servings=1 WHERE id='com-tam';
+UPDATE dishes SET eligible_servings=1 WHERE id='com-thit-kho';
+UPDATE dishes SET eligible_servings=1 WHERE id='com-tron';
+UPDATE dishes SET eligible_servings=2 WHERE id='combo-2-nguoi';
+UPDATE dishes SET eligible_servings=3 WHERE id='combo-3-nguoi';
+UPDATE dishes SET eligible_servings=4 WHERE id='combo-4-5-nguoi';
+UPDATE dishes SET eligible_servings=1 WHERE id='combo-com-ga-tra-dao';
+UPDATE dishes SET eligible_servings=5 WHERE id='combo-nhom-an-nhe-toi';
+UPDATE dishes SET eligible_servings=0 WHERE id='goi-cuon';
+UPDATE dishes SET eligible_servings=1 WHERE id='hu-tieu';
+UPDATE dishes SET eligible_servings=0 WHERE id='khoai-tay-chien';
+UPDATE dishes SET eligible_servings=1 WHERE id='mien-ga';
+UPDATE dishes SET eligible_servings=0 WHERE id='nem-chua-ran';
+UPDATE dishes SET eligible_servings=1 WHERE id='nem-nuong-nha-trang';
+UPDATE dishes SET eligible_servings=0 WHERE id='nuoc-sam';
+UPDATE dishes SET eligible_servings=0 WHERE id='pepsi';
+UPDATE dishes SET eligible_servings=1 WHERE id='pho';
+UPDATE dishes SET eligible_servings=1 WHERE id='pho-bo-tai-lan';
+UPDATE dishes SET eligible_servings=1 WHERE id='pho-tron';
+UPDATE dishes SET eligible_servings=1 WHERE id='pho-tron-chua-ngot';
+UPDATE dishes SET eligible_servings=0 WHERE id='sua-dau';
+UPDATE dishes SET eligible_servings=0 WHERE id='tra-chanh';
+UPDATE dishes SET eligible_servings=0 WHERE id='tra-da';
+UPDATE dishes SET eligible_servings=0 WHERE id='tra-dao-cam-sa';
+UPDATE dishes SET eligible_servings=0 WHERE id='tra-sua-tran-chau';
+UPDATE dishes SET eligible_servings=0 WHERE id='tra-tac';
+UPDATE dishes SET eligible_servings=0 WHERE id='xien-ban';
+-- BULK_SERVINGS_SEED_END

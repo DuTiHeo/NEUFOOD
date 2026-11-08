@@ -147,6 +147,7 @@ class Dish(Base):
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
+    eligible_servings = Column(Integer, nullable=False, default=0)
     portion_groups = Column(JSON, nullable=False, default=list, server_default="[]")
 
     categories = relationship("Category", secondary=dish_categories, back_populates="dishes")
@@ -183,6 +184,8 @@ class Order(Base):
     is_preorder = Column(Boolean, nullable=False, default=False)
     scheduled_at = Column(DateTime(timezone=True), nullable=True)
     status = Column(String(30), nullable=False, default="CHO_XAC_NHAN", index=True)
+    bulk_pricing = Column(JSON, nullable=False, default=dict)
+    deposit_reference = Column(String(64), nullable=True, unique=True)
     subtotal_amount = Column(Numeric(12, 2), nullable=False, default=0)
     ship_fee = Column(Numeric(12, 2), nullable=False, default=5000)
     total_amount = Column(Numeric(12, 2), nullable=False)

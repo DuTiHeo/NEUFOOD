@@ -35,6 +35,8 @@ def validate_setting_value(key: str, value: str) -> Tuple[bool, Optional[str]]:
     Trả về: (is_valid, error_message_or_none)
     """
     cleaned = value.strip()
+    if key == "max_cod_amount":
+        return False, "Đã bỏ trần tổng đơn; đơn từ 500.000đ áp dụng cọc mô phỏng 50%"
     if not cleaned:
         return False, "Giá trị cấu hình không được để trống"
 

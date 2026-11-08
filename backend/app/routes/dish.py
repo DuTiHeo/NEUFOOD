@@ -44,6 +44,7 @@ def _serialize_review(review) -> dict:
 
 def _serialize_dish(dish, reviews=None) -> dict:
     result = {
+        "eligible_servings": dish.eligible_servings,
         "id": dish.id,
         "name": dish.name,
         "short_description": dish.short_description,

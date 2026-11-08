@@ -46,10 +46,16 @@ class ExtraPortionTests(unittest.TestCase):
         return {"slot_id": slot, "choice_id": choice["id"],
                 "addon_ids": [next(a["id"] for a in choice["addons"] if a["name"] == addon_name)] if addon_name else []}
 
-    def create(self, items, user_id=1):
+    def create(self, items, user_id=1, confirm_deposit=False):
         with self.sessions.begin() as db:
-            order = create_order(db, user_id, "delivery", "Khách test", "0977112233", 1, "604",
-                                 None, None, False, None, "cod_cash", items)
+            def make(**kwargs):
+                return create_order(db, user_id, "delivery", "Khách test", "0977112233", 1, "604",None,None,False,None,"cod_cash",items,**kwargs)
+            token=None
+            if confirm_deposit:
+                savepoint=db.begin_nested()
+                quote=make(_quote_only=True);token=getattr(quote,'deposit_quote_token',None)
+                savepoint.rollback()
+            order=make(deposit_token=token)
             return order.id
 
     def test_catalog_has_explicit_65_mappings_and_only_two_price_levels(self):
@@ -155,7 +161,7 @@ class ExtraPortionTests(unittest.TestCase):
         with self.sessions.begin() as db:
             db.get(Dish, "banh-mi").price = Decimal(490000)
         order_id = self.create([{"dish_id": "banh-mi", "quantity": 1,
-                                "portions": [self.selection("banh-mi")], "expected_unit_price": 495000}])
+                                "portions": [self.selection("banh-mi")], "expected_unit_price": 495000}],confirm_deposit=True)
         with self.sessions.begin() as db:
             self.assertEqual(db.get(Order, order_id).total_amount, 500000)
             db.get(Order, order_id).status = "HOAN_THANH"

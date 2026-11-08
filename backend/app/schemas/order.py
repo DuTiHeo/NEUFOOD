@@ -52,10 +52,13 @@ class OrderCreateRequest(BaseModel):
     is_preorder: bool = Field(default=False, strict=True)
     scheduled_at: Optional[AwareDatetime] = None
     payment_method: str = Field(default="cod_cash", pattern="^(cod_cash|cod_vietqr)$")
+    deposit_token: Optional[str] = Field(default=None, max_length=4096)
+    expected_pricing: Optional[dict] = None
     items: List[OrderItemCreate] = Field(..., min_length=1)
 
 
 class OrderStatusUpdateRequest(BaseModel):
+    phone_confirmed: bool = Field(default=False, strict=True)
     status: str = Field(..., pattern=VALID_ORDER_STATUSES)
     cancelled_reason: Optional[str] = None
 
@@ -67,6 +70,7 @@ class OrderStatusUpdateRequest(BaseModel):
 
 
 class OrderProcessRequest(BaseModel):
+    phone_confirmed: bool = Field(default=False, strict=True)
     action: str = Field(..., pattern="^(accept|reject)$")
     reason: Optional[str] = None
 
@@ -87,6 +91,8 @@ class OrderIssueRequest(BaseModel):
 
 
 class OrderResponse(BaseModel):
+    bulk_pricing: dict = Field(default_factory=dict)
+    cod_due: Optional[float] = None
     id: str
     order_code_suffix: str
     user_id: Optional[int] = None

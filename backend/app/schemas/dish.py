@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class CategoryResponse(BaseModel):
@@ -21,6 +21,7 @@ class DishCreateRequest(BaseModel):
     name: str = Field(..., min_length=2, max_length=200)
     short_description: Optional[str] = None
     description: Optional[str] = None
+    eligible_servings: int = Field(default=0, strict=True, ge=0, le=20)
     base_price: Decimal = Field(..., ge=0)
     image_url: Optional[str] = None
     category_ids: List[str] = Field(default_factory=list)
@@ -34,12 +35,21 @@ class DishUpdateRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=200)
     short_description: Optional[str] = None
     description: Optional[str] = None
+    eligible_servings: Optional[int] = Field(None, strict=True, ge=0, le=20)
+
     base_price: Optional[Decimal] = Field(None, ge=0)
     image_url: Optional[str] = None
     category_ids: Optional[List[str]] = None
     badges: Optional[List[str]] = None
     is_available: Optional[bool] = None
     is_active: Optional[bool] = None
+
+    @field_validator('eligible_servings')
+    @classmethod
+    def require_count_when_provided(cls, value):
+        if value is None:
+            raise ValueError('Số suất đủ điều kiện không được để null')
+        return value
 
 
 class DishAvailabilityUpdateRequest(BaseModel):
@@ -55,6 +65,7 @@ class CartValidateRequest(BaseModel):
 
 
 class DishResponse(BaseModel):
+    eligible_servings: int = 0
     model_config = ConfigDict(from_attributes=True)
 
     id: str

@@ -105,7 +105,8 @@ def order_summary(order):
         "delivery_note": order.delivery_note, "payment_method": order.payment_method,
         "scheduled_at": order.scheduled_at.isoformat() if order.scheduled_at else None,
         "subtotal": str(order.subtotal_amount), "ship_fee": str(order.ship_fee),
-        "total_amount": str(order.total_amount),
+        "total_amount": str(order.total_amount), "bulk_pricing": order.bulk_pricing or {},
+        "campus_location_id":order.campus_location_id,"room_detail":order.room_detail,"is_preorder":order.is_preorder,
     }
 
 
@@ -113,13 +114,15 @@ def preview(db, user_id, args):
     # Validate through Orders without persisting an Order or starting its SLA.
     savepoint = db.begin_nested()
     try:
-        order = create_order(db=db, user_id=user_id, **args)
+        order = create_order(db=db, user_id=user_id, _quote_only=True, **args)
         return order_summary(order)
     finally:
         savepoint.rollback()
 
 
 def draft_action(draft, action_type="ORDER_CONFIRMATION"):
+    if action_type == "ORDER_CONFIRMATION" and float((draft.quote or {}).get('bulk_pricing',{}).get('deposit_amount',0)):
+        action_type = "ORDER_CHECKOUT_REQUIRED"
     return {"type": action_type, "draft_id": draft.id, "revision": draft.revision,
             "expires_at": aware(draft.expires_at).isoformat(), "summary": draft.quote,
             "recipient": {key: draft.payload.get(key) or "" for key in ("recipient_name", "recipient_phone")}}
@@ -141,6 +144,10 @@ def summary_text(summary):
               f"- Tiền món: {money(summary['subtotal'])}; phí giao: {money(summary['ship_fee'])}",
               f"**Tổng COD: {money(summary['total_amount'])}** (giá món đã gồm phí hệ thống)",
               "Bấm Xác nhận đặt đơn hoặc nhắn ‘đồng ý đặt đơn’. Bạn cũng có thể sửa hoặc bỏ đơn nháp."]
+    pricing = summary.get('bulk_pricing',{})
+    lines.insert(-2, f"- Suất đủ điều kiện: {pricing.get('eligible_servings',0)}; giảm giá: {money(pricing.get('discount_amount',0))} ({pricing.get('discount_rate',0)}%); cọc mô phỏng: {money(pricing.get('deposit_amount',0))}; COD còn lại: {money(pricing.get('cod_due',summary['total_amount']))}")
+    if float(pricing.get('deposit_amount',0)):
+        lines[-1] = "Vui lòng bấm Chuyển sang thanh toán để xem QR mô phỏng và xác nhận cọc; chưa tạo đơn."
     return "\n".join(lines)
 
 
@@ -201,6 +208,8 @@ def confirm_draft(db, user, session_id, draft_id, revision):
     if aware(draft.expires_at) <= now() or not draft.quote:
         raise OrderError("Đơn nháp đã hết hạn hoặc chưa đủ thông tin. Vui lòng kiểm tra lại.", "DRAFT_EXPIRED", 409)
     args, missing = order_args(db, draft.payload)
+    if float((draft.quote or {}).get('bulk_pricing',{}).get('deposit_amount',0)):
+        return "Đơn từ500.000đ cần cọc50% mô phỏng. Vui lòng chuyển sang trang thanh toán để xác nhận cọc.", draft_action(draft)
     if missing:
         raise OrderError("Đơn chưa đủ thông tin", "INCOMPLETE_DRAFT", 409)
     savepoint = db.begin_nested()
