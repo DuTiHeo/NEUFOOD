@@ -1,10 +1,10 @@
 .acct {
-  min-height: calc(100vh - 4rem);
+  min-height: auto;
   background-color: var(--color-page);
   padding-left: 1.25rem;
   padding-right: 1.25rem;
-  padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
-  padding-top: 7rem;
+  padding-bottom: clamp(2rem, 4vw, 3rem);
+  padding-top: clamp(5.5rem, 8vw, 6.5rem);
   font-family: var(--font-body);
 }
 
@@ -91,6 +91,205 @@
   font-weight: 500;
 }
 
+.inputDisabled {
+  background-color: rgba(0, 0, 0, 0.03) !important;
+  color: var(--color-muted) !important;
+  cursor: not-allowed;
+  border-style: dashed !important;
+}
+
+.fieldHint {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-muted);
+  margin-top: 0.2rem;
+  line-height: 1.4;
+}
+
+.inputWithIcon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.inputWithIcon .fieldIcon {
+  position: absolute;
+  left: 0.75rem;
+  font-size: 1.25rem;
+  color: var(--color-muted);
+  pointer-events: none;
+}
+
+.inputWithIcon input {
+  padding-left: 2.4rem;
+}
+
+/* --- Khối Đổi mật khẩu qua OTP --- */
+.passwordForm {
+  width: 100%;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--color-edge);
+  border-radius: 1rem;
+  background: var(--color-panel);
+  padding: 1.25rem;
+  text-align: left;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.formHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.35rem;
+}
+
+.formHeaderIcon {
+  font-size: 1.4rem;
+  color: var(--color-brand);
+}
+
+.formTitle {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.formSubtitle {
+  margin: 0 0 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--color-muted);
+  line-height: 1.45;
+}
+
+.otpRow {
+  display: flex;
+  gap: 0.6rem;
+  align-items: stretch;
+}
+
+.otpRow input {
+  flex: 1;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-align: center;
+}
+
+.otpBtn {
+  flex-shrink: 0;
+  border: 1px solid var(--color-brand);
+  background: var(--color-brand-soft);
+  color: var(--color-brand);
+  border-radius: 0.65rem;
+  padding: 0 1rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.otpBtn:hover:not(:disabled) {
+  background: var(--color-brand);
+  color: #ffffff;
+}
+
+.otpBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  border-color: var(--color-edge);
+  background: var(--color-page);
+  color: var(--color-muted);
+}
+
+.passwordInputWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.passwordInputWrap input {
+  padding-right: 2.75rem;
+}
+
+.toggleEyeBtn {
+  position: absolute;
+  right: 0.5rem;
+  background: transparent;
+  border: 0;
+  color: var(--color-muted);
+  cursor: pointer;
+  padding: 0.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.4rem;
+  transition: color 0.15s ease;
+}
+
+.toggleEyeBtn:hover {
+  color: var(--color-ink);
+}
+
+.bannerSuccess,
+.bannerError {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  border-radius: 0.65rem;
+  padding: 0.75rem 0.9rem;
+  margin-bottom: 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.bannerSuccess {
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.bannerError {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.bannerIcon {
+  font-size: 1.15rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.changePwdBtn {
+  width: 100%;
+  border: 0;
+  border-radius: 0.7rem;
+  padding: 0.7rem 1rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--color-brand);
+  color: #fff;
+  transition: background 0.15s ease;
+}
+
+.changePwdBtn:hover:not(:disabled) {
+  background: var(--color-brand-2);
+}
+
+.changePwdBtn:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .profileSave,
 .signOut {
   border: 0;
@@ -126,12 +325,7 @@
   color: #16803c;
 }
 
-.signOut {
-  margin: 0.75rem 0 0;
-  border: 1px solid var(--color-edge);
-  background: var(--color-panel);
-  color: var(--color-ink);
-}
+/* removed old signOut rule */
 
 .menuLinks {
   width: 100%;
@@ -206,12 +400,15 @@
 
 .adminSection {
   width: 100%;
-  padding-top: 1rem;
+  padding-top: 1.25rem;
   border-top: 1px dashed var(--color-edge);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
 }
 
-.adminLink,
-.adminLinkMuted {
+.adminLink {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -222,25 +419,36 @@
   font-weight: 700;
   text-decoration: none;
   transition: all 0.15s ease;
-}
-
-.adminLink {
   background-color: var(--color-brand);
   color: #FFFFFF;
+  width: 100%;
+  max-width: 22rem;
 }
 
 .adminLink:hover {
   background-color: var(--color-brand-2);
 }
 
-.adminLinkMuted {
-  border: 1px solid var(--color-edge);
-  background-color: var(--color-panel);
-  color: var(--color-muted);
+.signOut {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0;
+  width: 100%;
+  max-width: 22rem;
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #dc2626;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.adminLinkMuted:hover {
-  background-color: var(--color-soft);
-  color: var(--color-brand);
-  border-color: var(--color-brand);
+.signOut:hover {
+  background: #fef2f2;
+  border-color: #f87171;
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useOutletContext } from 'react-router-dom'
 import { ArrowRight, CheckCircle2, ClipboardList, Clock3, PackageCheck, RefreshCw, UtensilsCrossed, Wallet } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { shiftService, type CurrentShiftSummary } from '../../services/shiftService'
@@ -9,10 +9,14 @@ import { loadCanteenDishes, loadCanteenOrders } from '../manager/managerData'
 import { activeStatuses, dateTime, money, orderLabels, vietnamDate } from '../manager/managerRules'
 import { shiftLabels } from './staffRules'
 import styles from './StaffWorkspace.module.css'
+import StaffShipperDashboardPage from './StaffShipperDashboardPage'
+import type { StaffOutletContext } from '../../components/staff/staffMode'
 
-export default function StaffDashboardPage() {
+function StaffCounterDashboardPage() {
   const { user } = useAuth()
   const [orders, setOrders] = useState<Order[] | null>(null)
+  const [orderTotal, setOrderTotal] = useState<number | null>(null)
+  const [waitingOrderTotal, setWaitingOrderTotal] = useState<number | null>(null)
   const [dishes, setDishes] = useState<Dish[] | null>(null)
   const [shift, setShift] = useState<CurrentShiftSummary | null>(null)
   const [loading, setLoading] = useState(true)
@@ -29,7 +33,9 @@ export default function StaffDashboardPage() {
       if (initial) setLoading(true)
       const [o, s, d] = await Promise.allSettled([loadCanteenOrders(), shiftService.getCurrentShift(), loadCanteenDishes()])
       if (active) {
-        setOrders(o.status === 'fulfilled' ? o.value : null)
+        setOrders(o.status === 'fulfilled' ? o.value.items : null)
+        setOrderTotal(o.status === 'fulfilled' ? o.value.total : null)
+        setWaitingOrderTotal(o.status === 'fulfilled' ? o.value.waitingTotal : null)
         setShift(s.status === 'fulfilled' ? s.value : null)
         setDishes(d.status === 'fulfilled' ? d.value : null)
         const failed = [o.status === 'rejected' && 'đơn hàng', s.status === 'rejected' && 'ca COD', d.status === 'rejected' && 'thực đơn'].filter(Boolean)
@@ -46,8 +52,8 @@ export default function StaffDashboardPage() {
   const count = (value?: number | null) => loading || value == null ? '—' : value.toLocaleString('vi-VN')
   const queue = orders ? [...orders].filter((o) => activeStatuses.includes(o.status)).sort((a, b) => Number(b.status === 'CHO_XAC_NHAN') - Number(a.status === 'CHO_XAC_NHAN') || (a.scheduled_at || a.created_at || '').localeCompare(b.scheduled_at || b.created_at || '')).slice(0, 5) : []
   const metrics = [
-    { label: 'Đơn mới chờ nhận', value: count(orders?.filter((o) => o.status === 'CHO_XAC_NHAN').length), note: 'Ưu tiên phản hồi trước khi hết hạn', Icon: Clock3 },
-    { label: 'Đang chuẩn bị / Giao nhận', value: count(orders?.filter((o) => activeStatuses.includes(o.status) && o.status !== 'CHO_XAC_NHAN').length), note: 'Đơn đang phục vụ của Canteen A2', Icon: PackageCheck },
+    { label: 'Đơn mới chờ nhận', value: count(waitingOrderTotal), note: 'Ưu tiên phản hồi trước khi hết hạn', Icon: Clock3 },
+    { label: 'Đang chuẩn bị / Giao nhận', value: count(orderTotal == null || waitingOrderTotal == null ? null : orderTotal - waitingOrderTotal), note: 'Đơn đang phục vụ của Canteen A2', Icon: PackageCheck },
     { label: 'Tiền mặt đã thu', value: loading || !shift ? '—' : money(shift.expected_cash), note: 'Theo tài khoản trong ngày', Icon: Wallet },
     { label: 'VietQR đã thu', value: loading || !shift ? '—' : money(shift.expected_qr), note: 'Theo tài khoản trong ngày', Icon: Wallet },
   ]
@@ -62,4 +68,9 @@ export default function StaffDashboardPage() {
     <section className={styles.hero}><div><h2>Đúng mã nhận, đủ tiền COD.</h2><p>Yêu cầu khách đọc 4 số cuối mã đơn trước khi thu tiền và bàn giao. Đơn giao thất bại mang về quầy vẫn giữ nguyên tiền món và phí giao hàng.</p></div><span className={styles.heroIcon}><PackageCheck size={28} /></span></section>
     <p className="manager-hint">Số COD ghi nhận theo tài khoản đã bàn giao đơn. Nếu nhiều người dùng chung tài khoản, thống nhất số liệu tiền mặt và sao kê trước khi nộp ca.</p>
   </div>
+}
+
+export default function StaffDashboardPage() {
+  const { staffMode } = useOutletContext<StaffOutletContext>()
+  return staffMode === 'shipper' ? <StaffShipperDashboardPage /> : <StaffCounterDashboardPage />
 }

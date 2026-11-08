@@ -53,8 +53,8 @@ export default function Footer() {
             </span>
             <div>
               <span className={styles.label}>Email hỗ trợ:</span>
-              <a href="mailto:NeuFood@neu.edu.vn" className={styles.link}>
-                NeuFood@neu.edu.vn
+              <a href="mailto:11243929@st.neu.edu.vn" className={styles.link}>
+                11243929@st.neu.edu.vn
               </a>
             </div>
           </div>
@@ -65,8 +65,8 @@ export default function Footer() {
             </span>
             <div>
               <span className={styles.label}>Hotline đặt món:</span>
-              <a href="tel:0812852613" className={styles.link}>
-                0812 852 613
+              <a href="tel:0355107067" className={styles.link}>
+                0355107067
               </a>
             </div>
           </div>

@@ -61,6 +61,8 @@ html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     min-height: 100%;
+    width: 100%;
+    overflow-x: clip;
 }
 
 body {
@@ -70,14 +72,32 @@ body {
     font-family: var(--font-body);
     background: none;
     background-color: var(--color-page);
+    width: 100%;
+    overflow-x: clip;
+}
+
+#root {
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+
+img,
+video,
+canvas,
+svg {
+    max-width: 100%;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+    -webkit-tap-highlight-color: transparent;
 }
 
 body.page-background {
-    background-image: url('/background.jpg');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-attachment: fixed;
+    background-color: var(--color-page);
 }
 
 
@@ -264,5 +284,32 @@ body.page-background {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
+    }
+}
+
+/* Shared small-screen safeguards for customer, staff, manager, and admin pages. */
+@media (max-width: 767px) {
+    body.page-background {
+        background-color: var(--color-page);
+    }
+
+    body.has-bottom-nav {
+        padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    .wrap {
+        padding-left: clamp(1rem, 4vw, 1.5rem);
+        padding-right: clamp(1rem, 4vw, 1.5rem);
+    }
+
+    :where(input, select, textarea) {
+        font-size: max(16px, 1em);
+    }
+}
+
+@media (max-width: 380px) {
+    .wrap {
+        padding-left: 0.875rem;
+        padding-right: 0.875rem;
     }
 }

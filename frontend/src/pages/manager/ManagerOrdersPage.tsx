@@ -1,22 +1,27 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Bell, BellOff, CheckCircle2, Clock3, Eye, RefreshCw, Search } from 'lucide-react'
+import { Bell, BellOff, CheckCircle2, Clock3, Eye, RefreshCw, Search, Truck } from 'lucide-react'
 import { orderService } from '../../services/orderService'
 import { settingsService } from '../../services/settingsService'
+import { useAuth } from '../../contexts/AuthContext'
 import type { Order, OrderIssuePayload } from '../../types/order'
 import ManagerDialog from '../../components/manager/ManagerDialog'
-import { loadCanteenOrders } from './managerData'
 import { activeStatuses, dateTime, money, orderActions, orderLabels, requestMessage, type OrderAction } from './managerRules'
 
 const actionLabels = { accept: 'Tiếp nhận đơn', reject: 'Từ chối đơn', ready: 'Hoàn tất chế biến', handover: 'Bàn giao & thu COD', issue: 'Báo sự cố' }
-export default function ManagerOrdersPage({ audience = 'manager' }: { audience?: 'manager' | 'staff' }) {
+export default function ManagerOrdersPage({ audience = 'manager', shipperOnly = false }: { audience?: 'manager' | 'staff'; shipperOnly?: boolean }) {
+  const { user } = useAuth()
   const [params] = useSearchParams()
+  const requestedView = params.get('view')
   const [orders, setOrders] = useState<Order[]>([])
+  const [totalOrders, setTotalOrders] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [query, setQuery] = useState(params.get('order') || '')
+  const [debouncedQuery, setDebouncedQuery] = useState(params.get('order') || '')
   const [status, setStatus] = useState(params.get('status') && Object.prototype.hasOwnProperty.call(orderLabels, params.get('status')!) ? params.get('status')! : 'active')
+  const [shipperView, setShipperView] = useState<'available' | 'mine' | 'history'>(requestedView === 'mine' || requestedView === 'history' ? requestedView : 'available')
   const [type, setType] = useState('all')
   const [page, setPage] = useState(1)
   const [now, setNow] = useState(Date.now())
@@ -34,21 +39,35 @@ export default function ManagerOrdersPage({ audience = 'manager' }: { audience?:
   const soundEnabled = useRef(false)
   const seenPending = useRef<Set<string> | null>(null)
   const fetching = useRef(false)
+  const refreshAgain = useRef(false)
   const rateLimited = useRef(false)
   const alive = useRef(true)
+  const refreshRef = useRef<(silent?: boolean) => Promise<void>>(async () => {})
   const refresh = useCallback(async (silent = false) => {
-    if (fetching.current) return
+    if (fetching.current) { refreshAgain.current = true; return }
     fetching.current = true
     if (!silent) setLoading(true)
     try {
-      const data = await loadCanteenOrders()
+      let data: Order[]
+      let total = 0
+      if (shipperOnly) {
+        const results = await Promise.all((['available', 'mine', 'history'] as const).map((scope) => orderService.getShipperOrders(scope)))
+        data = results.flatMap((result) => result.items)
+        total = data.length
+      } else {
+        const result = await orderService.getAllOrdersAdmin({ status, order_type: type, search: debouncedQuery, page, limit: 15 })
+        data = result.items
+        total = result.total
+      }
       if (alive.current) {
         rateLimited.current = false
-        const pending = new Set(data.filter((order) => order.status === 'CHO_XAC_NHAN').map((order) => order.id))
+        const pending = new Set(data.filter((order) => shipperOnly
+          ? order.status === 'DANG_GIAO' && order.shipper_id == null
+          : order.status === 'CHO_XAC_NHAN').map((order) => order.id))
         const incoming = seenPending.current ? [...pending].filter((id) => !seenPending.current!.has(id)) : []
         seenPending.current = pending
         if (incoming.length) {
-          setNotice(`Có ${incoming.length} đơn mới chờ xác nhận.`)
+          setNotice(shipperOnly ? `Có ${incoming.length} đơn giao mới đang chờ nhận.` : `Có ${incoming.length} đơn mới chờ xác nhận.`)
           const context = audio.current
           if (soundEnabled.current && context?.state === 'running') {
             const tone = context.createOscillator(), volume = context.createGain()
@@ -57,19 +76,27 @@ export default function ManagerOrdersPage({ audience = 'manager' }: { audience?:
             tone.connect(volume); volume.connect(context.destination); tone.start(); tone.stop(context.currentTime + 0.4)
           }
         }
-        setOrders(data); setError(''); setUpdatedAt(new Date().toISOString())
+        setOrders(data); setTotalOrders(total); setError(''); setUpdatedAt(new Date().toISOString())
       }
     } catch (e) { if (alive.current) { rateLimited.current = (e as any)?.response?.status === 429; setError(requestMessage(e, 'Không tải được đơn hàng. Dữ liệu đang hiển thị có thể chưa cập nhật.') + (rateLimited.current ? ' Đã tạm dừng tự cập nhật.' : '')) } }
-    finally { fetching.current = false; if (alive.current) setLoading(false) }
-  }, [])
+    finally {
+      fetching.current = false
+      if (alive.current) setLoading(false)
+      if (alive.current && refreshAgain.current) {
+        refreshAgain.current = false
+        window.setTimeout(() => void refreshRef.current(true), 0)
+      }
+    }
+  }, [shipperOnly, status, type, debouncedQuery, page])
+  useEffect(() => { refreshRef.current = refresh }, [refresh])
   useEffect(() => {
     alive.current = true
-    void refresh()
-    const timer = window.setInterval(() => { if (!document.hidden && !rateLimited.current) void refresh(true) }, 300000)
+    const timer = window.setInterval(() => { if (!document.hidden && !rateLimited.current) void refreshRef.current(true) }, 300000)
     const clock = window.setInterval(() => setNow(Date.now()), 1000)
     settingsService.getSettings().then((items) => { const n = Number(items.find((item) => item.setting_key === 'order_timeout_minutes')?.setting_value); if (alive.current && n > 0) setTimeoutMinutes(n) }).catch(() => {})
     return () => { alive.current = false; window.clearInterval(timer); window.clearInterval(clock); void audio.current?.close(); audio.current = null; soundEnabled.current = false }
-  }, [refresh])
+  }, [])
+  useEffect(() => { void refresh() }, [refresh])
   async function toggleSound() {
     if (soundEnabled.current) { soundEnabled.current = false; setSound(false); return }
     try {
@@ -77,14 +104,46 @@ export default function ManagerOrdersPage({ audience = 'manager' }: { audience?:
       await audio.current.resume(); soundEnabled.current = true; setSound(true)
     } catch { setError('Chưa bật được âm báo. Bạn vẫn có thể theo dõi đơn mới trên danh sách.'); soundEnabled.current = false; setSound(false) }
   }
+  async function claim(order: Order) {
+    if (busy) return
+    setBusy(true); setError(''); setNotice('')
+    try {
+      await orderService.claimDeliveryOrder(order.id)
+      setNotice(`Đã nhận đơn ${order.id}. Đơn được chuyển sang mục Đang giao.`)
+      setShipperView('mine')
+      await refresh(true)
+    } catch (e) {
+      setError(requestMessage(e, 'Không nhận được đơn. Có thể shipper khác đã nhận trước.'))
+      void refresh(true)
+    } finally { setBusy(false) }
+  }
   useEffect(() => {
     if (params.get('order')) { setQuery(params.get('order')!); setStatus('all') }
     else if (params.get('status') && Object.prototype.hasOwnProperty.call(orderLabels, params.get('status')!)) setStatus(params.get('status')!)
   }, [params])
-  const filtered = orders.filter((order) => (status === 'all' || (status === 'active' ? activeStatuses.includes(order.status) : order.status === status)) && (type === 'all' || order.order_type === type) && `${order.id} ${order.recipient_name} ${order.recipient_phone}`.toLowerCase().includes(query.trim().toLowerCase()))
-  const pages = Math.max(1, Math.ceil(filtered.length / 15))
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQuery(query), 300)
+    return () => window.clearTimeout(timer)
+  }, [query])
+  const deliveredStatuses = ['DA_GIAO', 'DA_BAN_GIAO', 'HOAN_THANH']
+  const availableCount = orders.filter((order) => order.status === 'DANG_GIAO' && order.shipper_id == null).length
+  const mineCount = orders.filter((order) => order.shipper_id === user?.id && ['DANG_GIAO', 'GIAO_THAT_BAI'].includes(order.status)).length
+  const historyCount = orders.filter((order) => order.shipper_id === user?.id && deliveredStatuses.includes(order.status)).length
+  const filtered = orders.filter((order) => {
+    const regularStatusMatches = status === 'all' || (status === 'active' ? activeStatuses.includes(order.status) : order.status === status)
+    const shipperScopeMatches = shipperView === 'available'
+      ? order.status === 'DANG_GIAO' && order.shipper_id == null
+      : shipperView === 'mine'
+        ? order.shipper_id === user?.id && ['DANG_GIAO', 'GIAO_THAT_BAI'].includes(order.status)
+        : order.shipper_id === user?.id && deliveredStatuses.includes(order.status)
+    return (!shipperOnly || (order.order_type === 'delivery' && shipperScopeMatches))
+      && (shipperOnly ? true : regularStatusMatches)
+      && (shipperOnly || type === 'all' || order.order_type === type)
+      && `${order.id} ${order.recipient_name} ${order.recipient_phone}`.toLowerCase().includes(query.trim().toLowerCase())
+  })
+  const pages = Math.max(1, Math.ceil((shipperOnly ? filtered.length : totalOrders) / 15))
   const currentPage = Math.min(page, pages)
-  const visible = filtered.slice((currentPage - 1) * 15, currentPage * 15)
+  const visible = shipperOnly ? filtered.slice((currentPage - 1) * 15, currentPage * 15) : filtered
   function open(order: Order, action: OrderAction | 'detail') {
     setModal({ order, action }); setReason(''); setSuffix(''); setConfirmed(false); setModalError('')
     setIssue(order.status === 'DANG_GIAO' ? 'no_answer' : order.pickup_deadline && now > Date.parse(order.pickup_deadline) ? 'pickup_timeout' : 'refuse_payment')
@@ -121,11 +180,12 @@ export default function ManagerOrdersPage({ audience = 'manager' }: { audience?:
   }
   const selected = modal?.order
   return <div className="manager-page">
-    <section className="manager-heading"><div><span className="manager-eyebrow">ĐIỀU PHỐI & LỊCH SỬ</span><h1>{audience === 'staff' ? 'Xử lý đơn trong ca' : 'Đơn hàng Canteen A2'}</h1><p>Tiếp nhận, chuẩn bị và bàn giao đúng lịch. Tự cập nhật mỗi 5 phút khi mở trang; bấm Làm mới khi cần dữ liệu mới nhất.</p></div><div className="manager-tools"><button className="manager-button" type="button" aria-pressed={sound} onClick={() => void toggleSound()}>{sound ? <Bell size={15} /> : <BellOff size={15} />}{sound ? 'Âm báo đơn: Bật' : 'Bật âm báo đơn'}</button><button className="manager-button" onClick={() => void refresh()} disabled={loading}><RefreshCw size={15} />Làm mới</button></div></section>
+    <section className="manager-heading"><div><span className="manager-eyebrow">ĐIỀU PHỐI & LỊCH SỬ</span><h1>{audience === 'staff' ? 'Xử lý đơn trong ca' : 'Đơn hàng Canteen A2'}</h1><p>{shipperOnly ? 'Theo dõi đơn giao tận nơi đang giao và đã giao. Đơn đang giao có thể xác nhận đã giao hoặc báo sự cố.' : 'Tiếp nhận, chuẩn bị và bàn giao đúng lịch. Tự cập nhật mỗi 5 phút khi mở trang; bấm Làm mới khi cần dữ liệu mới nhất.'}</p></div><div className="manager-tools"><button className="manager-button" type="button" aria-pressed={sound} onClick={() => void toggleSound()}>{sound ? <Bell size={15} /> : <BellOff size={15} />}{sound ? 'Âm báo đơn: Bật' : 'Bật âm báo đơn'}</button><button className="manager-button" onClick={() => void refresh()} disabled={loading}><RefreshCw size={15} />Làm mới</button></div></section>
     {error && <p className="manager-alert error" role="alert">{error}</p>}{notice && <p className="manager-alert success" role="status"><CheckCircle2 size={17} />{notice}</p>}
-    <div className="manager-toolbar"><Search size={18} color="#89a0b4" /><input className="manager-input" type="search" aria-label="Tìm đơn hàng" placeholder="Mã đơn, tên khách hoặc số điện thoại…" value={query} onChange={(e) => { setQuery(e.target.value); setPage(1) }} /><select className="manager-select" aria-label="Lọc trạng thái đơn" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }}><option value="active">Đang phục vụ</option><option value="all">Tất cả / Lịch sử</option>{Object.entries(orderLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select><select className="manager-select" aria-label="Lọc hình thức nhận" value={type} onChange={(e) => { setType(e.target.value); setPage(1) }}><option value="all">Mọi hình thức</option><option value="delivery">Giao tận nơi</option><option value="pickup">Nhận tại quầy</option></select></div>
-    <div className="manager-status-line"><i />{updatedAt ? `Cập nhật ${dateTime(updatedAt)} · ${orders.length} đơn trong lịch sử` : 'Đang kết nối dữ liệu đơn hàng'}</div>
-    <section className="manager-card"><div className="manager-table-wrap"><table className="manager-table"><thead><tr><th>Đơn / Khách hàng</th><th>Nhận món & thời gian</th><th>Thanh toán COD</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{loading ? <tr><td colSpan={5}>Đang tải đơn hàng…</td></tr> : visible.length ? visible.map((order) => <tr key={order.id}><td><strong>#{order.id}</strong><small>{order.recipient_name}</small>{order.recipient_phone && <a href={`tel:${order.recipient_phone}`}>{order.recipient_phone}</a>}<small>{order.items?.map((item) => `${item.dish_name} ×${item.quantity}`).join(', ')}</small></td><td><span className="manager-pill">{order.order_type === 'delivery' ? 'Giao tận nơi' : 'Nhận tại quầy'}</span><small>{order.order_type === 'pickup' ? 'Quầy Canteen A2' : `${order.delivery_address || 'Nội khu NEU'}${order.room_detail && !order.delivery_address?.includes(order.room_detail) ? ' · ' + order.room_detail : ''}`}</small><small>Đặt: {dateTime(order.created_at)}</small><small>{order.is_preorder ? `Hẹn: ${dateTime(order.scheduled_at)}` : 'Làm ngay'}</small></td><td><strong>{money(order.total_amount || 0)}</strong><small>{order.payment_method === 'cod_vietqr' ? 'VietQR khi nhận hàng' : 'Tiền mặt khi nhận hàng'}</small><span className={`manager-pill ${order.payment_status === 'da_thanh_toan' ? 'good' : 'warn'}`}>{order.payment_status === 'da_thanh_toan' ? 'Đã thu COD' : 'Chưa thu COD'}</span></td><td><span className={`manager-pill ${order.status === 'CHO_XAC_NHAN' ? 'warn' : order.status === 'HOAN_THANH' ? 'good' : ''}`}>{orderLabels[order.status]}</span>{timing(order) && <small><Clock3 size={12} /> {timing(order)}</small>}{order.cancelled_reason && <small>Lý do: {order.cancelled_reason}</small>}</td><td><div className="manager-actions"><button className="manager-button" onClick={() => open(order, 'detail')} aria-label={`Xem đơn ${order.id}`}><Eye size={15} /></button>{orderActions(order, now, timeout).map((action) => <button key={action} className={`manager-button ${action === 'reject' || action === 'issue' ? '' : 'primary'}`} onClick={() => open(order, action)}>{actionLabels[action]}</button>)}</div></td></tr>) : <tr><td colSpan={5}>Không có đơn phù hợp với bộ lọc.</td></tr>}</tbody></table></div><footer className="manager-pagination"><span>{filtered.length} đơn phù hợp · Trang {currentPage}/{pages}</span><div className="manager-actions"><button className="manager-button" onClick={() => setPage(currentPage - 1)} disabled={currentPage === 1}>Trước</button><button className="manager-button" onClick={() => setPage(currentPage + 1)} disabled={currentPage >= pages}>Sau</button></div></footer></section>
+    {shipperOnly && <nav className="manager-tabs" aria-label="Danh sách đơn shipper"><button type="button" aria-pressed={shipperView === 'available'} onClick={() => { setShipperView('available'); setPage(1) }}><Truck size={14} /> Cần nhận ({availableCount})</button><button type="button" aria-pressed={shipperView === 'mine'} onClick={() => { setShipperView('mine'); setPage(1) }}>Đang giao ({mineCount})</button><button type="button" aria-pressed={shipperView === 'history'} onClick={() => { setShipperView('history'); setPage(1) }}>Đã giao ({historyCount})</button></nav>}
+    <div className="manager-toolbar"><Search size={18} color="#89a0b4" /><input className="manager-input" type="search" aria-label="Tìm đơn hàng" placeholder="Mã đơn, tên khách hoặc số điện thoại…" value={query} onChange={(e) => { setQuery(e.target.value); setPage(1) }} />{!shipperOnly && <><select className="manager-select" aria-label="Lọc trạng thái đơn" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }}><option value="active">Đang phục vụ</option><option value="all">Tất cả / Lịch sử</option>{Object.entries(orderLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select><select className="manager-select" aria-label="Lọc hình thức nhận" value={type} onChange={(e) => { setType(e.target.value); setPage(1) }}><option value="all">Mọi hình thức</option><option value="delivery">Giao tận nơi</option><option value="pickup">Nhận tại quầy</option></select></>}</div>
+    <div className="manager-status-line"><i />{updatedAt ? `Cập nhật ${dateTime(updatedAt)} · ${shipperOnly ? filtered.length : totalOrders} đơn ${shipperOnly ? 'giao hàng phù hợp' : 'theo bộ lọc'}` : 'Đang kết nối dữ liệu đơn hàng'}</div>
+    <section className="manager-card"><div className="manager-table-wrap"><table className="manager-table"><thead><tr><th>Đơn / Khách hàng</th><th>Nhận món & thời gian</th><th>Thanh toán COD</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{loading ? <tr><td colSpan={5}>Đang tải đơn hàng…</td></tr> : visible.length ? visible.map((order) => { const canClaim = shipperOnly && shipperView === 'available' && order.shipper_id == null; const canManage = !shipperOnly || order.shipper_id === user?.id; return <tr key={order.id}><td><strong>#{order.id}</strong><small>{order.recipient_name}</small>{order.recipient_phone && <a href={`tel:${order.recipient_phone}`}>{order.recipient_phone}</a>}<small>{order.items?.map((item) => `${item.dish_name} ×${item.quantity}`).join(', ')}</small></td><td><span className="manager-pill">{order.order_type === 'delivery' ? 'Giao tận nơi' : 'Nhận tại quầy'}</span><small>{order.order_type === 'pickup' ? 'Quầy Canteen A2' : `${order.delivery_address || 'Nội khu NEU'}${order.room_detail && !order.delivery_address?.includes(order.room_detail) ? ' · ' + order.room_detail : ''}`}</small><small>Đặt: {dateTime(order.created_at)}</small><small>{order.is_preorder ? `Hẹn: ${dateTime(order.scheduled_at)}` : 'Làm ngay'}</small></td><td><strong>{money(order.total_amount || 0)}</strong><small>{order.payment_method === 'cod_vietqr' ? 'VietQR khi nhận hàng' : 'Tiền mặt khi nhận hàng'}</small><span className={`manager-pill ${order.payment_status === 'da_thanh_toan' ? 'good' : 'warn'}`}>{order.payment_status === 'da_thanh_toan' ? 'Đã thu COD' : 'Chưa thu COD'}</span></td><td><span className={`manager-pill ${order.status === 'CHO_XAC_NHAN' ? 'warn' : order.status === 'HOAN_THANH' ? 'good' : ''}`}>{orderLabels[order.status]}</span>{timing(order) && <small><Clock3 size={12} /> {timing(order)}</small>}{order.cancelled_reason && <small>Lý do: {order.cancelled_reason}</small>}</td><td><div className="manager-actions"><button className="manager-button" onClick={() => open(order, 'detail')} aria-label={`Xem đơn ${order.id}`}><Eye size={15} /></button>{canClaim && <button className="manager-button primary" disabled={busy} onClick={() => void claim(order)}>Nhận đơn</button>}{canManage && orderActions(order, now, timeout).map((action) => <button key={action} className={`manager-button ${action === 'reject' || action === 'issue' ? '' : 'primary'}`} onClick={() => open(order, action)}>{actionLabels[action]}</button>)}</div></td></tr> }) : <tr><td colSpan={5}>{shipperOnly && shipperView === 'available' ? 'Chưa có đơn giao đang chờ nhận.' : 'Không có đơn phù hợp với bộ lọc.'}</td></tr>}</tbody></table></div><footer className="manager-pagination"><span>{filtered.length} đơn phù hợp · Trang {currentPage}/{pages}</span><div className="manager-actions"><button className="manager-button" onClick={() => setPage(currentPage - 1)} disabled={currentPage === 1}>Trước</button><button className="manager-button" onClick={() => setPage(currentPage + 1)} disabled={currentPage >= pages}>Sau</button></div></footer></section>
     {modal && selected && <ManagerDialog title={modal.action === 'detail' ? `Chi tiết ${selected.id}` : actionLabels[modal.action]} onClose={() => setModal(null)} busy={busy}><form onSubmit={submit}><div className="manager-dialog-body"><div><strong>#{selected.id} · {selected.recipient_name}</strong><p className="manager-hint">{selected.recipient_phone} · {orderLabels[selected.status]}</p></div><div className="manager-totals">{selected.items?.map((item, index) => <div key={index}><span>{item.dish_name} ×{item.quantity}{item.note ? ` · ${item.note}` : ''}</span><strong>{money(item.subtotal ?? (item.unit_price || 0) * (item.quantity || 0))}</strong></div>)}<div><span>Phí giao hàng</span><span>{money(selected.ship_fee || 0)}</span></div><div><span>Tổng COD cần thu</span><span>{money(selected.total_amount || 0)}</span></div></div>
       {selected.delivery_note && <p className="manager-note">Ghi chú khách: {selected.delivery_note}</p>}
       {modal.action === 'detail' && <div className="manager-form"><p className="manager-hint">{selected.order_type === 'pickup' ? 'Nhận tại quầy Canteen A2' : `${selected.delivery_address || ''} ${selected.room_detail || ''}`}</p><p className="manager-hint">{selected.is_preorder ? `Lịch hẹn: ${dateTime(selected.scheduled_at)}` : 'Đơn làm ngay'} · {selected.payment_method === 'cod_vietqr' ? 'VietQR' : 'Tiền mặt'}</p><p className="manager-hint">Bàn giao: {dateTime(selected.delivered_at)} · {selected.payment_status === 'da_thanh_toan' ? 'Đã thanh toán' : 'Chưa thanh toán'}</p>{selected.cancelled_reason && <p className="manager-note">{selected.cancelled_reason}</p>}</div>}
