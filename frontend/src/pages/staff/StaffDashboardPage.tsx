@@ -15,6 +15,8 @@ import type { StaffOutletContext } from '../../components/staff/staffMode'
 function StaffCounterDashboardPage() {
   const { user } = useAuth()
   const [orders, setOrders] = useState<Order[] | null>(null)
+  const [orderTotal, setOrderTotal] = useState<number | null>(null)
+  const [waitingOrderTotal, setWaitingOrderTotal] = useState<number | null>(null)
   const [dishes, setDishes] = useState<Dish[] | null>(null)
   const [shift, setShift] = useState<CurrentShiftSummary | null>(null)
   const [loading, setLoading] = useState(true)
@@ -31,7 +33,9 @@ function StaffCounterDashboardPage() {
       if (initial) setLoading(true)
       const [o, s, d] = await Promise.allSettled([loadCanteenOrders(), shiftService.getCurrentShift(), loadCanteenDishes()])
       if (active) {
-        setOrders(o.status === 'fulfilled' ? o.value : null)
+        setOrders(o.status === 'fulfilled' ? o.value.items : null)
+        setOrderTotal(o.status === 'fulfilled' ? o.value.total : null)
+        setWaitingOrderTotal(o.status === 'fulfilled' ? o.value.waitingTotal : null)
         setShift(s.status === 'fulfilled' ? s.value : null)
         setDishes(d.status === 'fulfilled' ? d.value : null)
         const failed = [o.status === 'rejected' && 'đơn hàng', s.status === 'rejected' && 'ca COD', d.status === 'rejected' && 'thực đơn'].filter(Boolean)
@@ -48,8 +52,8 @@ function StaffCounterDashboardPage() {
   const count = (value?: number | null) => loading || value == null ? '—' : value.toLocaleString('vi-VN')
   const queue = orders ? [...orders].filter((o) => activeStatuses.includes(o.status)).sort((a, b) => Number(b.status === 'CHO_XAC_NHAN') - Number(a.status === 'CHO_XAC_NHAN') || (a.scheduled_at || a.created_at || '').localeCompare(b.scheduled_at || b.created_at || '')).slice(0, 5) : []
   const metrics = [
-    { label: 'Đơn mới chờ nhận', value: count(orders?.filter((o) => o.status === 'CHO_XAC_NHAN').length), note: 'Ưu tiên phản hồi trước khi hết hạn', Icon: Clock3 },
-    { label: 'Đang chuẩn bị / Giao nhận', value: count(orders?.filter((o) => activeStatuses.includes(o.status) && o.status !== 'CHO_XAC_NHAN').length), note: 'Đơn đang phục vụ của Canteen A2', Icon: PackageCheck },
+    { label: 'Đơn mới chờ nhận', value: count(waitingOrderTotal), note: 'Ưu tiên phản hồi trước khi hết hạn', Icon: Clock3 },
+    { label: 'Đang chuẩn bị / Giao nhận', value: count(orderTotal == null || waitingOrderTotal == null ? null : orderTotal - waitingOrderTotal), note: 'Đơn đang phục vụ của Canteen A2', Icon: PackageCheck },
     { label: 'Tiền mặt đã thu', value: loading || !shift ? '—' : money(shift.expected_cash), note: 'Theo tài khoản trong ngày', Icon: Wallet },
     { label: 'VietQR đã thu', value: loading || !shift ? '—' : money(shift.expected_qr), note: 'Theo tài khoản trong ngày', Icon: Wallet },
   ]
