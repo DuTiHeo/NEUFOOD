@@ -315,8 +315,9 @@ export default function ThanhToanPage() {
                   </div>
                   <div className={styles.billSep} />
                   <div className={styles.billRows}>
-                    <div className={styles.billRow}><span>Tạm tính ({totalCount} phần)</span><span className={styles.billRowInk}>{formatPrice(subtotal)}</span></div>
-                    <div className={styles.billRow}><span>Phí giao hàng</span><span className={styles.billRowInk}>{formatPrice(shipping)}</span></div>
+                    <div className={styles.billRow}><span>Giá gốc ({totalCount} phần)</span><span className={styles.billRowInk}>{formatPrice(subtotal)}</span></div>
+                    <div className={styles.billRow}><span>Giảm giá{pricing.discount_rate > 0 ? ` (${pricing.discount_rate}%)` : ''}</span><span className={styles.billRowInk}>{pricing.discount_amount > 0 ? '−' : ''}{formatPrice(pricing.discount_amount)}</span></div>
+                    <div className={styles.billRow}><span>Phí ship</span><span className={styles.billRowInk}>{orderType === 'delivery' && pricing.eligible_servings >= 5 ? 'Miễn phí' : formatPrice(shipping)}</span></div>
                   </div>
                   <div className={styles.billSep} />
                   {pricing.eligible_servings >= 5 && (orderType === 'delivery' || pricing.discount_rate > 0) && (

@@ -20,7 +20,7 @@ test('exact500k threshold, odd amount and shipping contribute to deposit',()=>{
  assert.equal(calculateBulk(10000,5,5000).shipping_fee,0)
 })
 test('required wording retained',()=>{
- assert(DEPOSIT_NOTICE.includes('0866451723, ngân hàng MB Bank'))
+ assert(DEPOSIT_NOTICE.includes('đặt cọc 50% vào số tài khoản 0866451723, ngân hàng MB Bank'))
  assert(DEPOSIT_NOTICE.includes('chờ nhân viên căn tin gọi điện thoại xác nhận lại'))
  assert(BULK_PROMOTION.includes('từ 5 suất ăn'))
 })

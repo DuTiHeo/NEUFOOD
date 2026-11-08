@@ -93,17 +93,21 @@ export default function GioHangPage() {
               <h2 className={styles.sumTitle}>Tóm tắt đơn hàng</h2>
               <div className={styles.sumRows}>
                 <div className={styles.sumRow}>
-                  <span>Tạm tính ({totalCount} món)</span>
+                  <span>Giá gốc ({totalCount} phần)</span>
                   <span>{formatVnd(subtotal)}</span>
                 </div>
                 <div className={styles.sumRow}>
-                  <span>Phí giao / nhận</span>
+                  <span>Giảm giá{bulkPricing.discount_rate > 0 ? ` (${bulkPricing.discount_rate}%)` : ''}</span>
+                  <span className={styles.sumRowAccent}>{bulkPricing.discount_amount > 0 ? '−' : ''}{formatVnd(bulkPricing.discount_amount)}</span>
+                </div>
+                <div className={styles.sumRow}>
+                  <span>Phí ship</span>
                   <span className={styles.sumRowAccent}>{bulkPricing.eligible_servings >= 5 ? "Miễn phí" : formatVnd(bulkPricing.shipping_fee)}</span>
                 </div>
               </div>
               <p>Với số lượng từ 5 đơn hàng trở lên sẽ được freeship, từ 10 suất trở lên sẽ được giảm giá 6% giá trị đơn hàng, từ 20 suất trở lên sẽ được giảm giá 8% giá trị đơn hàng, từ 30 suất thì được giảm giá 12% giá trị đơn hàng.</p>
               <div className={styles.sumTotal}>
-                <span className={styles.sumTotalLabel}>Tổng cộng</span>
+                <span className={styles.sumTotalLabel}>Tổng thanh toán</span>
                   <span className={styles.sumTotalValue}>{formatVnd(bulkPricing.total_amount)}</span>
               </div>
               <div className={styles.sumActions}>
