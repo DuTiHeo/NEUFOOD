@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Footer from '../../components/layout/Footer'
+import { recruitmentService, recruitmentPositions as POSITIONS } from '../../services/recruitmentService'
 import styles from './Recruit.module.css'
 
 interface FormData {
@@ -32,18 +33,12 @@ const WORK_SHIFTS = [
   { id: 'morning', label: 'Ca sáng', hours: '07:00–12:00' },
   { id: 'afternoon', label: 'Ca chiều', hours: '12:00–19:00' },
 ]
-const POSITIONS = [
-  { name: 'Shipper Campus', value: 'Shipper Campus (Giao đồ ăn trong NEU)', description: 'Giao món trong khuôn viên NEU, đối chiếu mã nhận hàng và thu COD, cập nhật tình trạng giao hàng.' },
-  { name: 'Hỗ trợ đóng gói và điều phối', value: 'Nhân viên hỗ trợ đóng gói & Điều phối', description: 'Kiểm tra món, số lượng và ghi chú; đóng gói và sắp xếp đơn; phối hợp bàn giao cho khách hoặc shipper.' },
-  { name: 'Chăm sóc khách hàng', value: 'Hỗ trợ chăm sóc khách hàng (CSKH)', description: 'Giải đáp cách đặt món, tiếp nhận phản hồi và phối hợp chuyển thông tin đến bộ phận phụ trách.' },
-  { name: 'Cộng tác viên truyền thông và sự kiện', value: 'Cộng tác viên truyền thông & Marketing', description: 'Viết nội dung, chụp ảnh/quay video và hỗ trợ các hoạt động giới thiệu NEUFood trong trường.' },
-]
-
 export default function RecruitPage() {
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM)
   const [submitting, setSubmitting] = useState(false)
   const [submittedData, setSubmittedData] = useState<FormData | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
+  const [receiptId, setReceiptId] = useState('')
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
@@ -55,6 +50,7 @@ export default function RecruitPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (submitting) return
     setErrorMsg('')
 
     if (!formData.fullName.trim()) {
@@ -73,8 +69,8 @@ export default function RecruitPage() {
     }
 
     const cleanPhone = formData.phone.replace(/\D/g, '')
-    if (cleanPhone.length < 10 || cleanPhone.length > 11) {
-      setErrorMsg('Vui lòng nhập số điện thoại hợp lệ (10-11 chữ số).')
+    if (!/^0[35789][0-9]{8}$/.test(cleanPhone)) {
+      setErrorMsg('Vui lòng nhập số di động Việt Nam hợp lệ (10 chữ số).')
       return
     }
 
@@ -88,11 +84,19 @@ export default function RecruitPage() {
       return
     }
 
+    const application = { ...formData, availability: [...formData.availability] }
     setSubmitting(true)
-    // Simulate real submission
-    await new Promise((r) => setTimeout(r, 700))
-    setSubmitting(false)
-    setSubmittedData({ ...formData })
+    try {
+      const receipt = await recruitmentService.submit({
+        full_name: application.fullName.trim(), email: application.email.trim(), phone: cleanPhone,
+        student_id: application.studentId.trim(), position: application.role,
+        availability: application.availability, intro: application.intro.trim(),
+      })
+      setReceiptId(receipt.id)
+      setSubmittedData(application)
+    } catch (error: any) {
+      setErrorMsg(error?.response?.data?.message || 'Không gửi được hồ sơ. Thông tin bạn nhập vẫn được giữ; vui lòng thử lại.')
+    } finally { setSubmitting(false) }
   }
 
   const toggleAvailability = (slot: string) => {
@@ -105,6 +109,7 @@ export default function RecruitPage() {
   const handleReset = () => {
     setFormData(INITIAL_FORM)
     setSubmittedData(null)
+    setReceiptId('')
     setErrorMsg('')
   }
 
@@ -157,9 +162,10 @@ export default function RecruitPage() {
               </div>
               <h2 className={styles.successTitle}>Hồ sơ ứng tuyển đã được tiếp nhận!</h2>
               <p className={styles.successLead}>
-                Cảm ơn bạn <strong>{submittedData.fullName}</strong> đã quan tâm đến NEUFood. Chúng mình sẽ liên hệ với bạn qua số điện thoại <strong>{submittedData.phone}</strong> trong vòng 24–48h tới.
+                Cảm ơn bạn <strong>{submittedData.fullName}</strong> đã quan tâm đến NEUFood. Chúng mình sẽ liên hệ với bạn qua số điện thoại <strong>{submittedData.phone}</strong> để trao đổi thêm về hồ sơ.
               </p>
 
+              <p className={styles.receipt}>Mã hồ sơ: <strong>{receiptId}</strong></p>
               <div className={styles.summaryBox}>
                 <div className={styles.summaryRow}>
                   <span className={styles.summaryLabel}>Lịch đăng ký ({submittedData.availability.length} buổi/tuần):</span>
@@ -167,7 +173,7 @@ export default function RecruitPage() {
                 </div>
                 <div className={styles.summaryRow}>
                   <span className={styles.summaryLabel}>Vị trí ứng tuyển:</span>
-                  <span className={styles.summaryValue}>{submittedData.role}</span>
+                  <span className={styles.summaryValue}>{POSITIONS.find(position => position.value === submittedData.role)?.name || submittedData.role}</span>
                 </div>
                 <div className={styles.summaryRow}>
                   <span className={styles.summaryLabel}>Email liên hệ:</span>
@@ -202,6 +208,7 @@ export default function RecruitPage() {
                   </div>
                 ) : null}
 
+                <fieldset className={styles.formFields} disabled={submitting}>
                 <div className={styles.grid2}>
                   <div className={styles.field}>
                     <label htmlFor="fullName" className={styles.label}>
@@ -210,6 +217,7 @@ export default function RecruitPage() {
                     <input
                       id="fullName"
                       name="fullName"
+                      maxLength={150}
                       type="text"
                       className={styles.input}
                       placeholder="Nguyễn Văn A"
@@ -227,6 +235,7 @@ export default function RecruitPage() {
                     <input
                       id="studentId"
                       name="studentId"
+                      maxLength={30}
                       type="text"
                       required
                       className={styles.input}
@@ -246,6 +255,7 @@ export default function RecruitPage() {
                     <input
                       id="email"
                       name="email"
+                      maxLength={255}
                       type="email"
                       className={styles.input}
                       placeholder="ten@neu.edu.vn"
@@ -263,6 +273,7 @@ export default function RecruitPage() {
                     <input
                       id="phone"
                       name="phone"
+                      maxLength={20}
                       type="tel"
                       inputMode="numeric"
                       className={styles.input}
@@ -317,6 +328,7 @@ export default function RecruitPage() {
                   <textarea
                     id="intro"
                     name="intro"
+                    maxLength={2000}
                     className={styles.textarea}
                     rows={4}
                     placeholder="Chia sẻ về sở thích, kinh nghiệm làm thêm hoặc lý do bạn muốn đồng hành cùng NEUFood..."
@@ -352,6 +364,7 @@ export default function RecruitPage() {
                     Nhập lại
                   </button>
                 </div>
+                </fieldset>
               </form>
             </div>
           )}

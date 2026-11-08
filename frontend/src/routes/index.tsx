@@ -40,6 +40,7 @@ import ManagerDishFormPage from '../pages/manager/ManagerDishFormPage'
 import ManagerShiftsPage from '../pages/manager/ManagerShiftsPage'
 import ManagerReviewsPage from '../pages/manager/ManagerReviewsPage'
 import ManagerReportsPage from '../pages/manager/ManagerReportsPage'
+import ManagerPersonnelPage from '../pages/manager/ManagerPersonnelPage'
 import StaffDashboardPage from '../pages/staff/StaffDashboardPage'
 import StaffShiftPage from '../pages/staff/StaffShiftPage'
 import StaffMenuPage from '../pages/staff/StaffMenuPage'
@@ -92,6 +93,7 @@ export const AppRoutes: React.FC = () => (
       <Route path="bao-cao" element={<ManagerReportsPage />} />
       <Route path="ca" element={<ManagerShiftsPage />} />
       <Route path="danh-gia" element={<ManagerReviewsPage />} />
+      <Route path="nhan-su" element={<ManagerPersonnelPage />} />
       <Route path="*" element={<Navigate to="/quan-ly" replace />} />
     </Route>
     <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><SystemAdminLayout /></ProtectedRoute>}>

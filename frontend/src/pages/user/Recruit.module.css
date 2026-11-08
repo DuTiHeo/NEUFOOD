@@ -424,3 +424,6 @@
   outline: 2px solid var(--color-brand);
   outline-offset: 2px;
 }
+
+.formFields { min-width: 0; padding: 0; margin: 0; border: 0; }
+.receipt { overflow-wrap: anywhere; }

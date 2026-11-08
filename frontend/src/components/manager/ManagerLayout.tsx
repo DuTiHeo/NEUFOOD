@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { BarChart3, ChevronRight, ClipboardList, LayoutDashboard, LogOut, Menu, Star, Store, UtensilsCrossed, Wallet, X } from 'lucide-react'
+import { BarChart3, ChevronRight, ClipboardList, LayoutDashboard, LogOut, Menu, Star, Users, Store, UtensilsCrossed, Wallet, X } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import styles from '../admin/SystemAdminLayout.module.css'
 import './manager.css'
@@ -11,6 +11,7 @@ const links = [
   { to: '/quan-ly/mon', label: 'Quản lý thực đơn', Icon: UtensilsCrossed },
   { to: '/quan-ly/bao-cao', label: 'Báo cáo doanh thu', Icon: BarChart3 },
   { to: '/quan-ly/ca', label: 'Đối soát ca COD', Icon: Wallet },
+  { to: '/quan-ly/nhan-su', label: 'Quản lý nhân sự', Icon: Users },
   { to: '/quan-ly/danh-gia', label: 'Đánh giá món ăn', Icon: Star },
 ]
 export default function ManagerLayout() {
