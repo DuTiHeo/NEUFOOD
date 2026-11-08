@@ -9,7 +9,7 @@ interface FormData {
   phone: string
   studentId: string
   role: string
-  shift: string
+  availability: string[]
   intro: string
 }
 
@@ -19,9 +19,25 @@ const INITIAL_FORM: FormData = {
   phone: '',
   studentId: '',
   role: '',
-  shift: 'part_time_lunch',
+  availability: [],
   intro: '',
 }
+
+const WORK_DAYS = [
+  { id: 'mon', label: 'Thứ Hai' }, { id: 'tue', label: 'Thứ Ba' },
+  { id: 'wed', label: 'Thứ Tư' }, { id: 'thu', label: 'Thứ Năm' },
+  { id: 'fri', label: 'Thứ Sáu' }, { id: 'sat', label: 'Thứ Bảy' },
+]
+const WORK_SHIFTS = [
+  { id: 'morning', label: 'Ca sáng', hours: '07:00–12:00' },
+  { id: 'afternoon', label: 'Ca chiều', hours: '12:00–19:00' },
+]
+const POSITIONS = [
+  { name: 'Shipper Campus', value: 'Shipper Campus (Giao đồ ăn trong NEU)', description: 'Giao món trong khuôn viên NEU, đối chiếu mã nhận hàng và thu COD, cập nhật tình trạng giao hàng.' },
+  { name: 'Hỗ trợ đóng gói và điều phối', value: 'Nhân viên hỗ trợ đóng gói & Điều phối', description: 'Kiểm tra món, số lượng và ghi chú; đóng gói và sắp xếp đơn; phối hợp bàn giao cho khách hoặc shipper.' },
+  { name: 'Chăm sóc khách hàng', value: 'Hỗ trợ chăm sóc khách hàng (CSKH)', description: 'Giải đáp cách đặt món, tiếp nhận phản hồi và phối hợp chuyển thông tin đến bộ phận phụ trách.' },
+  { name: 'Cộng tác viên truyền thông và sự kiện', value: 'Cộng tác viên truyền thông & Marketing', description: 'Viết nội dung, chụp ảnh/quay video và hỗ trợ các hoạt động giới thiệu NEUFood trong trường.' },
+]
 
 export default function RecruitPage() {
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM)
@@ -62,11 +78,23 @@ export default function RecruitPage() {
       return
     }
 
+    if (formData.availability.length < 4) {
+      setErrorMsg('Vui lòng đăng ký tối thiểu 4 buổi/tuần. Mỗi ca sáng hoặc chiều được tính là 1 buổi.')
+      return
+    }
+
     setSubmitting(true)
     // Simulate real submission
     await new Promise((r) => setTimeout(r, 700))
     setSubmitting(false)
     setSubmittedData({ ...formData })
+  }
+
+  const toggleAvailability = (slot: string) => {
+    setFormData(prev => ({ ...prev, availability: prev.availability.includes(slot)
+      ? prev.availability.filter(value => value !== slot)
+      : [...prev.availability, slot] }))
+    setErrorMsg('')
   }
 
   const handleReset = () => {
@@ -91,11 +119,35 @@ export default function RecruitPage() {
             <div className={styles.badgeWrap}>
               <span className={styles.badge}>Gia nhập đội ngũ NEUFood</span>
             </div>
-            <h1 className={styles.title}>Cùng NEUFood phục vụ Campus</h1>
+            <h1 className={styles.title}>Cùng NEUFood mang bữa ăn đến gần sinh viên hơn!</h1>
             <p className={styles.subtitle}>
               Cơ hội việc làm linh hoạt theo lịch học, thu nhập hấp dẫn và môi trường năng động ngay tại trường.
             </p>
           </header>
+
+          <article className={styles.article} aria-label="Thông tin tuyển dụng NEUFood">
+            <section>
+              <h2>Từ giờ nghỉ vội đến những bữa ăn trọn vẹn</h2>
+              <p>Giờ nghỉ ngắn, canteen đông, nhiều bạn học ở tầng cao chưa kịp mua đồ ăn đã phải quay lại lớp. NEUFood giúp sinh viên NEU đặt món trước, nhận tại quầy hoặc được giao tận phòng học, để mỗi bữa ăn thuận tiện hơn.</p>
+              <p>Chúng mình tìm kiếm sinh viên NEU chủ động, có trách nhiệm, đúng giờ và thân thiện để cùng mang những bữa ăn chu đáo đến cộng đồng sinh viên.</p>
+            </section>
+            <section>
+              <h2>4 vị trí, cùng một hành trình</h2>
+              <div className={styles.positionGrid}>{POSITIONS.map(position => <section key={position.value} className={styles.positionCard}>
+                <h3>{position.name}</h3><p>{position.description}</p><strong>25.000đ/giờ</strong>
+                <a href="#recruit-form" className={styles.positionLink} onClick={() => { setFormData(prev => ({ ...prev, role: position.value })); setSubmittedData(null) }}>Chọn vị trí này</a>
+              </section>)}</div>
+            </section>
+            <section>
+              <h2>Chủ động lịch làm, tối thiểu 4 buổi/tuần</h2>
+              <p><strong>Thu nhập 25.000đ/giờ</strong>, áp dụng cho cả 4 vị trí. Làm việc trong khuôn viên NEU, được hướng dẫn công việc, rèn luyện kỹ năng giao tiếp và làm việc nhóm.</p>
+              <p>Bạn được chọn từng ngày và ca phù hợp với lịch học từ <strong>thứ Hai đến thứ Bảy</strong>; <strong>nghỉ Chủ nhật</strong>.</p>
+              <ul><li>Ca sáng: <strong>07:00–12:00</strong>.</li><li>Ca chiều: <strong>12:00–19:00</strong>.</li></ul>
+              <p>Đăng ký <strong>tối thiểu 4 buổi/tuần</strong>. Mỗi ca tính 1 buổi; chọn cả sáng và chiều cùng ngày tính 2 buổi. Ví dụ: sáng và chiều thứ Hai, sáng thứ Tư, chiều thứ Sáu là 4 buổi.</p>
+              <p>Liên hệ anh: <strong>Hoàng Văn Quản Lý</strong> – SĐT: <a href="tel:0812852613" className={styles.positionLink}>0812 852 613</a></p>
+              <a href="#recruit-form" className={styles.homeBtn}>Ứng tuyển ngay</a>
+            </section>
+          </article>
 
           {submittedData ? (
             <div className={styles.successCard} role="status">
@@ -108,6 +160,10 @@ export default function RecruitPage() {
               </p>
 
               <div className={styles.summaryBox}>
+                <div className={styles.summaryRow}>
+                  <span className={styles.summaryLabel}>Lịch đăng ký ({submittedData.availability.length} buổi/tuần):</span>
+                  <div className={styles.summaryValue}>{WORK_DAYS.flatMap(day => WORK_SHIFTS.filter(shift => submittedData.availability.includes(`${day.id}-${shift.id}`)).map(shift => <div key={`${day.id}-${shift.id}`}>{day.label} – {shift.label} ({shift.hours})</div>))}</div>
+                </div>
                 <div className={styles.summaryRow}>
                   <span className={styles.summaryLabel}>Vị trí ứng tuyển:</span>
                   <span className={styles.summaryValue}>{submittedData.role}</span>
@@ -134,7 +190,9 @@ export default function RecruitPage() {
               </div>
             </div>
           ) : (
-            <div className={styles.formCard}>
+            <div className={styles.formCard} id="recruit-form">
+              <h2>Sẵn sàng gia nhập NEUFood?</h2>
+              <p>Điền thông tin, chọn vị trí và đăng ký tối thiểu 4 buổi làm mỗi tuần.</p>
               <form onSubmit={handleSubmit} noValidate>
                 {errorMsg ? (
                   <div className={styles.errorAlert} role="alert">
@@ -228,59 +286,27 @@ export default function RecruitPage() {
                     required
                   >
                     <option value="">-- Chọn vị trí ứng tuyển --</option>
-                    <option value="Shipper Campus (Giao đồ ăn trong NEU)">
-                      Shipper Campus (Giao đồ ăn trong NEU - Ưu tiên sinh viên)
-                    </option>
-                    <option value="Nhân viên hỗ trợ đóng gói & Điều phối">
-                      Nhân viên hỗ trợ đóng gói &amp; Điều phối đơn tại Canteen
-                    </option>
-                    <option value="Hỗ trợ chăm sóc khách hàng (CSKH)">
-                      Hỗ trợ chăm sóc khách hàng (CSKH &amp; Tiếp nhận phản hồi)
-                    </option>
-                    <option value="Cộng tác viên truyền thông & Marketing">
-                      Cộng tác viên truyền thông &amp; Sự kiện NEUFood
-                    </option>
+                    {POSITIONS.map(position => <option key={position.value} value={position.value}>{position.name}</option>)}
                   </select>
                 </div>
 
-                <div className={styles.field}>
-                  <span className={styles.label}>Thời gian có thể làm việc</span>
-                  <div className={styles.radioGroup}>
-                    <label className={styles.radioLabel}>
-                      <input
-                        type="radio"
-                        name="shift"
-                        value="part_time_lunch"
-                        checked={formData.shift === 'part_time_lunch'}
-                        onChange={handleChange}
-                        className={styles.radioInput}
-                      />
-                      <span>Ca trưa (10:30 – 13:30)</span>
-                    </label>
-                    <label className={styles.radioLabel}>
-                      <input
-                        type="radio"
-                        name="shift"
-                        value="part_time_afternoon"
-                        checked={formData.shift === 'part_time_afternoon'}
-                        onChange={handleChange}
-                        className={styles.radioInput}
-                      />
-                      <span>Ca chiều (16:30 – 19:30)</span>
-                    </label>
-                    <label className={styles.radioLabel}>
-                      <input
-                        type="radio"
-                        name="shift"
-                        value="flexible"
-                        checked={formData.shift === 'flexible'}
-                        onChange={handleChange}
-                        className={styles.radioInput}
-                      />
-                      <span>Linh hoạt theo lịch học</span>
-                    </label>
+                <fieldset className={styles.availability} aria-describedby="schedule-help schedule-count">
+                  <legend className={styles.label}>Lịch có thể làm việc <span className={styles.req}>*</span></legend>
+                  <p id="schedule-help" className={styles.scheduleHelp}>Chọn ngày và ca phù hợp từ thứ Hai đến thứ Bảy. Tối thiểu 4 buổi/tuần; mỗi ca là 1 buổi, chọn hai ca cùng ngày tính 2 buổi. Chủ nhật nghỉ.</p>
+                  <div className={styles.scheduleGrid}>
+                    {WORK_DAYS.map(day => <div key={day.id} className={styles.scheduleDay}>
+                      <h3>{day.label}</h3>
+                      {WORK_SHIFTS.map(shift => {
+                        const slot = `${day.id}-${shift.id}`
+                        return <label key={slot} className={styles.scheduleOption}>
+                          <input type="checkbox" name="availability" value={slot} checked={formData.availability.includes(slot)} onChange={() => toggleAvailability(slot)} disabled={submitting} aria-label={`${day.label} – ${shift.label} (${shift.hours})`} />
+                          <span>{shift.label}<small>{shift.hours}</small></span>
+                        </label>
+                      })}
+                    </div>)}
                   </div>
-                </div>
+                  <p id="schedule-count" className={styles.scheduleCount} role="status">Đã chọn {formData.availability.length} buổi/tuần{formData.availability.length < 4 ? ` · Cần thêm ${4 - formData.availability.length} buổi` : ' · Đã đủ tối thiểu 4 buổi'}</p>
+                </fieldset>
 
                 <div className={styles.field}>
                   <label htmlFor="intro" className={styles.label}>
@@ -318,7 +344,7 @@ export default function RecruitPage() {
                   <button
                     type="button"
                     className={styles.clearBtn}
-                    onClick={() => setFormData(INITIAL_FORM)}
+                    onClick={handleReset}
                     disabled={submitting}
                   >
                     Nhập lại

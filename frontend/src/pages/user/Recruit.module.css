@@ -157,35 +157,36 @@
   resize: vertical;
 }
 
-.radioGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  margin-top: 0.25rem;
+.article {
+  display: grid;
+  gap: 2rem;
+  margin-bottom: 2rem;
+  font-size: 1rem;
+  line-height: 1.7;
 }
 
-@media (min-width: 640px) {
-  .radioGroup {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 1.25rem;
-  }
-}
+.article h2 { font-size: 1.5rem; line-height: 1.35; }
+.article h3 { font-size: 1.25rem; line-height: 1.4; margin: 0; }
+.positionGrid, .scheduleGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.positionCard { display: flex; flex-direction: column; align-items: flex-start; padding: 1.25rem; border: 1px solid var(--color-edge); border-radius: 1rem; background: var(--color-panel); }
+.positionCard p { flex: 1; }
+.positionCard strong { color: var(--color-brand); }
+.positionLink { display: inline-flex; align-items: center; min-height: 44px; margin-top: 0.5rem; color: var(--color-brand); font-weight: 700; }
+.positionLink:focus-visible, .scheduleOption:focus-within { outline: 2px solid var(--color-brand); outline-offset: 3px; border-radius: 0.5rem; }
+.formCard { scroll-margin-top: 6rem; }
+.availability { min-width: 0; margin: 0 0 1.25rem; padding: 0; border: 0; }
+.scheduleHelp { font-size: 1rem; line-height: 1.6; color: var(--color-muted); }
+.scheduleDay { min-width: 0; border: 1px solid var(--color-edge); border-radius: 0.75rem; padding: 0.75rem; }
+.scheduleDay h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+.scheduleOption { display: flex; align-items: center; gap: 0.625rem; min-height: 52px; cursor: pointer; font-size: 1rem; }
+.scheduleOption input { flex-shrink: 0; width: 1.125rem; height: 1.125rem; accent-color: var(--color-brand); }
+.scheduleOption small { display: block; font-size: 0.875rem; color: var(--color-muted); }
+.scheduleCount { font-size: 1rem; font-weight: 700; color: var(--color-brand); }
 
-.radioLabel {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9375rem;
-  color: var(--color-ink);
-  cursor: pointer;
-}
-
-.radioInput {
-  accent-color: var(--color-brand);
-  width: 1.125rem;
-  height: 1.125rem;
-  cursor: pointer;
+@media (max-width: 640px) {
+  .positionGrid, .scheduleGrid { grid-template-columns: minmax(0, 1fr); }
+  .successActions, .summaryRow { flex-direction: column; }
+  .summaryValue { text-align: left; }
 }
 
 .errorAlert {
