@@ -65,6 +65,9 @@ class TopDishReport(BaseModel):
 
 
 class RevenueReportResponse(BaseModel):
+    discount_total: float = 0
+    simulated_deposit_total: float = 0
+    actual_cod_collected: float = 0
     """Schema định dạng dữ liệu tổng hợp báo cáo doanh thu Canteen (UC22)."""
     from_date: Optional[date] = None
     to_date: Optional[date] = None

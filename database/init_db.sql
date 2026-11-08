@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
         CHECK (role IN ('customer', 'staff', 'manager', 'admin')),
     avatar_url TEXT,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    ordering_hours_exempt BOOLEAN NOT NULL DEFAULT FALSE,
     is_blacklisted BOOLEAN NOT NULL DEFAULT FALSE,
     blacklist_reason TEXT,
     blacklisted_at TIMESTAMP WITH TIME ZONE,
@@ -136,9 +137,11 @@ CREATE TABLE IF NOT EXISTS orders (
             'DA_HUY_KHACH', 'TU_CHOI', 'TU_DONG_HUY', 'BO_DON_BLACKLIST',
             'KHIEU_NAI', 'DA_GIAI_QUYET'
         )),
+    bulk_pricing JSON NOT NULL DEFAULT '{}',
+    deposit_reference VARCHAR(64) CONSTRAINT orders_deposit_reference_unique UNIQUE,
     subtotal_amount NUMERIC(12, 2) NOT NULL CHECK (subtotal_amount >= 0),
     ship_fee NUMERIC(12, 2) NOT NULL DEFAULT 5000 CHECK (ship_fee >= 0),
-    total_amount NUMERIC(12, 2) NOT NULL CHECK (total_amount >= 0 AND total_amount <= 500000),
+    total_amount NUMERIC(12, 2) NOT NULL CHECK (total_amount >= 0),
     payment_method VARCHAR(30) NOT NULL DEFAULT 'cod_cash' 
         CHECK (payment_method IN ('cod_cash', 'cod_vietqr')),
     payment_status VARCHAR(30) NOT NULL DEFAULT 'chua_thanh_toan' 
@@ -168,7 +171,7 @@ CREATE TABLE IF NOT EXISTS order_items (
     dish_name VARCHAR(200) NOT NULL,
     unit_price NUMERIC(12, 2) NOT NULL CHECK (unit_price >= 0),
     base_price NUMERIC(12, 2) NOT NULL DEFAULT 0,
-    quantity INT NOT NULL CHECK (quantity > 0 AND quantity <= 10),
+    quantity INT NOT NULL CHECK (quantity > 0 AND quantity <= 50),
     note TEXT,
     subtotal NUMERIC(12, 2) NOT NULL CHECK (subtotal >= 0)
 );
@@ -327,6 +330,7 @@ CREATE TABLE IF NOT EXISTS chat_delivery_preferences (
 );
 
 -- Extra-portion catalogs/snapshots; seeded after sample dishes.
+ALTER TABLE dishes ADD COLUMN IF NOT EXISTS eligible_servings INTEGER NOT NULL DEFAULT 0 CHECK (eligible_servings BETWEEN 0 AND 20);
 ALTER TABLE dishes ADD COLUMN IF NOT EXISTS portion_groups JSONB NOT NULL DEFAULT '[]';
 ALTER TABLE order_items ADD COLUMN IF NOT EXISTS portions JSONB NOT NULL DEFAULT '[]';
 CREATE INDEX IF NOT EXISTS idx_user_devices_token_hash ON user_devices(token_hash);

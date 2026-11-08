@@ -6,6 +6,7 @@ import { reviewService } from '../../services/reviewService'
 import { DishReview } from '../../types/dish'
 import { getDishImageUrl, handleDishImageError } from '../../utils/dishImages'
 import { defaultPortions, resolvePortions } from '../../utils/portions'
+import { BULK_PROMOTION } from '../../utils/bulkPricing'
 import Footer from '../../components/layout/Footer'
 import styles from './ChiTietMonPage.module.css'
 
@@ -141,6 +142,7 @@ export default function ChiTietMonPage() {
                 <p aria-live="polite">Giá mỗi món/combo: {formatPrice(unitPrice)} · {qty} phần: {formatPrice(unitPrice * qty)}</p>
                 {configError && <p role="alert">{configError}</p>}
               </section>}
+              <p><small><em>{BULK_PROMOTION}</em></small></p>
               <div className={styles.detailBuy}>
                 <div className={styles.qty}>
                   <button type="button" className={styles.qtyBtn} onClick={() => setQty((value) => Math.max(1, value - 1))} disabled={qty <= 1} aria-label="Giảm số lượng"><span className="material-symbols-outlined">remove</span></button>

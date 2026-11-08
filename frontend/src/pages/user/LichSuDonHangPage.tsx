@@ -1,3 +1,4 @@
+import BulkOrderSummary from '../../components/orders/BulkOrderSummary'
 import { portionSummary } from '../../utils/portions'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
@@ -171,7 +172,7 @@ export default function LichSuDonHangPage() {
                     <p className={styles.when}>Đặt ngày {formatDate(order.created_at)}</p>
                   </div>
                   <div className={styles.sum}>
-                    <p className={styles.sumN}>{formatPrice(order.total_amount)}</p>
+                    <BulkOrderSummary order={order} /><p className={styles.sumN}>{formatPrice(order.total_amount)}</p>
                   </div>
                 </div>
                 <div className={styles.body}>

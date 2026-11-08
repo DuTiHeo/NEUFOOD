@@ -1,3 +1,5 @@
+import { useDishes } from '../../contexts/DishesContext'
+import { addCartLine } from '../../utils/cartLines'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useCart } from '../../contexts/CartContext'
@@ -45,6 +47,7 @@ function ChatbotSession({ userId }: { userId?: number }) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const cart = useCart()
+  const { dishes, maxDishQuantity, error: menuError, isLoading: menuLoading } = useDishes()
   chatService.setOwner(userId)
   const owner = userId ?? null
   const ownerRef = useRef(owner)
@@ -282,6 +285,24 @@ function ChatbotSession({ userId }: { userId?: number }) {
                 </span>
                 <div className={styles.bubbleText}>{parseMarkdown(m.text)}</div>
 
+                {m.action?.type === 'ORDER_CHECKOUT_REQUIRED' && draft?.draft_id === m.action.draft_id && draft?.revision === m.action.revision && <button type="button" className={styles.actionBtn} disabled={loading || menuLoading || Boolean(menuError) || Date.parse(m.action.expires_at) <= Date.now()} onClick={()=>{
+                  if (m.action?.type !== 'ORDER_CHECKOUT_REQUIRED') return
+                  const summary=m.action.summary
+                  if (cart.totalCount > 0 && !window.confirm('Thay giỏ hiện tại bằng nội dung đơn đang tư vấn để tiếp tục đặt cọc?')) return
+                  try {
+                    let rows:any[]=[]
+                    for(const item of summary.items || []) {
+                      const dish=dishes.find(d=>d.id===item.dish_id)
+                      if (!dish) throw new Error('Món không còn trong thực đơn')
+                      rows=addCartLine(rows,dish,item.quantity,maxDishQuantity,{note:item.note || ''})
+                    }
+                    if (!rows.length) return
+                    localStorage.setItem('neufood-cart-v2',JSON.stringify(rows))
+                    sessionStorage.setItem('neufood-checkout-from-chat',JSON.stringify({owner:userId,summary}))
+                    window.location.assign('/thanh-toan')
+                  } catch { setInput('Vui lòng kiểm tra lại món và số lượng trước khi chuyển sang thanh toán.') }
+                }}>Chuyển sang thanh toán và đặt cọc mô phỏng</button>}
+
                 {m.action?.type === 'ORDER_CONFIRMATION' && pending?.draft_id === m.action.draft_id && pending?.revision === m.action.revision && (
                   <div className={styles.actionCard} role="group" aria-label="Xác nhận đơn hàng">
                     <button type="button" className={styles.actionBtn} disabled={loading || cooldownSec > 0 || Date.parse(m.action.expires_at) <= Date.now()} onClick={() => sendMessage('Đồng ý đặt đơn', 'confirm')}>Xác nhận đặt đơn</button>
@@ -291,7 +312,7 @@ function ChatbotSession({ userId }: { userId?: number }) {
                   </div>
                 )}
 
-                {(m.action?.type === 'ORDER_CONFIRMATION' || m.action?.type === 'ORDER_COLLECTING') && m.action.draft_id && draft?.draft_id === m.action.draft_id && draft?.revision === m.action.revision && (
+                {(m.action?.type === 'ORDER_CONFIRMATION' || m.action?.type === 'ORDER_COLLECTING' || m.action?.type === 'ORDER_CHECKOUT_REQUIRED') && m.action.draft_id && draft?.draft_id === m.action.draft_id && draft?.revision === m.action.revision && (
                   <button type="button" className={styles.actionBtn} disabled={loading} onClick={() => {
                     setRecipient(m.action && 'recipient' in m.action && m.action.recipient ? m.action.recipient : { recipient_name: '', recipient_phone: '' })
                     setEditingRecipient(true)

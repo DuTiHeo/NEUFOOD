@@ -35,6 +35,8 @@ def validate_setting_value(key: str, value: str) -> Tuple[bool, Optional[str]]:
     Trả về: (is_valid, error_message_or_none)
     """
     cleaned = value.strip()
+    if key == "max_cod_amount":
+        return False, "Đã bỏ trần tổng đơn; đơn từ 500.000đ áp dụng cọc mô phỏng 50%"
     if not cleaned:
         return False, "Giá trị cấu hình không được để trống"
 
@@ -45,6 +47,8 @@ def validate_setting_value(key: str, value: str) -> Tuple[bool, Optional[str]]:
                 return False, POSITIVE_INT_KEYS[key]
         except ValueError:
             return False, POSITIVE_INT_KEYS[key]
+        if key == "min_preorder_lead_minutes" and val_int < 30:
+            return False, "Thời gian đặt hẹn giờ tối thiểu không được dưới 30 phút"
         return True, None
 
     if key in NON_NEGATIVE_INT_KEYS:
@@ -56,7 +60,7 @@ def validate_setting_value(key: str, value: str) -> Tuple[bool, Optional[str]]:
             return False, NON_NEGATIVE_INT_KEYS[key]
         return True, None
 
-    if key in ("canteen_open_time", "canteen_close_time"):
+    if key in ("canteen_open_time", "canteen_order_cutoff_time", "canteen_close_time"):
         if not TIME_REGEX.match(cleaned):
             return False, "Định dạng giờ mở/đóng cửa không hợp lệ, phải là HH:MM (00:00 - 23:59)"
         return True, None

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react'
 import { useDishes } from './DishesContext'
+import { calculateBulk } from '../utils/bulkPricing'
 import { addCartLine, cartQuantity, restoreCart, resolveCartLine } from '../utils/cartLines'
 
 const STORAGE_KEY = 'neufood-cart-v2'
@@ -7,7 +8,7 @@ const PENDING_KEY = 'neufood-cart-pending-v1'
 const CartContext = createContext(null)
 
 export function CartProvider({ children }) {
-  const { dishes, isLoading: menuLoading, error: menuError, maxDishQuantity } = useDishes()
+  const { dishes, isLoading: menuLoading, error: menuError, maxDishQuantity, deliveryFee } = useDishes()
   const [rows, setRows] = useState(() => restoreCart(localStorage.getItem(STORAGE_KEY), localStorage.getItem('neufood-cart-v1')))
   useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(rows)); localStorage.removeItem('neufood-cart-v1') }, [rows])
   useEffect(() => {
@@ -51,8 +52,9 @@ export function CartProvider({ children }) {
   }, [lines])
   const totalCount = lines.reduce((sum, line) => sum + line.qty, 0)
   const subtotal = lines.reduce((sum, line) => sum + line.unitPrice * line.qty, 0)
+  const bulkPricing = calculateBulk(subtotal, lines.reduce((n,l)=>n+Number(l.dish.eligible_servings || 0)*l.qty,0), totalCount > 0 ? deliveryFee : 0)
   const unavailableLines = lines.filter(line => line.invalidReason)
-  return <CartContext.Provider value={{ quantities, add, setQuantity, clear, lines, totalCount, subtotal, getQty, unavailableLines, maxDishQuantity, reviewLine }}>{children}</CartContext.Provider>
+  return <CartContext.Provider value={{ bulkPricing, quantities, add, setQuantity, clear, lines, totalCount, subtotal, getQty, unavailableLines, maxDishQuantity, reviewLine }}>{children}</CartContext.Provider>
 }
 export function useCart() {
   const cart = useContext(CartContext)

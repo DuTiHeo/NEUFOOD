@@ -9,6 +9,19 @@
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.serviceNotice {
+  max-width: 100rem;
+  margin: 0 auto 2rem;
+  padding: 0 1.5rem;
+  color: #facc15;
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.7;
+  white-space: nowrap;
+  overflow-x: auto;
+}
+
 .container {
   max-width: 80rem;
   margin: 0 auto;

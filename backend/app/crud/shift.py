@@ -1,3 +1,4 @@
+from app.crud.bulk_pricing import cod_due
 import math
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
@@ -71,8 +72,8 @@ def calculate_staff_shift_orders(db: Session, staff_id: int, target_date: date):
     ).all()
 
     total_orders = len(orders)
-    expected_cash = sum((Decimal(str(o.total_amount)) for o in orders if o.payment_method == "cod_cash"), Decimal("0.00"))
-    expected_qr = sum((Decimal(str(o.total_amount)) for o in orders if o.payment_method == "cod_vietqr"), Decimal("0.00"))
+    expected_cash = sum((cod_due(o) for o in orders if o.payment_method == "cod_cash"), Decimal("0.00"))
+    expected_qr = sum((cod_due(o) for o in orders if o.payment_method == "cod_vietqr"), Decimal("0.00"))
 
     return total_orders, expected_cash, expected_qr
 
@@ -302,6 +303,9 @@ def get_revenue_report(db: Session, from_date: date, to_date: date) -> dict:
     paid_order_ids = [o.id for o in paid_orders]
 
     gross_revenue = sum((Decimal(str(o.total_amount)) for o in paid_orders), Decimal("0.00"))
+    discount_total = sum((Decimal((o.bulk_pricing or {}).get('discount_amount','0')) for o in paid_orders),Decimal(0))
+    simulated_deposit_total = sum((Decimal((o.bulk_pricing or {}).get('deposit_amount','0')) for o in paid_orders),Decimal(0))
+    actual_cod_collected = sum((cod_due(o) for o in paid_orders),Decimal(0))
     ship_fee_total = sum((Decimal(str(o.ship_fee)) for o in paid_orders), Decimal("0.00"))
 
     if paid_order_ids:
@@ -310,6 +314,7 @@ def get_revenue_report(db: Session, from_date: date, to_date: date) -> dict:
         items = []
 
     canteen_net_revenue = sum((Decimal(str(i.base_price)) * i.quantity for i in items), Decimal("0.00"))
+    canteen_net_revenue -= discount_total
     system_fee_total = sum(
         ((Decimal(str(i.unit_price)) - Decimal(str(i.base_price))) * i.quantity for i in items),
         Decimal("0.00"),
@@ -352,6 +357,7 @@ def get_revenue_report(db: Session, from_date: date, to_date: date) -> dict:
         "cancelled_or_rejected_orders": cancelled_or_rejected_orders,
         "blacklisted_orders": blacklisted_orders,
         "gross_revenue": float(gross_revenue),
+        "discount_total":float(discount_total),"simulated_deposit_total":float(simulated_deposit_total),"actual_cod_collected":float(actual_cod_collected),
         "canteen_net_revenue": float(canteen_net_revenue),
         "system_fee_total": float(system_fee_total),
         "ship_fee_total": float(ship_fee_total),

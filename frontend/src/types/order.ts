@@ -1,3 +1,8 @@
+export interface BulkPricing {
+  eligible_servings: number; discount_rate: number; discount_amount: string | number;
+  shipping_fee: string | number; total_amount: string | number; deposit_amount: string | number;
+  cod_due: string | number; deposit_status?: string; phone_confirmed?: boolean;
+}
 export interface CartItem {
   id: string;
   name: string;
@@ -41,6 +46,8 @@ export type OrderStatus =
   | 'DA_GIAI_QUYET';
 
 export interface CreateOrderPayload {
+  deposit_token?: string | null;
+  expected_pricing?: BulkPricing;
   order_type: OrderType;
   recipient_name: string;
   recipient_phone: string;
@@ -64,6 +71,7 @@ export interface OrderListParams {
 
 export interface OrderProcessPayload {
   action: 'accept' | 'reject';
+  phone_confirmed?: boolean;
   reason?: string;
 }
 
@@ -73,6 +81,9 @@ export interface OrderIssuePayload {
 }
 
 export interface Order {
+  bulk_pricing?: BulkPricing;
+  deposit_token?: string | null;
+  cod_due?: number;
   id: string;
   status: OrderStatus;
   order_code_suffix: string;
@@ -85,6 +96,7 @@ export interface Order {
   room_detail?: string | null;
   is_preorder?: boolean;
   scheduled_at?: string | null;
+  sunday_schedule_warning?: boolean;
   subtotal_amount?: number;
   total?: number;
   total_amount?: number;

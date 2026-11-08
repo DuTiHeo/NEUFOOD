@@ -56,9 +56,11 @@ class OrderCreationTests(unittest.TestCase):
         with self.engine.begin() as conn:
             conn.execute(text("TRUNCATE users, dishes, campus_locations, system_settings RESTART IDENTITY CASCADE"))
         with self.sessions.begin() as db:
+            # Unrelated order regressions must work at any wall-clock hour; time-policy tests disable exemption explicitly.
             db.add_all([
                 User(id=i, email=f"orders-test-{i}@example.com", password_hash="unused",
-                     full_name="Test User", phone_number=f"097700000{i}", role=role)
+                     full_name="Test User", phone_number=f"097700000{i}", role=role,
+                     ordering_hours_exempt=(role == "customer"))
                 for i, role in enumerate(["customer", "customer", "staff", "manager", "admin"], 1)
             ])
             db.add_all([
@@ -167,9 +169,12 @@ class OrderCreationTests(unittest.TestCase):
 
     def test_duplicate_dish_cannot_bypass_quantity_limit(self):
         payload = self.payload()
-        payload["items"] = [{"dish_id": "rice", "quantity": 6}, {"dish_id": "rice", "quantity": 5}]
+        with self.sessions.begin() as db:
+            db.get(Dish, "rice").price = Decimal("5000")
+            db.get(Dish, "rice").base_price = Decimal("0")
+        payload["items"] = [{"dish_id": "rice", "quantity": 26}, {"dish_id": "rice", "quantity": 25}]
         self.assert_rejected(payload, "EX-06")
-        payload["items"][1]["quantity"] = 4
+        payload["items"][1]["quantity"] = 24
         self.assertEqual(self.post(payload).status_code, 201)
 
     def test_delivery_requires_active_location(self):
@@ -179,21 +184,25 @@ class OrderCreationTests(unittest.TestCase):
                 payload["campus_location_id"] = location
                 self.assert_rejected(payload, "EX-07")
 
-    def test_cod_cap_includes_shipping(self):
+    def test_deposit_threshold_includes_shipping(self):
         payload = self.payload()
         payload["items"] = [{"dish_id": "premium", "quantity": 10}]
-        self.assert_rejected(payload, "EX-11")
+        self.assert_rejected(payload, "DEPOSIT_CONFIRMATION_REQUIRED",409)
         payload["order_type"] = "pickup"
+        token = create_access_token({"sub":"1","role":"customer"})
+        with self.app.test_client() as client:
+            quote=client.post('/api/v1/orders/quote',json=payload,headers={'Authorization':f'Bearer {token}'}).get_json()['data']
+        payload['deposit_token']=quote['deposit_token']
         response = self.post(payload)
         self.assertEqual(response.status_code, 201, response.get_json())
         self.assertEqual(response.get_json()["data"]["total_amount"], 500000)
 
-    def test_cod_one_dong_above_cap_rejected(self):
+    def test_one_dong_above_threshold_requires_deposit(self):
         with self.sessions.begin() as db:
             db.get(Dish, "rice").price = Decimal("495001")
         payload = self.payload()
         payload["items"][0]["quantity"] = 1
-        self.assert_rejected(payload, "EX-11")
+        self.assert_rejected(payload, "DEPOSIT_CONFIRMATION_REQUIRED",409)
 
     def test_preorder_lead_boundary_and_timezone(self):
         payload = self.payload()
@@ -211,15 +220,17 @@ class OrderCreationTests(unittest.TestCase):
             self.assertEqual(db.query(Order).one().scheduled_at, self.now + timedelta(minutes=30))
 
     def test_preorder_opening_hours(self):
+        with self.sessions.begin() as db:
+            db.get(User, 1).ordering_hours_exempt = False
         payload = self.payload()
         payload["is_preorder"] = True
         with patch("app.crud.order.datetime") as clock:
             clock.now.return_value = self.now
-            for hour, minute in [(22, 0), (12, 30)]:
+            for hour, minute in [(22, 0), (12, 1)]:
                 payload["scheduled_at"] = (self.now + timedelta(days=1)).replace(hour=hour, minute=minute).isoformat()
-                self.assert_rejected(payload, "EX-08")
-            payload["scheduled_at"] = (self.now + timedelta(days=1)).replace(hour=23, minute=30).isoformat()
-            self.assertEqual(self.post(payload).status_code, 201)  # 06:30 Asia/Saigon
+                self.assert_rejected(payload, "SCHEDULE_OUTSIDE_HOURS")
+            payload["scheduled_at"] = (self.now + timedelta(days=1)).replace(hour=0, minute=30).isoformat()
+            self.assertEqual(self.post(payload).status_code, 201)  # 07:30 Asia/Saigon
 
     def test_scheduled_time_requires_preorder(self):
         payload = self.payload()
@@ -246,15 +257,15 @@ class OrderCreationTests(unittest.TestCase):
     def test_settings_cannot_raise_existing_schema_caps(self):
         with self.sessions.begin() as db:
             db.add_all([SystemSetting(setting_key=key, setting_value=value) for key, value in
-                        [("max_cod_amount", "1000000"), ("max_dish_quantity_per_order", "20")]])
+                        [("max_cod_amount", "1000000"), ("max_dish_quantity_per_order", "100")]])
         payload = self.payload()
-        payload["items"] = [{"dish_id": "rice", "quantity": 6}, {"dish_id": "rice", "quantity": 5}]
+        payload["items"] = [{"dish_id": "rice", "quantity": 26}, {"dish_id": "rice", "quantity": 25}]
         self.assert_rejected(payload, "EX-06")
         payload["items"] = [{"dish_id": "premium", "quantity": 10}]
-        self.assert_rejected(payload, "EX-11")
+        self.assert_rejected(payload, "DEPOSIT_CONFIRMATION_REQUIRED",409)
 
     def test_schema_rejects_bad_input(self):
-        for quantity in (0, 11, True, 1.5, "2"):
+        for quantity in (0, 51, True, 1.5, "2"):
             with self.subTest(quantity=quantity):
                 payload = self.payload()
                 payload["items"][0]["quantity"] = quantity

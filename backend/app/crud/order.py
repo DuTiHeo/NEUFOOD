@@ -1,7 +1,7 @@
 import secrets
 import time
 from collections import Counter
-from datetime import datetime, time as clock_time, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import List, Optional, Tuple
 from sqlalchemy import or_
@@ -9,15 +9,10 @@ from sqlalchemy.orm import Session
 from app.db.models import (
     Order, OrderItem, Dish, CampusLocation, User, Complaint, ACTIVE_ORDER_STATUSES
 )
-from app.crud.setting import get_setting_by_key, get_setting_int
+from app.crud.setting import get_setting_int
 from app.crud.portion import resolve_portions, PortionError
-
-
-class OrderError(ValueError):
-    def __init__(self, message: str, code: str, status_code: int = 400):
-        super().__init__(message)
-        self.code = code
-        self.status_code = status_code
+from app.crud.bulk_pricing import compute_bulk, issue_deposit_quote, verify_deposit_quote
+from app.crud.order_policy import OrderError, get_order_policy, validate_order_time
 
 
 def generate_order_id(db: Optional[Session] = None) -> str:
@@ -46,6 +41,7 @@ def create_order(
     scheduled_at,
     payment_method: str,
     items_data: list,
+    deposit_token=None, expected_pricing=None, _quote_only=False,
 ) -> Order:
     """Tạo COD nguyên tử; caller commit/rollback qua get_db()."""
     # Khóa khách thay vì khóa đơn: khách chưa có đơn vẫn cần chống hai request đồng thời.
@@ -78,28 +74,12 @@ def create_order(
         raise OrderError("Phương thức nhận hàng hoặc thanh toán không hợp lệ", "INVALID_ORDER")
 
     now = datetime.now(timezone.utc)
-    if is_preorder:
-        lead_minutes = max(30, get_setting_int(db, "min_preorder_lead_minutes", 30))
-        if (scheduled_at is None or scheduled_at.utcoffset() is None
-                or scheduled_at < now + timedelta(minutes=lead_minutes)):
-            raise OrderError(
-                f"Đơn hẹn trước phải cách thời điểm hiện tại tối thiểu {lead_minutes} phút", "EX-08",
-            )
+    validate_order_time(get_order_policy(db, user, now), is_preorder, scheduled_at, now)
+    if scheduled_at is not None:
         scheduled_at = scheduled_at.astimezone(timezone.utc)
-        local_time = scheduled_at.astimezone(timezone(timedelta(hours=7))).time()
-        open_time = clock_time.fromisoformat(get_setting_by_key(db, "canteen_open_time", "06:30"))
-        close_time = clock_time.fromisoformat(get_setting_by_key(db, "canteen_close_time", "19:30"))
-        if open_time < close_time:
-            is_open = open_time <= local_time < close_time
-        else:
-            is_open = open_time != close_time and (local_time >= open_time or local_time < close_time)
-        if not is_open:
-            raise OrderError("Giờ hẹn phải nằm trong khung giờ mở cửa của Canteen", "EX-08")
-    elif scheduled_at is not None:
-        raise OrderError("Chỉ gửi scheduled_at khi đặt hẹn giờ", "EX-08")
 
     quantities = Counter()
-    max_quantity = min(10, get_setting_int(db, "max_dish_quantity_per_order", 10))
+    max_quantity = min(50, get_setting_int(db, "max_dish_quantity_per_order", 50))
     if not items_data:
         raise OrderError("Đơn hàng phải có ít nhất một món", "EX-05")
     for item in items_data:
@@ -154,13 +134,26 @@ def create_order(
                 raise OrderError("Giá món hoặc phần thêm đã thay đổi. Vui lòng xem và xác nhận lại.", "PRICE_CHANGED", 409)
         resolved_items.append((item, dish, portions, unit_price, dish.base_price + extra))
     subtotal_amount = sum((unit_price * item["quantity"] for item, _, _, unit_price, _ in resolved_items), Decimal(0))
-    total_amount = subtotal_amount + ship_fee
-    # Hai trần vẫn được bảo vệ bởi CHECK của schema PostgreSQL hiện hành.
-    max_cod = min(500000, get_setting_int(db, "max_cod_amount", 500000))
-    if ship_fee < 0 or total_amount > max_cod:
-        raise OrderError(
-            f"Đơn hàng COD không được vượt quá {max_cod:,.0f} VNĐ. Vui lòng giảm số lượng món", "EX-11",
-        )
+    if ship_fee < 0:
+        raise OrderError("Phí giao hàng không hợp lệ", "INVALID_ORDER")
+    servings = sum(dishes[item["dish_id"]].eligible_servings * item["quantity"] for item in items_data)
+    pricing = compute_bulk(subtotal_amount, servings, ship_fee)
+    if expected_pricing is not None and expected_pricing != pricing:
+        raise OrderError("Ưu đãi hoặc tổng tiền đã thay đổi. Vui lòng kiểm tra lại.", "PRICE_CHANGED", 409)
+    ship_fee = Decimal(pricing['shipping_fee'])
+    total_amount = Decimal(pricing['total_amount'])
+    if total_amount > Decimal('9999999999.99'):
+        raise OrderError("Tổng tiền vượt khả năng xử lý của hệ thống", "INVALID_ORDER")
+    content = dict(order_type=order_type, recipient_name=recipient_name, recipient_phone=recipient_phone,
+                   campus_location_id=campus_location_id, room_detail=room_detail, delivery_address=resolved_address,
+                   delivery_note=delivery_note, scheduled_at=scheduled_at, payment_method=payment_method,
+                   items=[dict(id=d.id,quantity=i['quantity'],note=i.get('note'),portions=p,unit_price=str(u))
+                          for i,d,p,u,_ in resolved_items])
+    reference = None
+    if not _quote_only and (Decimal(pricing['deposit_amount']) or deposit_token):
+        reference = verify_deposit_quote(deposit_token,user_id,content,pricing)
+        if db.query(Order.id).filter(Order.deposit_reference == reference).first():
+            raise OrderError("Xác nhận cọc này đã được dùng cho một đơn hàng.", "DEPOSIT_ALREADY_USED",409)
 
     order_id = generate_order_id(db)
     order_code_suffix = order_id[-4:]
@@ -179,6 +172,7 @@ def create_order(
         is_preorder=is_preorder,
         scheduled_at=scheduled_at,
         status="CHO_XAC_NHAN",
+        bulk_pricing=pricing, deposit_reference=reference,
         subtotal_amount=subtotal_amount,
         ship_fee=ship_fee,
         total_amount=total_amount,
@@ -187,6 +181,8 @@ def create_order(
         eta="15 - 25 phút" if order_type == "delivery" else "10 - 15 phút",
         created_at=now,
     )
+    if _quote_only and Decimal(pricing["deposit_amount"]):
+        order.deposit_quote_token = issue_deposit_quote(user_id,content,pricing)
     db.add(order)
 
     for item, dish, portions, unit_price, base_price in resolved_items:
@@ -371,7 +367,7 @@ def claim_delivery_order(db: Session, order_id: str, shipper_id: int) -> Order:
 
 def update_order_status(
     db: Session, order: Order, new_status: str, cancelled_reason: Optional[str] = None,
-    staff_id: Optional[int] = None,
+    staff_id: Optional[int] = None, phone_confirmed: bool = False,
 ) -> Order:
     # Đọc lại sau khi lấy khóa để không ghi đè đơn vừa được khách hủy.
     db.refresh(order, with_for_update=True)
@@ -384,6 +380,10 @@ def update_order_status(
     if order.status == "TU_DONG_HUY":
         raise OrderError("Đơn đã quá thời hạn xác nhận và đã tự động hủy", "EX-16")
     if order.status == "CHO_XAC_NHAN" and new_status in ("DANG_CHUAN_BI", "TU_CHOI"):
+        if new_status == "DANG_CHUAN_BI" and Decimal((order.bulk_pricing or {}).get('deposit_amount','0')):
+            if not phone_confirmed:
+                raise OrderError("Cần gọi điện xác nhận với khách trước khi tiếp nhận đơn có cọc mô phỏng.", "PHONE_CONFIRMATION_REQUIRED")
+            order.bulk_pricing = {**order.bulk_pricing, 'phone_confirmed':True}
         if new_status == "TU_CHOI":
             if not (cancelled_reason or "").strip():
                 raise OrderError("Cần nhập lý do từ chối đơn", "INVALID_REASON")

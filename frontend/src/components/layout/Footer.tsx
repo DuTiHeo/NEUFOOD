@@ -7,6 +7,7 @@ import { NEU_CAMPUS_MAP_EMBED_URL } from '../../data/campusMap'
 export default function Footer() {
   return (
     <footer className={styles.foot}>
+      <p className={styles.serviceNotice}><strong>Canteen phục vụ từ thứ Hai đến thứ Bảy và nghỉ Chủ nhật. Vào Chủ nhật, quý khách vui lòng đặt hẹn nhận vào ngày làm việc tiếp theo, trong khung giờ phục vụ.</strong></p>
       <div className={styles.container}>
         <div className={styles.left}>
           <div className={styles.brandInfo}>

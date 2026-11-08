@@ -9,6 +9,7 @@ export interface Category {
 }
 
 export interface Dish {
+  eligible_servings?: number;
   portion_groups?: any[];
   id: string;
   name: string;
@@ -46,6 +47,7 @@ export interface DishReview {
 }
 
 export interface DishWritePayload {
+  eligible_servings?: number;
   id?: string;
   name: string;
   short_description?: string;

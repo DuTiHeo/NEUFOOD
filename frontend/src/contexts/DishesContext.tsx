@@ -10,6 +10,7 @@ interface DishesContextValue {
   isLoading: boolean;
   error: string;
   maxDishQuantity: number;
+  deliveryFee: number;
   refresh: () => Promise<void>;
   getById: (id?: string) => Dish | undefined;
 }
@@ -25,7 +26,8 @@ export function DishesProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<Category[]>(fallbackCategories as unknown as Category[]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [maxDishQuantity, setMaxDishQuantity] = useState(10);
+  const [deliveryFee, setDeliveryFee] = useState(5000);
+  const [maxDishQuantity, setMaxDishQuantity] = useState(50);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
@@ -37,8 +39,10 @@ export function DishesProvider({ children }: { children: React.ReactNode }) {
         settingsService.getSettings().catch(() => []),
       ]);
       const settingsByKey = Object.fromEntries(settings.map((setting) => [setting.setting_key, setting.setting_value]));
+      const fee = Number(settingsByKey.delivery_fee ?? 5000);
+      setDeliveryFee(Number.isFinite(fee) && fee >= 0 ? fee : 5000);
       const configuredLimit = Number(settingsByKey.max_dish_quantity_per_order);
-      setMaxDishQuantity(Math.min(10, Number.isFinite(configuredLimit) && configuredLimit > 0 ? configuredLimit : 10));
+      setMaxDishQuantity(Math.min(50, Number.isFinite(configuredLimit) && configuredLimit > 0 ? configuredLimit : 50));
       const allDishes = [...firstPage.items];
       const pageCount = Math.ceil(firstPage.total / 100);
       for (let page = 2; page <= pageCount; page += 1) {
@@ -75,8 +79,8 @@ export function DishesProvider({ children }: { children: React.ReactNode }) {
 
   const getById = useCallback((id?: string) => dishes.find((dish) => dish.id === id), [dishes]);
   const value = useMemo(
-    () => ({ dishes, categories, isLoading, error, maxDishQuantity, refresh, getById }),
-    [dishes, categories, isLoading, error, maxDishQuantity, refresh, getById],
+    () => ({ dishes, categories, isLoading, error, maxDishQuantity, deliveryFee, refresh, getById }),
+    [dishes, categories, isLoading, error, maxDishQuantity, deliveryFee, refresh, getById],
   );
 
   return <DishesContext.Provider value={value}>{children}</DishesContext.Provider>;

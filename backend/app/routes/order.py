@@ -1,6 +1,9 @@
 from flask import Blueprint, request, g
 from pydantic import ValidationError
 from app.db.session import get_db
+from app.db.models import User
+from app.crud.bulk_pricing import pricing_snapshot, cod_due
+from app.crud.order_policy import get_order_policy, has_sunday_schedule_conflict
 from app.crud.order import (
     create_order, cancel_order, get_order_by_id, get_user_orders, get_all_orders, update_order_status, OrderError,
     handover_order, report_delivery_issue, confirm_order_receipt, get_shipper_orders, claim_delivery_order,
@@ -32,11 +35,14 @@ def _serialize_order(o: object) -> dict:
         "delivery_note": o.delivery_note,
         "is_preorder": o.is_preorder,
         "scheduled_at": o.scheduled_at.isoformat() if o.scheduled_at else None,
+        "sunday_schedule_warning": has_sunday_schedule_conflict(o),
         "payment_method": o.payment_method,
         "payment_status": o.payment_status,
         "subtotal_amount": float(o.subtotal_amount),
         "ship_fee": float(o.ship_fee),
         "total_amount": float(o.total_amount),
+        "bulk_pricing": pricing_snapshot(o),
+        "cod_due": float(cod_due(o)),
         "eta": o.eta,
         "cancelled_reason": o.cancelled_reason,
         "delivered_at": o.delivered_at.isoformat() if o.delivered_at else None,
@@ -61,6 +67,16 @@ def _serialize_order(o: object) -> dict:
     }
 
 
+@order_bp.route("/policy", methods=["GET"])
+@limiter.exempt
+@role_required("customer")
+def ordering_policy():
+    with get_db() as db:
+        user = db.get(User, int(g.current_user["sub"]))
+        return api_response(data=get_order_policy(db, user))
+
+
+@order_bp.route("/quote", methods=["POST"])
 @order_bp.route("", methods=["POST"])
 @role_required("customer")
 def submit_order():
@@ -77,6 +93,8 @@ def submit_order():
 
     try:
         with get_db() as db:
+            quote_only = request.path.endswith("/quote")
+            savepoint = db.begin_nested() if quote_only else None
             order = create_order(
                 db=db,
                 user_id=user_id,
@@ -89,12 +107,16 @@ def submit_order():
                 delivery_note=data.delivery_note,
                 is_preorder=data.is_preorder,
                 scheduled_at=data.scheduled_at,
+                deposit_token=data.deposit_token, expected_pricing=data.expected_pricing, _quote_only=quote_only,
                 payment_method=data.payment_method,
                 items_data=[item.model_dump() for item in data.items],
             )
-            return api_response(
-                data=_serialize_order(order), message="Đặt hàng thành công", status_code=201,
-            )
+            result = _serialize_order(order)
+            if quote_only:
+                result['deposit_token'] = getattr(order,'deposit_quote_token',None)
+                savepoint.rollback()
+                return api_response(data=result,message="Báo giá; chưa tạo đơn và chưa thu tiền")
+            return api_response(data=result, message="Đặt hàng thành công", status_code=201)
     except OrderError as e:
         return api_response(message=str(e), errors=[{"code": e.code}], status_code=e.status_code, success=False)
 
@@ -242,7 +264,7 @@ def update_status(order_id: str):
         data = OrderStatusUpdateRequest.model_validate(request.get_json(silent=True))
     except ValidationError as e:
         return api_response(message="Trạng thái không hợp lệ", errors=e.errors(include_context=False), status_code=422, success=False)
-    return _change_order_status(order_id, data.status, data.cancelled_reason)
+    return _change_order_status(order_id, data.status, data.cancelled_reason, data.phone_confirmed)
 
 
 @order_bp.route("/<order_id>/process", methods=["PATCH"])
@@ -253,10 +275,10 @@ def process_order(order_id: str):
     except ValidationError as e:
         return api_response(message="Dữ liệu duyệt đơn không hợp lệ", errors=e.errors(include_context=False), status_code=422, success=False)
     status = "DANG_CHUAN_BI" if data.action == "accept" else "TU_CHOI"
-    return _change_order_status(order_id, status, data.reason)
+    return _change_order_status(order_id, status, data.reason, data.phone_confirmed)
 
 
-def _change_order_status(order_id: str, status: str, reason):
+def _change_order_status(order_id: str, status: str, reason, phone_confirmed=False):
     try:
         staff_id = int(g.current_user["sub"])
     except (KeyError, TypeError, ValueError):
@@ -267,7 +289,7 @@ def _change_order_status(order_id: str, status: str, reason):
             order = get_order_by_id(db, order_id)
             if not order:
                 return api_response(message="Không tìm thấy đơn hàng", status_code=404, success=False)
-            updated = update_order_status(db, order, status, reason, staff_id=staff_id)
+            updated = update_order_status(db, order, status, reason, staff_id=staff_id, phone_confirmed=phone_confirmed)
             return api_response(
                 data=_serialize_order(updated),
                 message="Cập nhật trạng thái thành công",

@@ -103,7 +103,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 ```json
 {
   "email": "11215432@st.neu.edu.vn",
-  "password": "password123",
+  "password": null,
   "full_name": "Nguyễn Văn Sinh Viên",
   "phone_number": "0912345678",
   "student_id": "11215432",
@@ -184,7 +184,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 ```json
 {
   "email": "admin@neufood.vn",
-  "password": "password123",
+  "password": null,
   "device_token": "1:device-uuid:nonce:timestamp.signature_hmac",
   "device_name": "Chrome on MacOS"
 }
@@ -521,8 +521,8 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 - **Request Body (Đổi bằng Mật khẩu cũ)**:
 ```json
 {
-  "old_password": "password123",
-  "new_password": "newpassword456"
+  "old_password": null,
+  "new_password": null
 }
 ```
 - **Ràng buộc dữ liệu (`schemas/auth.py`)**:
@@ -631,7 +631,7 @@ Mọi phản hồi từ API đều sử dụng hàm helper `api_response(data, m
 {
   "email": "sinhvien@neu.edu.vn",
   "otp": "582103",
-  "new_password": "newpassword123"
+  "new_password": null
 }
 ```
 - **Ràng buộc dữ liệu (`schemas/auth.py`)**:
@@ -1060,7 +1060,7 @@ Phân hệ cấu hình tham số vận hành hệ thống lưu trữ tập trung
 | `system_maintenance_fee` | `"5000"` | Số nguyên không âm (`VNĐ`) | `BR-12` | Phụ phí bảo trì hệ thống trực tuyến cộng dồn vào giá gốc Canteen A2 (`base_price`) để hình thành giá niêm yết (`price`). |
 | `delivery_fee` | `"5000"` | Số nguyên không âm (`VNĐ`) | `BR-13` | Phí vận chuyển cố định áp dụng cho tất cả đơn hàng giao tận nơi (`delivery`) đến các phòng/tòa nhà nội khu NEU. |
 | `max_cod_amount` | `"500000"` | Số nguyên không âm (`VNĐ`) | `BR-14`, `EX-08` | Hạn mức giá trị tối đa cho phép thanh toán khi nhận hàng (COD). Đơn vượt quá hạn mức này sẽ bị chặn đặt. |
-| `max_dish_quantity_per_order` | `"10"` | Số nguyên dương (`phần`) | `BR-07`, `EX-06` | Số lượng tối đa của một món ăn cụ thể mà khách hàng được phép thêm vào một đơn hàng. |
+| `max_dish_quantity_per_order` | `"50"` | Số nguyên dương (`phần`) | `BR-07`, `EX-06` | Số lượng tối đa của một món ăn cụ thể mà khách hàng được phép thêm vào một đơn hàng. |
 | `min_preorder_lead_minutes` | `"30"` | Số nguyên dương (`phút`) | `BR-11`, `EX-11` | Khoảng thời gian đặt trước tối thiểu đối với các đơn hẹn giờ nhận món trong ngày (`is_preorder = true`). |
 | `canteen_open_time` | `"06:30"` | Chuỗi giờ (`HH:MM`) | `BR-08`, `EX-10` | Giờ mở cửa phục vụ hàng ngày của Canteen A2 (`00:00` - `23:59`). Bắt buộc phải trước giờ đóng cửa `canteen_close_time`. |
 | `canteen_close_time` | `"19:30"` | Chuỗi giờ (`HH:MM`) | `BR-08`, `EX-10` | Giờ đóng cửa ngừng nhận đơn của Canteen A2 (`00:00` - `23:59`). Bắt buộc phải sau giờ mở cửa `canteen_open_time`. |
@@ -1118,7 +1118,7 @@ Phân hệ cấu hình tham số vận hành hệ thống lưu trữ tập trung
     },
     {
       "setting_key": "max_dish_quantity_per_order",
-      "setting_value": "10",
+      "setting_value": "50",
       "description": "Số lượng tối đa của một món ăn trong một đơn hàng (phần)",
       "updated_at": "2026-10-18T00:00:00+00:00"
     },
@@ -1450,7 +1450,7 @@ Phân hệ cấu hình tham số vận hành hệ thống lưu trữ tập trung
 - **Các quy tắc kiểm tra bắt buộc khi tạo đơn**:
   1. `BR-22` / `EX-10`: Nếu `user.is_blacklisted == true` $\rightarrow$ Chặn tạo đơn (`403 Forbidden`).
   2. `BR-08` / `EX-09`: Nếu user đang có 01 đơn hàng ở trạng thái chưa kết thúc (`CHO_XAC_NHAN`, `DANG_CHUAN_BI`, `DANG_GIAO`, `SAN_SANG_LAY`, `GIAO_THAT_BAI`) $\rightarrow$ Chặn tạo đơn (`400 Bad Request`).
-  3. `BR-06` / `EX-05` & `BR-07` / `EX-06`: Kiểm tra mọi món đều có `is_available == true`, `is_deleted == false`, và `1 <= quantity <= 10`.
+  3. `BR-06` / `EX-05` & `BR-07` / `EX-06`: Kiểm tra mọi món đều có `is_available == true`, `is_deleted == false`, và `1 <= quantity <= 50`.
   4. `BR-09` / `EX-07` & `BR-13`: Nếu `order_type == "delivery"`, bắt buộc `campus_location_id` tồn tại và `is_active == true`, tự động gán `ship_fee = 5000`. Nếu `order_type == "pickup"`, `campus_location_id` và `room_detail` là `Optional` (`null`), tự động gán `ship_fee = 0` và `delivery_address = "Quầy trả món Canteen A2"`.
   5. `BR-11` / `EX-08`: Nếu `is_preorder == true`, `scheduled_at` phải lớn hơn thời điểm hiện tại ít nhất 30 phút.
   6. `BR-05` & `BR-14` / `EX-11`: Chốt `unit_price = dish.price`, `base_price = dish.base_price` vào `order_items`. Tính `subtotal_amount` và `total_amount = subtotal_amount + ship_fee`. Nếu `total_amount > 500000` $\rightarrow$ Chặn tạo đơn (`400 Bad Request` - `EX-11`).
@@ -1510,7 +1510,7 @@ Phân hệ cấu hình tham số vận hành hệ thống lưu trữ tập trung
 - Giới hạn số lượng tính gộp **mọi dòng cùng `dish_id`**, kể cả các dòng có ghi chú khác nhau. Món còn phải `is_active == true`; món không tồn tại, bị ẩn/xóa hoặc hết hàng đều bị từ chối.
 - Giá, phí và tổng tiền được tính phía server bằng số thập phân chính xác; giá/tổng do client gửi không được dùng để tính tiền. Địa chỉ giao được dựng từ địa điểm NEU hợp lệ và `room_detail`; `delivery_address` tự nhập không thay thế địa điểm trong danh mục. Pickup luôn dùng địa chỉ quầy, lưu `campus_location_id`/`room_detail` là `null`.
 - `scheduled_at` cần múi giờ, ví dụ `2026-10-20T12:00:00+07:00`, chỉ gửi khi `is_preorder == true`. Giờ hẹn phải nằm trong giờ mở cửa theo giờ Việt Nam (mặc định từ **06:30**, trước **19:30**).
-- Đọc cấu hình `delivery_fee`, `max_cod_amount`, `max_dish_quantity_per_order`, `min_preorder_lead_minutes`, `canteen_open_time`, `canteen_close_time`. Mặc định tương ứng 5.000đ, 500.000đ, 10 phần, 30 phút, 06:30, 19:30. Trần cứng của schema hiện hành vẫn là 500.000đ/10 phần; thời gian hẹn không thấp hơn 30 phút. Tăng hai trần tiền/số lượng cần phối hợp thay đổi schema trước.
+- Cập nhật08/11/2026: `max_dish_quantity_per_order` mặc định50, schema/CRUD/DB chặn trên50 phần mỗi món tính gộp mọi dòng. Admin có thể giảm giới hạn; tăng cấu hình trên50 không vượt trần kỹ thuật. Cập nhật DB cũ bằng `database/migrations/007_order_quantity_50.sql`. Không còn trần COD500.000đ; xem `docs/BULK_DISCOUNTS.md` về ưu đãi/cọc. Thời gian hẹn vẫn tối thiểu30 phút.
 - Khóa dòng tài khoản trong cùng giao dịch từ lúc kiểm tra đơn hoạt động đến lúc lưu đơn và chi tiết: hai request tạo đơn đồng thời không vượt giới hạn một đơn. Lỗi ghi bất kỳ chi tiết nào rollback toàn bộ đơn. Mã đơn luôn có định dạng `NF` + `YYMMDD` + 4 chữ số ngẫu nhiên (độ dài đúng 12 ký tự), suffix luôn là chuỗi 4 chữ số, giữ cả số 0 đầu.
 
 Kiểm thử tích hợp: `backend/tests/test_order_creation.py`. Dùng PostgreSQL riêng có tên kết thúc `_orders_test`, khởi tạo bằng `database/init_db.sql`, đặt `TEST_DATABASE_URL` trỏ đến database thử, rồi chạy từ thư mục `backend`: `python -m unittest discover -s tests -p test_order_creation.py -v`. Test xóa dữ liệu trong database thử; không dùng database ứng dụng.
@@ -2319,3 +2319,5 @@ Hiện xử lý quá hạn giữ món qua `pickup_timeout` hoặc khi thử bàn
 }
 ```
 
+
+Ghi chú ví dụ xác thực: các trường mật khẩu trong JSON minh họa để `null` nhằm không lưu mật khẩu mẫu trong Git. Khi gửi yêu cầu thực tế, nhập mật khẩu của bạn theo yêu cầu từng API; không gửi nguyên giá trị `null`.

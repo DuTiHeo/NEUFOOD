@@ -34,6 +34,7 @@ export interface ChatRecipient { recipient_name: string; recipient_phone: string
 
 export type ChatAction =
   | { type: 'ORDER_CONFIRMATION'; draft_id: string; revision: number; expires_at: string; summary: Record<string, unknown>; recipient?: ChatRecipient }
+  | { type: 'ORDER_CHECKOUT_REQUIRED'; draft_id: string; revision: number; expires_at: string; summary: Record<string, any>; recipient?: ChatRecipient }
   | { type: 'ORDER_COLLECTING'; draft_id?: string; revision?: number; recipient?: ChatRecipient }
   | { type: 'ORDER_CANCELLED' }
   | { type: 'ORDER_CREATED'; order: ChatOrderAction }
@@ -72,6 +73,7 @@ export function pendingOrder(messages: ChatMessage[]) {
     const action = messages[i].action;
     if (!action) continue;
     if (action.type === 'ORDER_CONFIRMATION') return action;
+    if (action.type === 'ORDER_CHECKOUT_REQUIRED') return action;
     if (action.type === 'ORDER_COLLECTING') return action.draft_id && action.revision ? action : null;
     if (['ORDER_CREATED', 'ORDER_CANCELLED', 'ORDER_FAILED'].includes(action.type)) return null;
   }
@@ -83,7 +85,7 @@ export function pendingConfirmation(messages: ChatMessage[]) {
     const action = messages[i].action;
     if (!action) continue;
     if (action.type === 'ORDER_CONFIRMATION') return action;
-    if (['ORDER_CREATED', 'ORDER_COLLECTING', 'ORDER_CANCELLED', 'ORDER_FAILED'].includes(action.type)) return null;
+    if (['ORDER_CHECKOUT_REQUIRED', 'ORDER_CREATED', 'ORDER_COLLECTING', 'ORDER_CANCELLED', 'ORDER_FAILED'].includes(action.type)) return null;
   }
   return null;
 }
